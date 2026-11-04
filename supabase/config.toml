@@ -1,0 +1,6 @@
+# Configuración para la CLI de Supabase (desarrollo local y `supabase link` / `db push`).
+project_id = "loopitalab"
+
+[auth]
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/auth/callback"]
