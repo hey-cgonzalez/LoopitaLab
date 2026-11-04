@@ -1,0 +1,75 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  nucleo:
+    name: Núcleo (motor y lanas)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Pruebas de pattern-core
+        working-directory: packages/pattern-core
+        run: node --test "test/**/*.test.ts"
+      - name: Pruebas de yarn-catalog
+        working-directory: packages/yarn-catalog
+        run: node --test "test/**/*.test.ts"
+
+  base-de-datos:
+    name: Migraciones y RLS
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: loopita
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/loopita
+    steps:
+      - uses: actions/checkout@v4
+      - name: Aplicar stubs de Supabase y migraciones
+        run: |
+          psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f supabase/checks/00_stubs_supabase.sql
+          for f in supabase/migrations/*.sql; do
+            echo "== $f"
+            psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -q -f "$f"
+          done
+      - name: Verificar aislamiento entre usuarias
+        run: psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/checks/10_rls_check.sql
+
+  web:
+    name: Web (tipos y build)
+    runs-on: ubuntu-latest
+    env:
+      NEXT_PUBLIC_SUPABASE_URL: https://ejemplo.supabase.co
+      NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: sb_publishable_ci
+      NEXT_PUBLIC_SITE_URL: http://localhost:3000
+      NEXT_TELEMETRY_DISABLED: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      # Sin lockfile todavía: la primera ejecución lo resuelve. Cuando exista pnpm-lock.yaml, usar --frozen-lockfile.
+      - run: pnpm install --no-frozen-lockfile
+      - name: Tipos de los paquetes
+        run: pnpm exec tsc -p tsconfig.json
+      - name: Tipos de la web
+        run: pnpm --filter @loopitalab/web typecheck
+      - name: Build de la web
+        run: pnpm --filter @loopitalab/web build

@@ -7,8 +7,11 @@
     "node": ">=22.18"
   },
   "scripts": {
+    "dev": "pnpm --filter @loopitalab/web dev",
+    "build": "pnpm --filter @loopitalab/web build",
     "test": "pnpm -r --if-present test",
-    "typecheck": "tsc -p tsconfig.json"
+    "typecheck": "tsc -p tsconfig.json && pnpm --filter @loopitalab/web typecheck",
+    "db:referencia": "node scripts/gen-reference-sql.ts --write"
   },
   "devDependencies": {
     "@types/node": "^22.18.0",
