@@ -5,7 +5,8 @@ import { useActionState } from "react";
 import { Field } from "@/components/Field";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
-import { signIn, type FormState } from "../actions";
+import type { FormState } from "@/lib/auth-messages";
+import { signIn } from "../client-actions";
 
 export function SignInForm({ next, notice }: { next: string; notice?: string | undefined }) {
   const [state, action] = useActionState<FormState, FormData>(signIn, {});

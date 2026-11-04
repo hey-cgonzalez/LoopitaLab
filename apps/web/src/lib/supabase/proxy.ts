@@ -38,14 +38,11 @@ export async function updateSession(request: NextRequest) {
   let redirectTo: URL | null = null;
 
   if (!user && matches(path, PROTECTED)) {
-    redirectTo = request.nextUrl.clone();
-    redirectTo.pathname = "/ingresar";
-    redirectTo.search = "";
-    redirectTo.searchParams.set("next", path);
+    const target = new URL("/ingresar", request.nextUrl.origin);
+    target.searchParams.set("next", path);
+    redirectTo = target;
   } else if (user && matches(path, AUTH_PAGES)) {
-    redirectTo = request.nextUrl.clone();
-    redirectTo.pathname = "/proyectos";
-    redirectTo.search = "";
+    redirectTo = new URL("/proyectos", request.nextUrl.origin);
   }
 
   if (redirectTo) {

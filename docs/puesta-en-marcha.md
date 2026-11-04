@@ -4,7 +4,7 @@ Pasos para conectar el proyecto de Supabase y levantar la web en tu computador.
 
 ## 1. Aplicar las migraciones en Supabase
 
-Se necesitan las tres migraciones de `supabase/migrations`, en orden: esquema con RLS, datos de referencia y storage.
+Se necesitan las cuatro migraciones de `supabase/migrations`, en orden: esquema con RLS, datos de referencia, storage y endurecimiento de seguridad.
 
 **Opción A: con la CLI de Supabase (recomendada)**
 
@@ -23,8 +23,9 @@ Abre SQL Editor y ejecuta, en este orden, el contenido de cada archivo:
 1. `supabase/migrations/20261104010000_esquema_inicial.sql`
 2. `supabase/migrations/20261104010100_datos_referencia.sql`
 3. `supabase/migrations/20261104010200_storage_subidas.sql`
+4. `supabase/migrations/20261104020000_endurecimiento_seguridad.sql`
 
-Con esta opción, la CLI no sabrá qué migraciones ya se aplicaron. Si después usas `db push`, primero marca estas tres como aplicadas con `npx supabase migration repair --status applied <versión>`.
+Con esta opción, la CLI no sabrá qué migraciones ya se aplicaron. Si después usas `db push`, primero marca estas cuatro como aplicadas con `npx supabase migration repair --status applied <versión>`.
 
 **No ejecutes** los archivos de `supabase/checks/`: el `00_stubs_supabase.sql` imita a Supabase en un PostgreSQL común y solo sirve para pruebas.
 
@@ -35,7 +36,12 @@ En Authentication > URL Configuration:
 - **Site URL**: `http://localhost:3000` (cámbiala por el dominio real cuando publiques).
 - **Redirect URLs**: agrega `http://localhost:3000/auth/callback` y, más adelante, `https://TU-DOMINIO/auth/callback`.
 
-En Authentication > Providers > Email, deja activada la confirmación por correo.
+Deja la configuración igual a `supabase/config.toml`:
+
+- **Authentication > Sign In / Providers > Email**: confirmación de correo activada y "Secure password change" activado.
+- **Authentication > Policies (o Passwords)**: largo mínimo 8 y requisito de letras y números.
+
+Con la CLI también puedes aplicarla con `npx supabase config push`.
 
 El correo que trae Supabase por defecto tiene un límite bajo de envíos por hora. Para la beta conviene configurar un SMTP propio (Authentication > Emails > SMTP Settings).
 
