@@ -1,0 +1,11 @@
+{
+  "name": "@loopitalab/yarn-catalog",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Grosores CYC, fibras y paleta propia. Sin marcas. Sin dependencias.",
+  "exports": { ".": "./src/index.ts", "./data/*": "./data/*" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

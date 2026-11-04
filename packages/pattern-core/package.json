@@ -1,0 +1,11 @@
+{
+  "name": "@loopitalab/pattern-core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Modelo canónico de patrones, motor determinista y validador. Sin dependencias.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

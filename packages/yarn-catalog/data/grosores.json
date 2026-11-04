@@ -1,0 +1,26 @@
+{
+  "fuente": "Craft Yarn Council, Standard Yarn Weight System (craftyarncouncil.com). Alias en español tomados de los filtros públicos de orquidea.cl, revesderecho.com y modista.cl (revisados el 3 de noviembre de 2026).",
+  "notas": [
+    "Rangos orientativos: siempre prevalece la muestra del patrón y la de la usuaria.",
+    "Muestra en jersey (palillo) o punto bajo (crochet) en 10 cm (4 pulgadas). En la categoría 0, la muestra de crochet es en punto alto.",
+    "Las tiendas no siempre coinciden: Orquídea llama 'Fino (Light DK)' a la categoría 2, mientras Revés Derecho la llama 'Sport - Fino'. Modista usa 'Mediano', 'Grueso' y 'Super Grueso' para las categorías 4, 5 y 6."
+  ],
+  "categorias": [
+    { "cat": 0, "nombre": "Ultra Fino", "ingles": ["Lace"], "alias": ["Encaje", "Hilo de crochet n.º 10", "Ultra Fino (Modista)"],
+      "muestraPalillo": [33, 40], "agujasMm": [1.5, 2.25], "muestraCrochet": [32, 42], "muestraCrochetPunto": "pa", "crochetMm": [1.4, 2.25] },
+    { "cat": 1, "nombre": "Super Fino", "ingles": ["Fingering", "Sock", "Baby"], "alias": ["Super Fino (Fingering)"],
+      "muestraPalillo": [27, 32], "agujasMm": [2.25, 3.25], "muestraCrochet": [21, 32], "muestraCrochetPunto": "pb", "crochetMm": [2.25, 3.5] },
+    { "cat": 2, "nombre": "Fino", "ingles": ["Sport", "Baby"], "alias": ["Fino (Light DK) en Orquídea", "Sport - Fino en Revés Derecho"],
+      "muestraPalillo": [23, 26], "agujasMm": [3.25, 3.75], "muestraCrochet": [16, 20], "muestraCrochetPunto": "pb", "crochetMm": [3.5, 4.5] },
+    { "cat": 3, "nombre": "Ligero", "ingles": ["DK", "Light Worsted"], "alias": ["Ligero (DK)"],
+      "muestraPalillo": [21, 24], "agujasMm": [3.75, 4.5], "muestraCrochet": [12, 17], "muestraCrochetPunto": "pb", "crochetMm": [4.5, 5.5] },
+    { "cat": 4, "nombre": "Medio", "ingles": ["Worsted", "Aran", "Afghan"], "alias": ["Medio (Aran / Worsted)", "Mediano (Modista)"],
+      "muestraPalillo": [16, 20], "agujasMm": [4.5, 5.5], "muestraCrochet": [11, 14], "muestraCrochetPunto": "pb", "crochetMm": [5.5, 6.5] },
+    { "cat": 5, "nombre": "Abultado", "ingles": ["Bulky", "Chunky"], "alias": ["Abultado (Chunky)", "Grueso (Modista)"],
+      "muestraPalillo": [12, 15], "agujasMm": [5.5, 8.0], "muestraCrochet": [8, 11], "muestraCrochetPunto": "pb", "crochetMm": [6.5, 9.0] },
+    { "cat": 6, "nombre": "Súper Abultado", "ingles": ["Super Bulky", "Roving"], "alias": ["Super Abultado (Revés Derecho)", "Super Grueso (Modista)"],
+      "muestraPalillo": [7, 11], "agujasMm": [8.0, 12.75], "muestraCrochet": [7, 9], "muestraCrochetPunto": "pb", "crochetMm": [9.0, 15.0] },
+    { "cat": 7, "nombre": "Jumbo", "ingles": ["Jumbo", "Roving"], "alias": [],
+      "muestraPalillo": [0, 6], "agujasMm": [12.75, null], "muestraCrochet": [0, 6], "muestraCrochetPunto": "pb", "crochetMm": [15.0, null] }
+  ]
+}

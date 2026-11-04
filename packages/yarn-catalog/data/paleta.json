@@ -1,0 +1,342 @@
+{
+ "nota": "Paleta propia del producto (opción B): 8 familias × 6 tonos, de claro a oscuro, con nombres usados en Chile. Sin relación con códigos de marcas. La usuaria puede crear colores personalizados.",
+ "verificacion": "Dentro de cada familia, ΔE2000 ≥ 10 en visión normal y ≥ 6 simulando protanopía, deuteranopía y tritanopía (matrices de Machado 2009); entre familias, ΔE2000 ≥ 7. Colores de pantalla aproximados.",
+ "familias": [
+  {
+   "id": "neutros",
+   "nombre": "Neutros",
+   "colores": [
+    {
+     "id": "blanco",
+     "nombre": "Blanco",
+     "hex": "#F7F6F2",
+     "tono": 1
+    },
+    {
+     "id": "crudo",
+     "nombre": "Crudo",
+     "hex": "#E9DDBE",
+     "tono": 2
+    },
+    {
+     "id": "gris-perla",
+     "nombre": "Gris perla",
+     "hex": "#C3C2BD",
+     "tono": 3
+    },
+    {
+     "id": "gris-medio",
+     "nombre": "Gris medio",
+     "hex": "#959490",
+     "tono": 4
+    },
+    {
+     "id": "grafito",
+     "nombre": "Grafito",
+     "hex": "#55565A",
+     "tono": 5
+    },
+    {
+     "id": "negro",
+     "nombre": "Negro",
+     "hex": "#1E1E1F",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "tierra",
+   "nombre": "Tierra",
+   "colores": [
+    {
+     "id": "arena",
+     "nombre": "Arena",
+     "hex": "#D5BB8E",
+     "tono": 1
+    },
+    {
+     "id": "camel",
+     "nombre": "Camel",
+     "hex": "#BE925E",
+     "tono": 2
+    },
+    {
+     "id": "caramelo",
+     "nombre": "Caramelo",
+     "hex": "#A36A38",
+     "tono": 3
+    },
+    {
+     "id": "canela",
+     "nombre": "Canela",
+     "hex": "#7F4B2C",
+     "tono": 4
+    },
+    {
+     "id": "cafe",
+     "nombre": "Café",
+     "hex": "#553624",
+     "tono": 5
+    },
+    {
+     "id": "chocolate",
+     "nombre": "Chocolate",
+     "hex": "#2E1F16",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "amarillos-y-naranjos",
+   "nombre": "Amarillos y naranjos",
+   "colores": [
+    {
+     "id": "vainilla",
+     "nombre": "Vainilla",
+     "hex": "#F4E4A8",
+     "tono": 1
+    },
+    {
+     "id": "amarillo",
+     "nombre": "Amarillo",
+     "hex": "#F2CD34",
+     "tono": 2
+    },
+    {
+     "id": "damasco",
+     "nombre": "Damasco",
+     "hex": "#F4B183",
+     "tono": 3
+    },
+    {
+     "id": "mostaza",
+     "nombre": "Mostaza",
+     "hex": "#CFA02A",
+     "tono": 4
+    },
+    {
+     "id": "naranjo",
+     "nombre": "Naranjo",
+     "hex": "#DD6420",
+     "tono": 5
+    },
+    {
+     "id": "ladrillo",
+     "nombre": "Ladrillo",
+     "hex": "#A7452A",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "rojos-y-rosados",
+   "nombre": "Rojos y rosados",
+   "colores": [
+    {
+     "id": "rosa-palido",
+     "nombre": "Rosa pálido",
+     "hex": "#F5D3D8",
+     "tono": 1
+    },
+    {
+     "id": "rosado",
+     "nombre": "Rosado",
+     "hex": "#EC9DB0",
+     "tono": 2
+    },
+    {
+     "id": "palo-rosa",
+     "nombre": "Palo rosa",
+     "hex": "#B98289",
+     "tono": 3
+    },
+    {
+     "id": "coral",
+     "nombre": "Coral",
+     "hex": "#EB6E5E",
+     "tono": 4
+    },
+    {
+     "id": "rojo",
+     "nombre": "Rojo",
+     "hex": "#BA222C",
+     "tono": 5
+    },
+    {
+     "id": "burdeo",
+     "nombre": "Burdeo",
+     "hex": "#6A1C2C",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "morados",
+   "nombre": "Morados",
+   "colores": [
+    {
+     "id": "lavanda",
+     "nombre": "Lavanda",
+     "hex": "#DCD1EA",
+     "tono": 1
+    },
+    {
+     "id": "lila",
+     "nombre": "Lila",
+     "hex": "#B39CD0",
+     "tono": 2
+    },
+    {
+     "id": "malva",
+     "nombre": "Malva",
+     "hex": "#9A7194",
+     "tono": 3
+    },
+    {
+     "id": "violeta",
+     "nombre": "Violeta",
+     "hex": "#7B4CA6",
+     "tono": 4
+    },
+    {
+     "id": "morado",
+     "nombre": "Morado",
+     "hex": "#552D74",
+     "tono": 5
+    },
+    {
+     "id": "berenjena",
+     "nombre": "Berenjena",
+     "hex": "#35203D",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "azules",
+   "nombre": "Azules",
+   "colores": [
+    {
+     "id": "celeste",
+     "nombre": "Celeste",
+     "hex": "#C3DCF0",
+     "tono": 1
+    },
+    {
+     "id": "azul-cielo",
+     "nombre": "Azul cielo",
+     "hex": "#7FB1DE",
+     "tono": 2
+    },
+    {
+     "id": "azul-mezclilla",
+     "nombre": "Azul mezclilla",
+     "hex": "#5B7DA3",
+     "tono": 3
+    },
+    {
+     "id": "azul-rey",
+     "nombre": "Azul rey",
+     "hex": "#2C5CB0",
+     "tono": 4
+    },
+    {
+     "id": "indigo",
+     "nombre": "Índigo",
+     "hex": "#2D3878",
+     "tono": 5
+    },
+    {
+     "id": "azul-marino",
+     "nombre": "Azul marino",
+     "hex": "#1A2540",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "verdes",
+   "nombre": "Verdes",
+   "colores": [
+    {
+     "id": "verde-menta",
+     "nombre": "Verde menta",
+     "hex": "#C3E6CF",
+     "tono": 1
+    },
+    {
+     "id": "verde-manzana",
+     "nombre": "Verde manzana",
+     "hex": "#9FCC57",
+     "tono": 2
+    },
+    {
+     "id": "verde-pasto",
+     "nombre": "Verde pasto",
+     "hex": "#57A84E",
+     "tono": 3
+    },
+    {
+     "id": "verde-oliva",
+     "nombre": "Verde oliva",
+     "hex": "#77762F",
+     "tono": 4
+    },
+    {
+     "id": "verde-musgo",
+     "nombre": "Verde musgo",
+     "hex": "#4C5A2E",
+     "tono": 5
+    },
+    {
+     "id": "verde-botella",
+     "nombre": "Verde botella",
+     "hex": "#1D4A33",
+     "tono": 6
+    }
+   ]
+  },
+  {
+   "id": "turquesas",
+   "nombre": "Turquesas",
+   "colores": [
+    {
+     "id": "hielo",
+     "nombre": "Hielo",
+     "hex": "#D6F0EE",
+     "tono": 1
+    },
+    {
+     "id": "verde-agua",
+     "nombre": "Verde agua",
+     "hex": "#93D4CA",
+     "tono": 2
+    },
+    {
+     "id": "turquesa",
+     "nombre": "Turquesa",
+     "hex": "#25A8A6",
+     "tono": 3
+    },
+    {
+     "id": "jade",
+     "nombre": "Jade",
+     "hex": "#2E8A72",
+     "tono": 4
+    },
+    {
+     "id": "petroleo",
+     "nombre": "Petróleo",
+     "hex": "#1D6069",
+     "tono": 5
+    },
+    {
+     "id": "azul-petroleo",
+     "nombre": "Azul petróleo",
+     "hex": "#143C48",
+     "tono": 6
+    }
+   ]
+  }
+ ]
+}
