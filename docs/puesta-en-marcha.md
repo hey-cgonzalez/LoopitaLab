@@ -4,7 +4,13 @@ Pasos para conectar el proyecto de Supabase y levantar la web en tu computador.
 
 ## 1. Aplicar las migraciones en Supabase
 
-Se necesitan las cuatro migraciones de `supabase/migrations`, en orden: esquema con RLS, datos de referencia, storage y endurecimiento de seguridad.
+> **Estado del proyecto LoopitaLab (xsutqyhbvgxfdsfxhvnr) al 2026-11-04:** las cinco migraciones ya están aplicadas. Las tres primeras se ejecutaron desde el SQL Editor y las dos últimas con la integración de Supabase, así que el historial remoto solo registra las dos últimas. Antes del primer `db push` con la CLI, marca las tres primeras como aplicadas:
+>
+> ```
+> npx supabase migration repair --status applied 20261104010000 20261104010100 20261104010200
+> ```
+
+Se necesitan las cinco migraciones de `supabase/migrations`, en orden: esquema con RLS, datos de referencia, storage, endurecimiento de seguridad e índices.
 
 **Opción A: con la CLI de Supabase (recomendada)**
 
@@ -23,9 +29,10 @@ Abre SQL Editor y ejecuta, en este orden, el contenido de cada archivo:
 1. `supabase/migrations/20261104010000_esquema_inicial.sql`
 2. `supabase/migrations/20261104010100_datos_referencia.sql`
 3. `supabase/migrations/20261104010200_storage_subidas.sql`
-4. `supabase/migrations/20261104020000_endurecimiento_seguridad.sql`
+4. `supabase/migrations/20261104034436_endurecimiento_seguridad.sql`
+5. `supabase/migrations/20261104035130_indices_claves_foraneas.sql`
 
-Con esta opción, la CLI no sabrá qué migraciones ya se aplicaron. Si después usas `db push`, primero marca estas cuatro como aplicadas con `npx supabase migration repair --status applied <versión>`.
+Con esta opción, la CLI no sabrá qué migraciones ya se aplicaron. Si después usas `db push`, primero márcalas como aplicadas con `npx supabase migration repair --status applied <versión>`.
 
 **No ejecutes** los archivos de `supabase/checks/`: el `00_stubs_supabase.sql` imita a Supabase en un PostgreSQL común y solo sirve para pruebas.
 

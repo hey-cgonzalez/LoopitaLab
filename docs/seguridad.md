@@ -6,7 +6,7 @@
 
 | Hallazgo | Corrección | Dónde |
 |---|---|---|
-| M1. La etiqueta de IA se podía quitar o falsificar | Un trigger impide crear patrones `ai` desde el cliente o quitarles la etiqueta; editar uno lo marca `ai_edited` | Migración `…020000_endurecimiento_seguridad.sql` |
+| M1. La etiqueta de IA se podía quitar o falsificar | Un trigger impide crear patrones `ai` desde el cliente o quitarles la etiqueta; editar uno lo marca `ai_edited` | Migración `…034436_endurecimiento_seguridad.sql` |
 | M2. Los patrones públicos exponían `owner_id` y `ai_meta` | Se eliminó `ai_meta`. La tabla solo deja leer los propios. Lo público se lee con `list_public_patterns` y `get_shared_pattern`, que devuelven columnas seguras y el nombre visible | Ídem |
 | M3. Las subidas saltaban la validación del servidor | Se quitaron las políticas de inserción del cliente; subir pasa por el servidor (validar contenido, re-codificar y quitar EXIF) | Ídem |
 | M4. Cualquier sesión podía cambiar la contraseña | Exige el enlace de recuperación de los últimos 15 minutos o la contraseña actual; después cierra las demás sesiones | `apps/web/src/app/(acceso)/actions.ts`, `lib/recovery.ts` |
