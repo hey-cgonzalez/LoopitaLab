@@ -18,6 +18,10 @@ import { isSameSite, jsonError } from "../../_lib/request";
  * - El candado se renueva cada minuto mientras se envía (latido); si se pierde, se aborta.
  * - Si una tabla falla a mitad, el stream se aborta con error: la descarga queda cortada (JSON
  *   inválido), nunca como un JSON válido pero incompleto.
+ * - account.identities: formas de ingreso vinculadas (correo, Google, Microsoft) con los datos
+ *   que el proveedor entregó (identity_data), tomadas de getUser(). Solo los campos listados en
+ *   exportIdentities: nunca tokens del proveedor (Supabase Auth no los guarda en la identidad,
+ *   pero igual se copia campo por campo).
  */
 
 interface Section {
@@ -53,6 +57,23 @@ const SECTIONS: readonly Section[] = [
   },
   { key: "ai_jobs", table: "ai_jobs", orderBy: "id", page: 1000, column: "owner_id" },
 ];
+
+interface IdentityLike {
+  provider?: unknown;
+  created_at?: unknown;
+  last_sign_in_at?: unknown;
+  identity_data?: unknown;
+}
+
+/** Copia campo por campo de las identidades de la cuenta (ver comentario del archivo). */
+function exportIdentities(identities: readonly IdentityLike[] | null | undefined) {
+  return (identities ?? []).map((i) => ({
+    provider: typeof i.provider === "string" ? i.provider : null,
+    created_at: typeof i.created_at === "string" ? i.created_at : null,
+    last_sign_in_at: typeof i.last_sign_in_at === "string" ? i.last_sign_in_at : null,
+    identity_data: i.identity_data && typeof i.identity_data === "object" ? i.identity_data : null,
+  }));
+}
 
 async function readPage(supabase: SupabaseClient, s: Section, userId: string, from: number): Promise<unknown[]> {
   let query = supabase
@@ -150,6 +171,7 @@ export async function GET(request: NextRequest) {
       email: user.email ?? null,
       created_at: user.created_at,
       last_sign_in_at: user.last_sign_in_at ?? null,
+      identities: exportIdentities(user.identities),
     },
     profile: (profile as unknown[])[0] ?? null,
   };

@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Field } from "@/components/Field";
 import { Captcha } from "@/components/Captcha";
 import { FormMessage } from "@/components/FormMessage";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { FormState } from "@/lib/auth-messages";
 import { signIn } from "../client-actions";
@@ -12,6 +13,8 @@ import { signIn } from "../client-actions";
 export function SignInForm({ next, notice }: { next: string; notice?: string | undefined }) {
   const [state, action] = useActionState<FormState, FormData>(signIn, {});
   return (
+    <>
+    <OAuthButtons next={next} />
     <form action={action} className="grid gap-5" noValidate>
       <FormMessage message={state.error ?? notice} tone="error" />
       <input type="hidden" name="next" value={next} />
@@ -28,5 +31,6 @@ export function SignInForm({ next, notice }: { next: string; notice?: string | u
         </Link>
       </div>
     </form>
+    </>
   );
 }

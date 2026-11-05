@@ -12,9 +12,10 @@ import { isSameSite, jsonError, jsonOk, readBody } from "../../_lib/request";
  *
  * 1. Solo desde este mismo sitio y con sesión.
  * 2. Re-autenticación atada a la acción (_lib/reauth.ts): el navegador pidió un intento con
- *    POST /api/cuenta/reautenticar y luego verificó la contraseña con signInWithPassword (y
- *    CAPTCHA), para que Supabase Auth vea la IP real. Aquí se consume el intento; este
- *    servidor nunca llama a signInWithPassword.
+ *    POST /api/cuenta/reautenticar y luego la usuaria volvió a autenticarse (contraseña con
+ *    signInWithPassword y CAPTCHA, para que Supabase Auth vea la IP real, o Google/Microsoft
+ *    si la cuenta no tiene contraseña). Aquí se consume el intento; este servidor nunca llama
+ *    a signInWithPassword.
  * 3. Bloquea a la usuaria (ban) y cierra todas sus sesiones, para que no pueda subir nada
  *    mientras se borra.
  * 4. Borra los archivos de Storage (Storage no tiene cascada desde auth.users).

@@ -16,7 +16,7 @@ describe("deleteAccountMessage", () => {
   it.each([
     [400, undefined, /ELIMINAR/],
     [401, undefined, /sesión expiró/],
-    [403, "reauth_required", /vuelve a escribir tu contraseña/],
+    [403, "reauth_required", /Vuelve a confirmar/],
     [403, "cross_site", /bloqueada por seguridad/],
     [403, undefined, /permiso/],
     [413, undefined, /demasiado grande/],

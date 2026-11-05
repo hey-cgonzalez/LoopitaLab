@@ -27,7 +27,7 @@ export function deleteAccountMessage(status: number, reason?: string): string {
     case 401:
       return "Tu sesión expiró. Vuelve a ingresar y repite el proceso.";
     case 403:
-      if (reason === "reauth_required") return "Por seguridad, vuelve a escribir tu contraseña e intenta de nuevo.";
+      if (reason === "reauth_required") return "La confirmación venció o no es válida. Vuelve a confirmar.";
       if (reason === "cross_site") return "La solicitud fue bloqueada por seguridad. Recarga la página desde LoopitaLab e intenta de nuevo.";
       return "No tienes permiso para completar esta acción.";
     case 413:

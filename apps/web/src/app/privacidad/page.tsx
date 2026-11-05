@@ -17,7 +17,7 @@ export default function Page() {
       <section>
         <h2>2. Qué datos tratamos</h2>
         <ul>
-          <li><strong>Cuenta y perfil:</strong> correo, contraseña (guardada con hash por el proveedor de autenticación, nunca en texto legible), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante).</li>
+          <li><strong>Cuenta y perfil:</strong> correo, contraseña si creas una (guardada con hash por el proveedor de autenticación, nunca en texto legible), el proveedor con el que ingresas (correo, Google o Microsoft), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante).</li>
           <li><strong>Patrones:</strong> los diseños que creas (gráficos, texto, lanas, colores, gauge), su visibilidad (privado, por enlace o público), versiones y si fueron generados con IA.</li>
           <li><strong>Proyectos:</strong> tus proyectos, el avance guardado y las notas que escribes.</li>
           <li><strong>Lanas:</strong> las lanas que defines (grosor, composición, color) y el texto libre opcional (&ldquo;mi lana&rdquo;), que es privado.</li>
@@ -46,6 +46,7 @@ export default function Page() {
           <li><strong>Supabase:</strong> base de datos, autenticación y almacenamiento de archivos. [REGIÓN DEL PROYECTO]</li>
           <li><strong>Anthropic:</strong> procesa la imagen y las instrucciones cuando usas funciones con IA, para proponer el patrón. [CONDICIONES DE CONSERVACIÓN Y USO DE DATOS: confirmar con el contrato vigente.]</li>
           <li><strong>Cloudflare Turnstile:</strong> verificación CAPTCHA al ingresar, registrarte, recuperar o cambiar tu contraseña y eliminar tu cuenta, cuando está activa.</li>
+          <li><strong>Google y Microsoft (opcional):</strong> si eliges entrar con Google o con Microsoft, esos servicios nos entregan tu nombre y tu correo (y tu foto de perfil y tu identificador en ese servicio: no los usamos ni los mostramos, pero el servicio de autenticación los conserva mientras tengas la cuenta; puedes descargarlos con “Descargar mis datos”). Actúan bajo sus propias políticas de privacidad. Entrar con un proveedor es opcional: siempre puedes usar tu correo y una contraseña. [PENDIENTE DE REVISIÓN LEGAL]</li>
           <li><strong>Hosting de la aplicación:</strong> [PROVEEDOR].</li>
         </ul>
       </section>

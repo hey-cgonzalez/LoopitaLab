@@ -95,6 +95,46 @@ describe("GET /api/cuenta/exportar", () => {
     expect((body.patterns as unknown[]).length).toBe(3);
   });
 
+  it("incluye las identidades de la cuenta (proveedor, fechas, identity_data) sin tokens ni campos extra", async () => {
+    state.user = {
+      ...USER,
+      identities: [
+        {
+          id: "id-1",
+          identity_id: "iid-1",
+          user_id: USER.id,
+          provider: "email",
+          created_at: "2026-11-01T00:00:00Z",
+          last_sign_in_at: "2026-11-02T00:00:00Z",
+          updated_at: "2026-11-02T00:00:00Z",
+          identity_data: { email: USER.email, sub: USER.id },
+        },
+        {
+          id: "id-2",
+          provider: "google",
+          created_at: "2026-11-03T00:00:00Z",
+          last_sign_in_at: null,
+          identity_data: { email: USER.email, full_name: "Bea" },
+          provider_token: "ya29.SECRETO",
+          provider_refresh_token: "1//SECRETO",
+        },
+      ],
+    } as unknown as typeof USER;
+    const res = await GET(get());
+    const text = await res.text();
+    expect(text).not.toMatch(/SECRETO|provider_token|identity_id|"user_id"/);
+    const body = JSON.parse(text) as { account: { identities: unknown[] } };
+    expect(body.account.identities).toEqual([
+      { provider: "email", created_at: "2026-11-01T00:00:00Z", last_sign_in_at: "2026-11-02T00:00:00Z", identity_data: { email: USER.email, sub: USER.id } },
+      { provider: "google", created_at: "2026-11-03T00:00:00Z", last_sign_in_at: null, identity_data: { email: USER.email, full_name: "Bea" } },
+    ]);
+  });
+
+  it("sin identidades en el usuario: lista vacía", async () => {
+    const body = (await (await GET(get())).json()) as { account: { identities: unknown[] } };
+    expect(body.account.identities).toEqual([]);
+  });
+
   it("usa la sesión (RLS) y además filtra por la usuaria donde hay columna de dueña", async () => {
     await (await GET(get())).text(); // las tablas se leen a medida que se consume el stream
     const filters = Object.fromEntries(

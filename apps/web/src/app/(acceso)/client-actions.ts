@@ -4,7 +4,7 @@
  * de Next, todas compartirían la IP del servidor y un solo abuso bloquearía a todas).
  */
 import { safeNext } from "@/lib/env";
-import { EMAIL_RE, authMessage, passwordProblem, type FormState } from "@/lib/auth-messages";
+import { EMAIL_RE, PASSWORD_LINK_SENT, authMessage, passwordProblem, type FormState } from "@/lib/auth-messages";
 import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
 import { createClient } from "@/lib/supabase/client";
 
@@ -82,4 +82,23 @@ export async function requestPasswordReset(_prev: FormState, form: FormData): Pr
   }
   // Mismo mensaje exista o no la cuenta, para no revelar qué correos están registrados.
   return { ok: "Si hay una cuenta con ese correo, te llegará un enlace para crear una nueva contraseña." };
+}
+
+/** Cuenta sin contraseña: envía al correo de la sesión el enlace para crearla (llega a /nueva-clave). */
+export async function requestPasswordCreationLink(_prev: FormState, form: FormData): Promise<FormState> {
+  if (captchaEnabled() && !captchaToken(form)) return { error: CAPTCHA_MISSING };
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user?.email) return { error: "Tu sesión expiró. Vuelve a ingresar e intenta de nuevo." };
+  const { error } = await supabase.auth.resetPasswordForEmail(user.email, {
+    redirectTo: `${publicOrigin()}/auth/callback?next=/nueva-clave`,
+    ...captchaOptions(form),
+  });
+  resetCaptcha();
+  if (error && (error.code === "over_request_rate_limit" || error.code === "over_email_send_rate_limit" || error.code === "captcha_failed")) {
+    return { error: authMessage(error) };
+  }
+  return { ok: PASSWORD_LINK_SENT };
 }

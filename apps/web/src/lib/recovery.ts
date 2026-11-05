@@ -19,14 +19,38 @@ function decodePayload(jwt: string): Record<string, unknown> | null {
   }
 }
 
+/**
+ * Métodos del claim amr que sirven como re-autenticación para acciones sensibles (F2-M5). Cada
+ * uno se expone por separado en SessionProof porque no valen lo mismo (A1, ver
+ * app/api/_lib/reauth.ts):
+ *  - "password" (passwordAuthAt): signInWithPassword. Vale para eliminar la cuenta y para cambiar
+ *    la contraseña.
+ *  - "oauth" (oauthAuthAt): ingreso con Google o Microsoft (signInWithOAuth + canje PKCE en
+ *    /auth/callback). Es el nombre que usa Supabase Auth (GoTrue, models/amr.go: OAuth = "oauth");
+ *    verificar en la base real (docs/seguridad.md, Pendiente). Solo vale para eliminar una cuenta
+ *    SIN contraseña; nunca para crear o cambiar la contraseña.
+ * NO cuentan "recovery", "otp" ni "magiclink": prueban acceso al correo, no a la cuenta, y ya
+ * tienen su propio camino (hasRecentEmailProof, solo para cambiar la contraseña).
+ * Cualquier otro método (sso/saml, mayúsculas distintas, etc.) se ignora.
+ */
+
 /** Datos del token de acceso, ya validado por Supabase Auth. */
 export interface SessionProof {
   userId: string;
-  /** Claim session_id: cambia con cada signInWithPassword. */
+  /** Claim session_id: cambia con cada ingreso (contraseña o proveedor). */
   sessionId: string | null;
-  /** Segundos Unix de la autenticación "password" más reciente del token, o null. */
+  /** Segundos Unix del ingreso con contraseña ("password") más reciente del token, o null. */
   passwordAuthAt: number | null;
+  /** Segundos Unix del ingreso con proveedor ("oauth") más reciente del token, o null. */
+  oauthAuthAt: number | null;
   amr: AmrEntry[];
+}
+
+/** Hora (segundos Unix) de la entrada más reciente del amr con ese método, o null. */
+function latestAuthAt(amr: readonly AmrEntry[], method: "password" | "oauth"): number | null {
+  let at: number | null = null;
+  for (const a of amr) if (a.method === method && (at === null || a.timestamp > at)) at = a.timestamp;
+  return at;
 }
 
 /**
@@ -48,11 +72,11 @@ export async function readSessionProof(supabase: SupabaseClient): Promise<Sessio
   const amr = (Array.isArray(payload.amr) ? payload.amr : []).filter(
     (a): a is AmrEntry => !!a && typeof a === "object" && typeof (a as AmrEntry).method === "string" && typeof (a as AmrEntry).timestamp === "number",
   );
-  const passwordTimes = amr.filter((a) => a.method === "password").map((a) => a.timestamp);
   return {
     userId: user.id,
     sessionId: typeof payload.session_id === "string" ? payload.session_id : null,
-    passwordAuthAt: passwordTimes.length ? Math.max(...passwordTimes) : null,
+    passwordAuthAt: latestAuthAt(amr, "password"),
+    oauthAuthAt: latestAuthAt(amr, "oauth"),
     amr,
   };
 }

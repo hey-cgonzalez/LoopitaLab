@@ -8,6 +8,12 @@ site_url = "http://localhost:3000"
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
 minimum_password_length = 8
 password_requirements = "letters_digits"
+# Vinculación manual de identidades (linkIdentity desde una sesión abierta): desactivada a
+# propósito. Si se activa, quien tenga una sesión abierta (equipo compartido, token robado)
+# puede vincular SU Google o Microsoft a la cuenta ajena y quedarse con un acceso permanente
+# que no depende de la contraseña. La vinculación automática por correo verificado sigue
+# funcionando (docs/seguridad.md, "Acceso con proveedores").
+enable_manual_linking = false
 
 [auth.email]
 # Confirmar el correo evita cuentas falsas y que el registro revele qué correos existen.
@@ -28,3 +34,46 @@ secure_password_change = true
 enabled = false
 provider = "turnstile"
 secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"
+
+# Ingreso con Google y Microsoft (OAuth, flujo PKCE). Desactivados hasta configurarlos en el panel
+# (docs/puesta-en-marcha.md, "Acceso con Google y Microsoft"). Las claves de cliente viven solo
+# aquí como variables (en local, en supabase/.env) y en el panel del proyecto remoto
+# (Authentication > Sign In / Providers): nunca en la web ni en el repositorio.
+# Al activarlos, agregarlos también a NEXT_PUBLIC_AUTH_PROVIDERS en la web, al mismo tiempo.
+# La vuelta a la web pasa por /auth/callback, ya incluido (exacto) en additional_redirect_urls.
+[auth.external.google]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_GOOGLE_SECRET)"
+# Vacío = la URL de Auth de este proyecto + /auth/v1/callback (local: http://127.0.0.1:54321/auth/v1/callback;
+# remoto: https://xsutqyhbvgxfdsfxhvnr.supabase.co/auth/v1/callback). Se deja vacío para que
+# `config push` no sobrescriba la del proyecto remoto con la local.
+redirect_uri = ""
+skip_nonce_check = false
+
+# Microsoft (Entra ID) es el proveedor "azure" de Supabase.
+[auth.external.azure]
+enabled = false
+client_id = "env(SUPABASE_AUTH_EXTERNAL_AZURE_CLIENT_ID)"
+secret = "env(SUPABASE_AUTH_EXTERNAL_AZURE_SECRET)"
+redirect_uri = ""
+# Tenant "consumers": solo cuentas personales de Microsoft (Outlook, Hotmail, Live). En Entra, la
+# app se registra con el tipo de cuenta "Solo cuentas personales de Microsoft". Evita el riesgo de
+# correos no verificados que pone la administradora de cualquier tenant de organización (nOAuth).
+url = "https://login.microsoftonline.com/consumers"
+# Tenant "common" (organizaciones + personales): SOLO después de declarar el claim opcional
+# xms_edov en la app de Entra y probar con una cuenta de organización que un correo sin verificar
+# NO se vincula a una cuenta existente (docs/seguridad.md, Pendiente). Cambiar también el tipo de
+# cuenta de la app en Entra.
+# url = "https://login.microsoftonline.com/common"
+
+# Avisos por correo de seguridad (F2-M7 y vinculación de proveedores). Comentados porque no se
+# pudo verificar el formato contra la versión de la CLI instalada; activarlos en el panel
+# (Authentication > Emails > Security notifications) y, si `supabase start` los acepta,
+# descomentar aquí para que queden fijados.
+# [auth.email.notification.password_changed]
+# enabled = true
+# [auth.email.notification.identity_linked]
+# enabled = true
+# [auth.email.notification.identity_unlinked]
+# enabled = true

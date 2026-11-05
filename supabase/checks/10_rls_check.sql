@@ -798,6 +798,44 @@ reset role;
 -- Se retiran las denuncias de Cata de esta sección para no alterar los conteos siguientes.
 delete from public.pattern_reports where reporter_id = '33333333-3333-3333-3333-333333333333';
 
+-- ¿La cuenta tiene contraseña? (user_has_password, A1). Ana tiene contraseña; Bea entra solo
+-- con proveedor (encrypted_password vacío, como lo deja Supabase Auth) y una tercera con nulo.
+update auth.users set encrypted_password = '$2a$10$hashdepruebahashdepruebahashdepruebahashdeprueba12'
+where id = '11111111-1111-1111-1111-111111111111';
+update auth.users set encrypted_password = '' where id = '22222222-2222-2222-2222-222222222222';
+insert into auth.users (id, email, encrypted_password) values ('44444444-4444-4444-4444-444444444444', 'dora@example.test', null);
+set local role service_role;
+do $$ begin
+  assert public.user_has_password('11111111-1111-1111-1111-111111111111') is true, 'con contraseña: true';
+  assert public.user_has_password('22222222-2222-2222-2222-222222222222') is false, 'contraseña vacía: false';
+  assert public.user_has_password('44444444-4444-4444-4444-444444444444') is false, 'contraseña nula: false';
+  assert public.user_has_password('99999999-9999-9999-9999-999999999999') is false, 'usuaria inexistente: false';
+  assert public.user_has_password(null) is false, 'sin usuaria: false';
+  raise notice 'ok - user_has_password distingue cuentas con y sin contraseña';
+end $$;
+reset role;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
+do $$ begin
+  begin
+    perform public.user_has_password('11111111-1111-1111-1111-111111111111');
+    raise exception 'FALLO: authenticated no puede consultar user_has_password';
+  exception when insufficient_privilege then null; end;
+  raise notice 'ok - authenticated no ejecuta user_has_password';
+end $$;
+reset role;
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+do $$ begin
+  begin
+    perform public.user_has_password('11111111-1111-1111-1111-111111111111');
+    raise exception 'FALLO: anon no puede consultar user_has_password';
+  exception when insufficient_privilege then null; end;
+  raise notice 'ok - anon no ejecuta user_has_password';
+end $$;
+reset role;
+delete from auth.users where id = '44444444-4444-4444-4444-444444444444';
+
 -- Eliminar la cuenta (auth.admin.deleteUser) borra todo lo de la usuaria y no rompe lo ajeno.
 -- Cata (Bea ya está en su tope de denuncias) denuncia el patrón de IA de Ana.
 insert into public.pattern_reports (pattern_id, reporter_id, reason)
