@@ -10,12 +10,6 @@ export function supabaseEnv(): { url: string; key: string } {
   return { url, key };
 }
 
-/** URL pública del sitio para los enlaces que llegan por correo. */
-export function siteUrl(fallbackOrigin?: string | null): string {
-  const fromEnv = process.env.NEXT_PUBLIC_SITE_URL;
-  return (fromEnv || fallbackOrigin || "http://localhost:3000").replace(/\/+$/, "");
-}
-
 /**
  * Solo acepta rutas internas simples ("/proyectos", "/cuenta?x=1"), para que un enlace
  * manipulado no pueda redirigir a otro sitio después de iniciar sesión. Se usa una lista

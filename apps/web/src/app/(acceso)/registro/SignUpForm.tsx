@@ -5,7 +5,8 @@ import { useActionState } from "react";
 import { Field } from "@/components/Field";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
-import { signUp, type FormState } from "../actions";
+import type { FormState } from "@/lib/auth-messages";
+import { signUp } from "../client-actions";
 
 export function SignUpForm() {
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
@@ -22,7 +23,7 @@ export function SignUpForm() {
         autoComplete="new-password"
         required
         minLength={8}
-        hint="Al menos 8 caracteres."
+        hint="Al menos 8 caracteres, con letras y números."
         error={state.fieldErrors?.password}
       />
       <SubmitButton pending="Creando tu cuenta…">Crear cuenta</SubmitButton>

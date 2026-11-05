@@ -1,6 +1,16 @@
-# Configuración para la CLI de Supabase (desarrollo local y `supabase link` / `db push`).
+# Configuración para la CLI de Supabase (desarrollo local y `supabase link` / `db push` / `config push`).
+# Mantener igual en el panel del proyecto remoto.
 project_id = "loopitalab"
 
 [auth]
 site_url = "http://localhost:3000"
+# Lista exacta, sin comodines: los enlaces de los correos solo pueden volver aquí.
 additional_redirect_urls = ["http://localhost:3000/auth/callback"]
+minimum_password_length = 8
+password_requirements = "letters_digits"
+
+[auth.email]
+# Confirmar el correo evita cuentas falsas y que el registro revele qué correos existen.
+enable_confirmations = true
+# Cambiar la contraseña con una sesión antigua exige volver a autenticarse.
+secure_password_change = true
