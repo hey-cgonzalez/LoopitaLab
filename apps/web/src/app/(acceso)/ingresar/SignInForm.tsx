@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useActionState } from "react";
 import { Field } from "@/components/Field";
+import { Captcha } from "@/components/Captcha";
 import { FormMessage } from "@/components/FormMessage";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { FormState } from "@/lib/auth-messages";
@@ -16,6 +17,7 @@ export function SignInForm({ next, notice }: { next: string; notice?: string | u
       <input type="hidden" name="next" value={next} />
       <Field id="email" label="Correo" type="email" autoComplete="email" required defaultValue={state.fields?.email} error={state.fieldErrors?.email} />
       <Field id="password" label="Contraseña" type="password" autoComplete="current-password" required error={state.fieldErrors?.password} />
+      <Captcha />
       <SubmitButton pending="Ingresando…">Ingresar</SubmitButton>
       <div className="flex flex-wrap justify-between gap-3 text-sm">
         <Link href="/recuperar" className="underline underline-offset-4">

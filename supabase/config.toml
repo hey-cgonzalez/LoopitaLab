@@ -14,3 +14,17 @@ password_requirements = "letters_digits"
 enable_confirmations = true
 # Cambiar la contraseña con una sesión antigua exige volver a autenticarse.
 secure_password_change = true
+
+# CAPTCHA en registro, ingreso y recuperación (M5, segunda capa). Desactivado hasta abrir el registro.
+# Para activarlo:
+#   1. Crear un widget de Cloudflare Turnstile para el dominio del sitio.
+#   2. Guardar la clave secreta como SUPABASE_AUTH_CAPTCHA_SECRET (en local, en supabase/.env;
+#      en el proyecto remoto, en Authentication > Attack Protection > CAPTCHA del panel).
+#   3. Publicar la clave de sitio en la web (NEXT_PUBLIC_TURNSTILE_SITE_KEY) y enviar `captchaToken`
+#      en signUp, signInWithPassword y resetPasswordForEmail.
+#   4. Cambiar enabled a true aquí y en el panel al mismo tiempo que se despliega el front;
+#      si se activa antes, todos los formularios de acceso fallan con captcha_failed.
+[auth.captcha]
+enabled = false
+provider = "turnstile"
+secret = "env(SUPABASE_AUTH_CAPTCHA_SECRET)"

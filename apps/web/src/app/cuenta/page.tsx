@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { AppHeader } from "@/components/AppHeader";
 import { requireUser } from "@/lib/session";
 import { ProfileForm } from "./ProfileForm";
+import { YourData } from "./YourData";
 
 export const metadata: Metadata = { title: "Cuenta" };
 
@@ -22,6 +23,7 @@ export default async function Page() {
               dominantHand={profile?.dominant_hand ?? "right"}
             />
           </div>
+          <YourData />
         </div>
       </main>
     </>

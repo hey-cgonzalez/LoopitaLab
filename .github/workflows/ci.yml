@@ -71,5 +71,9 @@ jobs:
         run: pnpm exec tsc -p tsconfig.json
       - name: Tipos de la web
         run: pnpm --filter @loopitalab/web typecheck
+      - name: Tipos de las pruebas de la web
+        run: pnpm --filter @loopitalab/web typecheck:test
+      - name: Pruebas de la web (Vitest)
+        run: pnpm --filter @loopitalab/web test
       - name: Build de la web
         run: pnpm --filter @loopitalab/web build
