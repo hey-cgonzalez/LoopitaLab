@@ -4,11 +4,7 @@ Pasos para conectar el proyecto de Supabase y levantar la web en tu computador.
 
 ## 1. Aplicar las migraciones en Supabase
 
-> **Estado del proyecto LoopitaLab (xsutqyhbvgxfdsfxhvnr) al 2026-11-04:** las cinco migraciones ya están aplicadas. Las tres primeras se ejecutaron desde el SQL Editor y las dos últimas con la integración de Supabase, así que el historial remoto solo registra las dos últimas. Antes del primer `db push` con la CLI, marca las tres primeras como aplicadas:
->
-> ```
-> npx supabase migration repair --status applied 20261104010000 20261104010100 20261104010200
-> ```
+> **Estado del proyecto LoopitaLab (xsutqyhbvgxfdsfxhvnr) al 2026-11-04:** las cinco migraciones están aplicadas y registradas en el historial, y las verificaciones de `10_rls_check.sql` pasaron sobre la base real. `npx supabase db push` solo aplicará migraciones nuevas.
 
 Se necesitan las cinco migraciones de `supabase/migrations`, en orden: esquema con RLS, datos de referencia, storage, endurecimiento de seguridad e índices.
 
