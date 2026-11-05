@@ -75,4 +75,4 @@ Abre http://localhost:3000, crea una cuenta, confirma el correo y crea un proyec
 
 GitHub Actions (`.github/workflows/ci.yml`) corre las tres cosas en cada pull request: pruebas, tipos y build de la web, y migraciones con RLS en PostgreSQL 16.
 
-> **Estado al 2026-11-04:** la CI no ha corrido nunca. GitHub marca "Your account's billing is currently locked" y todas las ejecuciones terminan en "Startup failure". Se resuelve actualizando la información de pago en GitHub (Settings > Billing and plans). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter web build`.
+> **Estado al 2026-11-05:** el repositorio se movió a `hey-cgonzalez/LoopitaLab`. En la cuenta anterior la CI nunca corrió porque la facturación de GitHub estaba bloqueada ("Startup failure"). En el repositorio nuevo, revisar que Actions esté habilitado (Settings > Actions). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter web build`.
