@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 /**
  * Re-autenticación con proveedor (Google/Microsoft) de punta a punta en el servidor: token real
  * decodificado por lib/recovery.ts y lib/password-status.ts reales (sin mock), con imitaciones de
- * public.user_has_password (migración 20261105180000) y public.consume_reauth (mismas reglas de
+ * public.user_has_password (migración 20261105231613) y public.consume_reauth (mismas reglas de
  * la migración 20261105133225: intento previo, otra sesión, < 5 min, uso único).
  * Las reglas SQL reales se prueban en supabase/checks/10_rls_check.sql.
  * Política (A1/M1): "oauth" solo vale para eliminar una cuenta SIN contraseña.

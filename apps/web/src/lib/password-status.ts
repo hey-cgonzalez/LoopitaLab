@@ -3,7 +3,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 
 /**
  * ¿La cuenta tiene contraseña? Consulta public.user_has_password (migración
- * 20261105180000_estado_contrasena.sql), que solo puede ejecutar la clave secreta y solo devuelve
+ * 20261105231613_estado_contrasena.sql), que solo puede ejecutar la clave secreta y solo devuelve
  * un booleano (nunca el hash). No depende de la lista de identidades (B5): una cuenta creada con
  * Google que después definió contraseña, o una con contraseña y Google vinculado, se ve igual.
  *
