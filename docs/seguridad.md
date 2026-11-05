@@ -18,7 +18,7 @@
 | B6. La URL de los correos podía salir del encabezado `Origin` | Se arma en el navegador con `NEXT_PUBLIC_SITE_URL` o el origen real de la página | `client-actions.ts` |
 | B7. El callback aceptaba `token_hash` con cualquier `type` | Solo flujo PKCE (`?code=`) | `app/auth/callback/route.ts` |
 | B8. Cierre de sesión desde otro sitio | Solo acepta solicitudes del mismo sitio | `app/auth/salir/route.ts` |
-| B9. La configuración de Auth no estaba fijada | Confirmación de correo, cambio de contraseña seguro y contraseñas de 8 caracteres con letras y números | `supabase/config.toml` (replicar en el panel) |
+| B9. La configuración de Auth no estaba fijada | Confirmación de correo, cambio de contraseña seguro y contraseñas de 8 caracteres con letras y números | `supabase/config.toml` y panel de Supabase (aplicado el 2026-11-04) |
 | B10. `.gitignore` incompleto | `.env*` excepto `.env.example` | `.gitignore` |
 
 ## Pendiente

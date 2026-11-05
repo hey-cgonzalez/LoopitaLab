@@ -34,6 +34,8 @@ Con esta opción, la CLI no sabrá qué migraciones ya se aplicaron. Si después
 
 ## 2. Configurar Auth en el panel
 
+> **Estado al 2026-11-04:** aplicado en el proyecto LoopitaLab. Site URL y Redirect URL apuntan a `localhost:3000`, la confirmación de correo y el cambio de contraseña seguro están activos, y las contraseñas exigen 8 caracteres con letras y números. "Require current password" queda desactivado porque la web ya lo exige, salvo en el flujo de recuperación. La protección contra contraseñas filtradas requiere plan Pro.
+
 En Authentication > URL Configuration:
 
 - **Site URL**: `http://localhost:3000` (cámbiala por el dominio real cuando publiques).
@@ -72,3 +74,5 @@ Abre http://localhost:3000, crea una cuenta, confirma el correo y crea un proyec
 | RLS en un PostgreSQL local | aplicar `supabase/checks/00_stubs_supabase.sql`, luego las migraciones, y después `psql -f supabase/checks/10_rls_check.sql` |
 
 GitHub Actions (`.github/workflows/ci.yml`) corre las tres cosas en cada pull request: pruebas, tipos y build de la web, y migraciones con RLS en PostgreSQL 16.
+
+> **Estado al 2026-11-04:** la CI no ha corrido nunca. GitHub marca "Your account's billing is currently locked" y todas las ejecuciones terminan en "Startup failure". Se resuelve actualizando la información de pago en GitHub (Settings > Billing and plans). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter web build`.
