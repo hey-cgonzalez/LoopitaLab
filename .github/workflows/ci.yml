@@ -23,6 +23,9 @@ jobs:
       - name: Pruebas de yarn-catalog
         working-directory: packages/yarn-catalog
         run: node --test "test/**/*.test.ts"
+      - name: Pruebas de ai-router
+        working-directory: packages/ai-router
+        run: node --test "test/**/*.test.ts"
 
   base-de-datos:
     name: Migraciones y RLS

@@ -96,3 +96,96 @@ export function dimensionsCm(chart: Chart, gauge: Gauge): { widthCm: number; hei
 export function floatLengthCm(stitches: number, gauge: Gauge): number {
   return (stitches / gauge.stitchesPer10cm) * 10;
 }
+
+// ------------------------------------------------- Derivados (ADR 0003 y 0005)
+
+/** Módulo siempre positivo, para coordenadas negativas. */
+const mod = (n: number, m: number) => ((n % m) + m) % m;
+
+/**
+ * Coordenada del motivo que corresponde a una celda del gráfico completo:
+ * `(x mod width, y mod height)`. Editar esa celda edita todas las repeticiones.
+ */
+export function motifCoord(chart: Chart, x: number, y: number): { x: number; y: number } {
+  return { x: mod(x, chart.width), y: mod(y, chart.height) };
+}
+
+/** Puntos de una fila del motivo (celdas distintas de `NO_STITCH`). */
+function motifRowStitches(chart: Chart, my: number): number {
+  let n = 0;
+  const start = my * chart.width;
+  for (let x = 0; x < chart.width; x++) if ((chart.cells[start + x] ?? NO_STITCH) !== NO_STITCH) n++;
+  return n;
+}
+
+/**
+ * Puntos de la fila `y` del gráfico completo (sin `NO_STITCH`). Es `repeat.x` por
+ * los puntos de la fila del motivo. Fuera del gráfico completo devuelve 0.
+ * Nunca depende de `renderAs` (ADR 0003).
+ */
+export function rowStitchCount(chart: Chart, y: number): number {
+  if (!Number.isInteger(y) || y < 0 || y >= chart.height * chart.repeat.y) return 0;
+  return motifRowStitches(chart, y % chart.height) * chart.repeat.x;
+}
+
+/** Puntos de cada fila del gráfico completo, de la fila 0 a la última. Su suma es `stitchTotal`. */
+export function rowStitchCounts(chart: Chart): number[] {
+  const perMotifRow: number[] = [];
+  for (let my = 0; my < chart.height; my++) perMotifRow.push(motifRowStitches(chart, my) * chart.repeat.x);
+  const total = chart.height * chart.repeat.y;
+  const out = new Array<number>(total);
+  for (let y = 0; y < total; y++) out[y] = perMotifRow[y % chart.height] ?? 0;
+  return out;
+}
+
+export interface RowShaping {
+  /** Fila del gráfico completo. */
+  row: number;
+  stitches: number;
+  /** Diferencia con la fila anterior (negativo = disminuciones). En la fila 0 es 0. */
+  change: number;
+  /** `change / repeat.x`: disminuciones o aumentos por repetición. */
+  perRepeat: number;
+}
+
+/**
+ * Forma derivada de la máscara (ADR 0005): por fila, puntos, cambio respecto de la
+ * fila anterior y cambio por repetición. Como cada fila tiene `repeat.x` veces los
+ * puntos de la fila del motivo, `perRepeat` siempre es entero.
+ */
+export function shaping(chart: Chart): RowShaping[] {
+  const counts = rowStitchCounts(chart);
+  return counts.map((stitches, row) => {
+    const change = row === 0 ? 0 : stitches - (counts[row - 1] ?? 0);
+    // `+ 0` evita -0 cuando no hay cambio.
+    return { row, stitches, change, perRepeat: change / chart.repeat.x + 0 };
+  });
+}
+
+export type ReadingDirection = "right_to_left" | "left_to_right";
+
+/**
+ * Orden de lectura de la fila `y` (ADR 0003). Depende solo de `workedIn`, de `y` y del
+ * espejo; nunca de `renderAs`, `direction` ni las lanas.
+ * - En redondo, todas las vueltas de derecha a izquierda.
+ * - En ida y vuelta, `y` par (por el derecho) de derecha a izquierda e `y` impar
+ *   (por el revés) de izquierda a derecha. La fila 1 (`y = 0`) siempre es por el derecho.
+ * - `mirror` (preferencia `mirror_knitting` del perfil) invierte el resultado. Es solo
+ *   una vista: el documento nunca cambia. No se deriva de `dominant_hand`.
+ */
+export function readingDirection(chart: Chart, y: number, opts: { mirror?: boolean } = {}): ReadingDirection {
+  const rightToLeft = chart.workedIn === "rounds" || mod(y, 2) === 0;
+  return rightToLeft !== (opts.mirror === true) ? "right_to_left" : "left_to_right";
+}
+
+/**
+ * Celda del gráfico completo que se ve en la posición (x, y) de la pieza terminada,
+ * como se usa. En `bottom_up` es la identidad; en `top_down` es una rotación de 180°,
+ * `(x, y) → (W − 1 − x, H − 1 − y)` sobre el gráfico completo (no un espejo vertical).
+ * Aplicarla dos veces devuelve la coordenada original. Solo afecta la vista.
+ */
+export function wornOrientation(chart: Chart, x: number, y: number): { x: number; y: number } {
+  if (chart.direction !== "top_down") return { x, y };
+  const { width, height } = fullSize(chart);
+  return { x: width - 1 - x, y: height - 1 - y };
+}

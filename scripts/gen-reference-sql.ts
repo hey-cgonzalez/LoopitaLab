@@ -3,18 +3,31 @@
  * packages/yarn-catalog/data/*.json, para que la base de datos y el código usen los mismos datos.
  *
  *   node scripts/gen-reference-sql.ts            # imprime el SQL
- *   node scripts/gen-reference-sql.ts --write    # sobrescribe la migración
+ *   node scripts/gen-reference-sql.ts --write    # escribe MIGRATION_FILE (la migración vigente)
  *
- * La prueba packages/yarn-catalog/test/reference-sql.test.ts falla si la migración quedó desactualizada.
- * Si los datos cambian después de aplicar la migración en producción, crea una migración NUEVA
- * (los upserts son idempotentes) y apunta MIGRATION_FILE a ella.
+ * Las migraciones ya aplicadas no se editan: 20261106020000_datos_referencia_v2.sql queda congelada.
+ * Los upserts son idempotentes (on conflict do update, sin borrar filas, porque user_yarns referencia
+ * yarn_weights y palette_colors). Cuando los JSON cambien otra vez, crea una migración NUEVA, apunta
+ * MIGRATION_FILE y HEADER a ella; la prueba reference-sql.test.ts compara contra la última migración
+ * *_datos_referencia*.sql.
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-export const MIGRATION_FILE = join(root, "supabase/migrations/20261104010100_datos_referencia.sql");
+export const MIGRATION_FILE = join(root, "supabase/migrations/20261106020000_datos_referencia_v2.sql");
+
+const HEADER = `-- GENERADO por scripts/gen-reference-sql.ts desde packages/yarn-catalog/data. No editar a mano.
+-- Datos de referencia v2: grosores CYC 0–7, fibras y paleta propia (sin marcas).
+--
+-- Reemplaza los alias de yarn_weights que traían nombres de tienda (regla de oro 9: sin catálogos de
+-- marcas) y las equivalencias en inglés con "Baby"/"Roving" por los datos limpios de grosores.json (T3).
+-- No se editó 20261104010100_datos_referencia.sql porque ya está aplicada en el proyecto real: una
+-- migración aplicada es historia inmutable. Esta es idempotente (upsert, nunca borra filas, porque
+-- user_yarns referencia yarn_weights y palette_colors) y se puede reaplicar sin efectos.
+-- Decisión: fuentesAlias (fuente de cada alias) vive solo en el paquete; la base solo necesita alias text[].
+`;
 
 const read = (p: string) => JSON.parse(readFileSync(join(root, "packages/yarn-catalog/data", p), "utf8"));
 
@@ -46,9 +59,7 @@ export function generateReferenceSql(): string {
     .flatMap((fam: any) => fam.colores.map((c: any) => `  (${q(c.id)}, ${q(c.nombre)}, ${q(c.hex)}, ${q(fam.nombre)}, ${c.tono}, ${++orden})`))
     .join(",\n");
 
-  return `-- GENERADO por scripts/gen-reference-sql.ts desde packages/yarn-catalog/data. No editar a mano.
--- Datos de referencia: grosores CYC 0–7, fibras y paleta propia (sin marcas).
-
+  return `${HEADER}
 insert into public.yarn_weights (cat, nombre, ingles, alias, muestra_palillo_min, muestra_palillo_max, agujas_mm_min, agujas_mm_max, muestra_crochet_min, muestra_crochet_max, muestra_crochet_punto, crochet_mm_min, crochet_mm_max) values
 ${weights}
 on conflict (cat) do update set

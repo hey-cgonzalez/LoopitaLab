@@ -22,6 +22,11 @@ do $$ begin
   assert (select count(*) from public.yarn_weights) = 8, 'grosores cargados';
   assert (select count(*) from public.palette_colors) = 48, 'paleta cargada';
   assert (select count(*) from public.fibers) >= 14, 'fibras cargadas';
+  -- Regla de oro 9 (T3b): ningún alias ni equivalencia en inglés lleva nombres de tienda ni Baby/Roving.
+  assert not exists (
+    select 1 from public.yarn_weights w, unnest(w.alias || w.ingles) as t(v)
+    where v ~* '(orqu[ií]dea|rev[eé]s ?derecho|modista|baby|roving)'
+  ), 'alias de grosores sin nombres de tienda';
   raise notice 'ok - registro crea perfil y datos de referencia cargados';
 end $$;
 
@@ -835,6 +840,42 @@ do $$ begin
 end $$;
 reset role;
 delete from auth.users where id = '44444444-4444-4444-4444-444444444444';
+
+-- Tejer en espejo (T3c): preferencia de vista, falsa por defecto, solo la cambia su dueña.
+do $$ begin
+  assert (select mirror_knitting from public.profiles where id = '11111111-1111-1111-1111-111111111111') is false, 'el perfil nuevo trae mirror_knitting = false';
+  assert (select mirror_knitting from public.profiles where id = '22222222-2222-2222-2222-222222222222') is false, 'el perfil de Bea trae mirror_knitting = false';
+  raise notice 'ok - el perfil nuevo trae mirror_knitting = false';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+do $$ declare n int; begin
+  update public.profiles set mirror_knitting = true where id = '11111111-1111-1111-1111-111111111111';
+  get diagnostics n = row_count;
+  assert n = 1, 'Ana puede activar su mirror_knitting';
+  assert (select mirror_knitting from public.profiles where id = '11111111-1111-1111-1111-111111111111') is true, 'Ana ve su valor nuevo';
+  update public.profiles set mirror_knitting = false where id = '11111111-1111-1111-1111-111111111111';
+  get diagnostics n = row_count;
+  assert n = 1, 'Ana puede desactivar su mirror_knitting';
+  update public.profiles set mirror_knitting = true where id = '22222222-2222-2222-2222-222222222222';
+  get diagnostics n = row_count;
+  assert n = 0, 'Ana no puede cambiar el mirror_knitting de Bea';
+  raise notice 'ok - la usuaria cambia su mirror_knitting y no el ajeno';
+end $$;
+reset role;
+do $$ begin
+  assert (select mirror_knitting from public.profiles where id = '22222222-2222-2222-2222-222222222222') is false, 'el de Bea sigue en false';
+end $$;
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+do $$ begin
+  begin
+    update public.profiles set mirror_knitting = true where id = '11111111-1111-1111-1111-111111111111';
+    raise exception 'FALLO: anon no puede cambiar mirror_knitting';
+  exception when insufficient_privilege then null; end;
+  raise notice 'ok - anon no cambia mirror_knitting';
+end $$;
+reset role;
 
 -- Eliminar la cuenta (auth.admin.deleteUser) borra todo lo de la usuaria y no rompe lo ajeno.
 -- Cata (Bea ya está en su tope de denuncias) denuncia el patrón de IA de Ana.

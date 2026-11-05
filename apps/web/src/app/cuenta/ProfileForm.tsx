@@ -11,6 +11,7 @@ interface Props {
   terminology: string;
   units: string;
   dominantHand: string;
+  mirrorKnitting: boolean;
 }
 
 function Choice({ name, legend, value, options }: { name: string; legend: string; value: string; options: [string, string][] }) {
@@ -27,7 +28,7 @@ function Choice({ name, legend, value, options }: { name: string; legend: string
   );
 }
 
-export function ProfileForm({ displayName, terminology, units, dominantHand }: Props) {
+export function ProfileForm({ displayName, terminology, units, dominantHand, mirrorKnitting }: Props) {
   const [state, action] = useActionState<ProfileFormState, FormData>(updateProfile, {});
   return (
     <form action={action} className="grid gap-8">
@@ -62,6 +63,15 @@ export function ProfileForm({ displayName, terminology, units, dominantHand }: P
           ["left", "Izquierda (los gráficos se muestran espejados)"],
         ]}
       />
+      <div className="grid gap-1">
+        <label className="flex items-center gap-3 font-bold">
+          <input type="checkbox" name="mirror_knitting" defaultChecked={mirrorKnitting} aria-describedby="mirror-help" className="size-5 accent-marino" />
+          Tejer en espejo
+        </label>
+        <p id="mirror-help" className="pl-8 text-tinta-suave">
+          Muestra los gráficos invertidos de izquierda a derecha. No cambia tu patrón y es independiente de ser zurda.
+        </p>
+      </div>
       <div className="max-w-xs">
         <SubmitButton pending="Guardando…">Guardar preferencias</SubmitButton>
       </div>

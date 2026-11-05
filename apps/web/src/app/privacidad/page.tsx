@@ -17,7 +17,7 @@ export default function Page() {
       <section>
         <h2>2. Qué datos tratamos</h2>
         <ul>
-          <li><strong>Cuenta y perfil:</strong> correo, contraseña si creas una (guardada con hash por el proveedor de autenticación, nunca en texto legible), el proveedor con el que ingresas (correo, Google o Microsoft), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante).</li>
+          <li><strong>Cuenta y perfil:</strong> correo, contraseña si creas una (guardada con hash por el proveedor de autenticación, nunca en texto legible), el proveedor con el que ingresas (correo, Google o Microsoft), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante, tejer en espejo).</li>
           <li><strong>Patrones:</strong> los diseños que creas (gráficos, texto, lanas, colores, gauge), su visibilidad (privado, por enlace o público), versiones y si fueron generados con IA.</li>
           <li><strong>Proyectos:</strong> tus proyectos, el avance guardado y las notas que escribes.</li>
           <li><strong>Lanas:</strong> las lanas que defines (grosor, composición, color) y el texto libre opcional (&ldquo;mi lana&rdquo;), que es privado.</li>

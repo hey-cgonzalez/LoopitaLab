@@ -19,6 +19,8 @@ export interface WeightCategoryInfo {
   /** Punto con que se mide la muestra de crochet ("pb" o "pa"). */
   muestraCrochetPunto: string;
   crochetMm: [number, number | null];
+  /** Origen (dominio público de referencia) de cada alias atribuido a una tienda. */
+  fuentesAlias: Record<string, string>;
 }
 
 export interface FiberInfo {
@@ -64,13 +66,36 @@ export function weightLabel(cat: number): string {
   return `${w.nombre} (${w.ingles.slice(0, 2).join(" / ")})`;
 }
 
+/** Proporción filas / puntos supuesta. El CYC solo publica puntos; las filas son un supuesto visible. */
+export const ROWS_PER_STITCH_RATIO = 1.35;
+
+export type GaugeAssumption = "stockinette" | "crochet-pb" | "crochet-pa";
+
+export interface SuggestedGauge {
+  /** Puntos en 10 cm: punto medio del rango CYC, o el tope cuando el CYC da solo "X o menos". */
+  stitchesPer10cm: number;
+  /** Filas en 10 cm: `round(puntos × 1,35)`. Es un supuesto, no un dato del CYC. */
+  rowsPer10cm: number;
+  /** Punto con el que se supone la muestra: jersey (palillo), o pb / pa (crochet). */
+  assumption: GaugeAssumption;
+  /** true cuando el rango del CYC es solo un tope (categoría 7). */
+  lowConfidence: boolean;
+}
+
 /** Muestra inicial sugerida (punto medio del rango CYC). La muestra real de la tejedora siempre manda. */
-export function suggestedGauge(cat: number, technique: "knit" | "crochet"): { stitchesPer10cm: number } | undefined {
+export function suggestedGauge(cat: number, technique: "knit" | "crochet"): SuggestedGauge | undefined {
   const w = weightInfo(cat);
   if (!w) return undefined;
-  const [lo, hi] = technique === "knit" ? w.muestraPalillo : w.muestraCrochet;
-  if (lo === 0) return { stitchesPer10cm: hi };
-  return { stitchesPer10cm: Math.round((lo + hi) / 2) };
+  const isKnit = technique === "knit";
+  const [lo, hi] = isKnit ? w.muestraPalillo : w.muestraCrochet;
+  const stitchesPer10cm = lo === 0 ? hi : Math.round((lo + hi) / 2);
+  const assumption: GaugeAssumption = isKnit ? "stockinette" : w.muestraCrochetPunto === "pa" ? "crochet-pa" : "crochet-pb";
+  return {
+    stitchesPer10cm,
+    rowsPer10cm: Math.round(stitchesPer10cm * ROWS_PER_STITCH_RATIO),
+    assumption,
+    lowConfidence: lo === 0,
+  };
 }
 
 // ------------------------------------------------------------ Color

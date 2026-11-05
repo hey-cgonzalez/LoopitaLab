@@ -29,6 +29,8 @@ export function rng(seed: number): Rng {
 
 export function forAll<T>(name: string, gen: (r: Rng) => T, prop: (value: T) => void, runs = 300): void {
   const base = process.env.SEED ? Number(process.env.SEED) : 20261103;
+  // Una semilla no entera (SEED=abc da NaN) haría que todas las corridas generen el mismo caso.
+  if (!Number.isSafeInteger(base)) throw new Error(`SEED debe ser un entero; se recibió "${process.env.SEED}".`);
   for (let i = 0; i < runs; i++) {
     const seed = base + i;
     const value = gen(rng(seed));

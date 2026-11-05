@@ -4,3 +4,5 @@ export * from "./written.ts";
 export * from "./chart.ts";
 export * from "./text.ts";
 export * from "./validate.ts";
+export * from "./edit.ts";
+export * from "./migrate.ts";

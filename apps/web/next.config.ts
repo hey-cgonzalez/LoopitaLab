@@ -16,8 +16,9 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // pattern-core se publica como TypeScript sin compilar.
-  transpilePackages: ["@loopitalab/pattern-core"],
+  // Los paquetes del monorepo se publican como TypeScript sin compilar.
+  // Se sumarán stitch-render y pattern-render cuando existan (T8a).
+  transpilePackages: ["@loopitalab/pattern-core", "@loopitalab/yarn-catalog"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

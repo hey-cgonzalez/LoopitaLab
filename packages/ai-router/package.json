@@ -1,0 +1,11 @@
+{
+  "name": "@loopitalab/ai-router",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Agentes de IA del producto y selección de modelo (router). Sin dependencias.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

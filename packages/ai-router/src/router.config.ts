@@ -91,6 +91,21 @@ export interface RoutingDecision {
 
 const rank = (m: ModelId) => MODEL_LADDER.indexOf(m);
 
+/**
+ * Devuelve el peldaño en `index`, acotado al rango válido de la escalera.
+ * Con `noUncheckedIndexedAccess` el acceso directo es `ModelId | undefined`;
+ * acotar el índice garantiza un valor, así que el `undefined` es inalcanzable.
+ */
+export function ladderAt(index: number): ModelId {
+  const last = MODEL_LADDER.length - 1;
+  const clamped = Math.min(Math.max(Math.trunc(index), 0), last);
+  const model = MODEL_LADDER[clamped];
+  if (model === undefined) {
+    throw new Error(`Escalera de modelos vacía o mal configurada (índice ${index})`);
+  }
+  return model;
+}
+
 export function selectModel(ctx: RoutingContext): RoutingDecision {
   const policy = AGENT_POLICIES[ctx.agent];
   const ceiling = ctx.plan === "free" ? lower(policy.ceiling, policy.freeCeiling) : policy.ceiling;
@@ -122,7 +137,7 @@ export function selectModel(ctx: RoutingContext): RoutingDecision {
   if (capped < level) reasons.push(`limitado a ${ceiling}`);
 
   return {
-    model: MODEL_LADDER[capped],
+    model: ladderAt(capped),
     maxOutputTokens: policy.maxOutputTokens,
     reason: reasons.join(", "),
     exhausted: ctx.failedAttempts > MAX_ESCALATIONS_PER_JOB || (ctx.failedAttempts > 0 && capped === rank(ceiling) && level > rank(ceiling)),

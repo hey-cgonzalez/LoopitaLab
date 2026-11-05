@@ -31,12 +31,21 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
           <h1 className="font-display text-4xl font-bold tracking-tight">Tu cuenta</h1>
           <p className="mt-2 text-tinta-suave">Ingresas con {user.email}.</p>
           <div className="mt-10">
-            <ProfileForm
-              displayName={profile?.display_name ?? ""}
-              terminology={profile?.terminology ?? "es"}
-              units={profile?.units ?? "metric"}
-              dominantHand={profile?.dominant_hand ?? "right"}
-            />
+            {profile ? (
+              <ProfileForm
+                displayName={profile.display_name ?? ""}
+                terminology={profile.terminology}
+                units={profile.units}
+                dominantHand={profile.dominant_hand}
+                mirrorKnitting={profile.mirror_knitting}
+              />
+            ) : (
+              // Sin perfil leído no se muestra el formulario: guardar valores por defecto
+              // pisaría las preferencias reales (QA F1).
+              <p role="alert" className="text-tinta-suave">
+                No pudimos cargar tus preferencias. Recarga la página en unos minutos.
+              </p>
+            )}
           </div>
           {methods.length > 0 ? (
             <section aria-labelledby="formas-ingreso" className="mt-10">
