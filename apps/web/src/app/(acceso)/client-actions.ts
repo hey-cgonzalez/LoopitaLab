@@ -5,6 +5,7 @@
  */
 import { safeNext } from "@/lib/env";
 import { EMAIL_RE, authMessage, passwordProblem, type FormState } from "@/lib/auth-messages";
+import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
 import { createClient } from "@/lib/supabase/client";
 
 const text = (form: FormData, key: string) => String(form.get(key) ?? "").trim();
@@ -24,7 +25,10 @@ export async function signIn(_prev: FormState, form: FormData): Promise<FormStat
   if (!password) fieldErrors.password = "Escribe tu contraseña.";
   if (Object.keys(fieldErrors).length) return { fields, fieldErrors };
 
-  const { error } = await createClient().auth.signInWithPassword({ email, password });
+  if (captchaEnabled() && !captchaToken(form)) return { fields, error: CAPTCHA_MISSING };
+
+  const { error } = await createClient().auth.signInWithPassword({ email, password, options: captchaOptions(form) });
+  resetCaptcha();
   if (error) return { fields, error: authMessage(error) };
   // Navegación completa: el servidor lee la cookie de sesión recién creada.
   window.location.assign(safeNext(text(form, "next")));
@@ -42,14 +46,18 @@ export async function signUp(_prev: FormState, form: FormData): Promise<FormStat
   if (weak) fieldErrors.password = weak;
   if (Object.keys(fieldErrors).length) return { fields, fieldErrors };
 
+  if (captchaEnabled() && !captchaToken(form)) return { fields, error: CAPTCHA_MISSING };
+
   const { data, error } = await createClient().auth.signUp({
     email,
     password,
     options: {
+      ...captchaOptions(form),
       emailRedirectTo: `${publicOrigin()}/auth/callback?next=/proyectos`,
       data: name ? { display_name: name } : {},
     },
   });
+  resetCaptcha();
   if (error) return { fields, error: authMessage(error) };
   if (data.session) {
     window.location.assign("/proyectos");
@@ -62,10 +70,14 @@ export async function requestPasswordReset(_prev: FormState, form: FormData): Pr
   const email = text(form, "email").toLowerCase();
   if (!EMAIL_RE.test(email)) return { fields: { email }, fieldErrors: { email: INVALID_EMAIL } };
 
+  if (captchaEnabled() && !captchaToken(form)) return { fields: { email }, error: CAPTCHA_MISSING };
+
   const { error } = await createClient().auth.resetPasswordForEmail(email, {
     redirectTo: `${publicOrigin()}/auth/callback?next=/nueva-clave`,
+    ...captchaOptions(form),
   });
-  if (error && (error.code === "over_request_rate_limit" || error.code === "over_email_send_rate_limit")) {
+  resetCaptcha();
+  if (error && (error.code === "over_request_rate_limit" || error.code === "over_email_send_rate_limit" || error.code === "captcha_failed")) {
     return { fields: { email }, error: authMessage(error) };
   }
   // Mismo mensaje exista o no la cuenta, para no revelar qué correos están registrados.

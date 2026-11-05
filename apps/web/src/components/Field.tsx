@@ -5,7 +5,7 @@ export function Field({
   error,
   hint,
   ...input
-}: { id: string; label: string; error?: string | undefined; hint?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
+}: { id: string; label: string; error?: string | undefined; hint?: string } & React.ComponentProps<"input">) {
   const described = [hint ? `${id}-ayuda` : null, error ? `${id}-error` : null].filter(Boolean).join(" ") || undefined;
   return (
     <div className="grid gap-1.5">
