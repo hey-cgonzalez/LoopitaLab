@@ -40,22 +40,32 @@ Opción **A**. La fase 2 no cambia la forma del documento. Lo que falta para B y
 
 ### 1. Semántica precisada (sin cambio de forma)
 
-Lo marcado con (ET) debe confirmarlo `experto-tejido` antes de implementarse.
+Esta sección ya incorpora la revisión de `experto-tejido` (ver la sección al final). Lo marcado "validar con tejedora" se confirma con tejedoras reales antes de cerrar la fase 2.
 
 - **Coordenadas**:
   - `(x, y)`, con `y = 0` como la primera fila o vuelta que se teje (ya estaba en ADR 0001);
   - `x = 0` es la columna de la izquierda **vista desde el derecho de la labor**, igual que en un gráfico impreso.
   - El documento siempre describe la labor como se ve por el derecho. Nunca se guarda espejada.
-- **Orden de lectura (derivado, no guardado)** (ET):
+  - **Convención**: la fila 1 (`y = 0`) se teje por el derecho. La v1 no permite declarar lo contrario.
+- **Orden de lectura (derivado, no guardado)**:
   - en redondo, todas las vueltas de derecha a izquierda;
-  - en ida y vuelta, las filas por el derecho (`y` par) de derecha a izquierda y las del revés de izquierda a derecha.
-  - Para zurdas (`profiles.dominant_hand = 'left'`) se espeja el orden de lectura en el modo tejiendo y en la ayuda, nunca en el documento.
-- **`direction`** (ET):
+  - en ida y vuelta, las filas por el derecho (`y` par) de derecha a izquierda y las del revés (`y` impar) de izquierda a derecha.
+  - En las filas por el revés, los puntos de colorwork se tejen al revés. El gráfico siempre muestra el aspecto por el derecho.
+  - **Numeración del gráfico** (`pattern-render`, `rowNumbers`): en ida y vuelta, las filas por el derecho se numeran a la derecha y las del revés a la izquierda; en redondo, todas a la derecha.
+- **Tejido en espejo (`mirror_knitting`)**:
+  - No se espeja por `profiles.dominant_hand = 'left'`: la mayoría de las zurdas teje igual que las diestras.
+  - Hay una preferencia aparte en el perfil, `mirror_knitting`, desactivada por defecto.
+  - Con espejo activado:
+    - las filas por el derecho se leen de izquierda a derecha y las del revés de derecha a izquierda;
+    - en redondo se invierte el sentido;
+    - en el futuro, se intercambian las inclinaciones de las disminuciones (capa de símbolos).
+  - El espejo afecta el modo tejiendo, la numeración y la ayuda, **nunca el documento**.
+- **`direction`**:
   - Solo afecta la vista previa, que muestra la pieza como se usa.
   - `bottom_up`: la fila 0 queda abajo.
-  - `top_down`: la fila 0 queda arriba y el punto se dibuja invertido.
+  - `top_down`: la pieza terminada se ve **rotada 180°** respecto del gráfico, `(x, y) → (W − 1 − x, H − 1 − y)` sobre el gráfico completo. No es un espejo vertical: el punto queda invertido y la columna izquierda pasa a la derecha. Aplicar la rotación dos veces devuelve el original.
   - El editor de motivo siempre muestra la fila 1 abajo, como es convención en los gráficos.
-  - En el círculo, `direction` decide si la fila 0 es el anillo exterior o el centro (ADR 0005).
+  - En el círculo, `direction` decide si la fila 0 es el anillo exterior o el centro, y el sentido de giro (ADR 0005).
 - **Repeticiones**:
   - El gráfico completo mide `width × repeat.x` por `height × repeat.y`.
   - Pintar una celda del gráfico completo escribe la celda del motivo `(x mod width, y mod height)`: editar una repetición edita todas.
@@ -64,6 +74,12 @@ Lo marcado con (ET) debe confirmarlo `experto-tejido` antes de implementarse.
   - No es un color de fondo: en plano y tubo se dibuja vacío.
   - El conteo de puntos de una fila es la cantidad de celdas distintas de `NO_STITCH`.
   - La herramienta "sin punto" es distinta del borrador que pinta la lana de fondo.
+  - **Matices**:
+    - El color del punto que resulta de una disminución no se puede expresar en v1. La vista usa el color de la fila `y`. Es una limitación visible.
+    - En plano y tubo se ven huecos que la prenda real no tiene, porque los puntos se juntan. La interfaz lo dice.
+    - `dimensionsCm` usa `width × repeat.x` aunque haya `NO_STITCH`. Se corrige así:
+      - en tubo y círculo, el ancho se rotula "circunferencia";
+      - en el círculo, la circunferencia sale del máximo de `rowStitchCount`, no del ancho del gráfico.
 - **`renderAs`**:
   - Solo afecta la vista; los conteos nunca dependen de él.
   - `yoke` sigue siendo un valor válido por compatibilidad, pero su geometría no está definida.
@@ -71,7 +87,19 @@ Lo marcado con (ET) debe confirmarlo `experto-tejido` antes de implementarse.
 - **`gauge`**:
   - Sigue siendo opcional.
   - Si falta, las vistas usan una **muestra supuesta**, derivada del grosor de la lana principal (`yarn-catalog`), y la interfaz la marca como "supuesto" (regla de oro 6).
+  - **Puntos**: el punto medio del rango del Craft Yarn Council.
+  - **Filas**: el CYC solo publica puntos. Las filas son un supuesto visible: `rowsPer10cm = round(puntos × 1,35)`, medido en punto jersey.
+    - En colorwork a hebras la proporción suele estar más cerca de 1,25 a 1,3 (validar con tejedora).
+  - **Tabla supuesta** (muestra en punto jersey, en 10 cm):
+
+    | Cat. | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 |
+    |---|---|---|---|---|---|---|---|---|
+    | Puntos | 37 | 30 | 25 | 23 | 18 | 14 | 9 | 6 |
+    | Filas | 50 | 41 | 34 | 31 | 24 | 19 | 12 | 8 |
+
+    - La categoría 7 es un tope ("6 o menos"), así que su supuesto tiene **baja confianza** y la interfaz lo indica.
   - La muestra supuesta no se escribe en el documento hasta que la usuaria la confirma.
+  - El validador también la usa: el umbral de hebras flotantes necesita una muestra aunque el documento no la tenga (`assumedGauge`, sección 4).
 
 ### 2. Funciones derivadas nuevas (puras, en `chart.ts`)
 
@@ -94,9 +122,21 @@ export interface RowShaping {
 }
 export function shaping(chart: Chart): RowShaping[];
 
-/** Orden de lectura de una fila (ver semántica). */
-export function readingDirection(chart: Chart, y: number): "right_to_left" | "left_to_right";
+/** Orden de lectura de una fila. Depende solo de `workedIn`, de `y` y del espejo. */
+export function readingDirection(
+  chart: Chart,
+  y: number,
+  opts?: { mirror?: boolean }, // preferencia mirror_knitting
+): "right_to_left" | "left_to_right";
+
+/** Celda que se ve en (x, y) de la pieza terminada: identidad en bottom_up, rotación de 180° en top_down. */
+export function wornOrientation(chart: Chart, x: number, y: number): { x: number; y: number };
+
+/** Medidas: en tubo y círculo, `widthCm` es la circunferencia; en el círculo sale del máximo de rowStitchCount. */
+export function dimensionsCm(chart: Chart, gauge: Gauge): { widthCm: number; heightCm: number; widthIsCircumference: boolean };
 ```
+
+`dimensionsCm` ya existe. Cambia su contrato: agrega `widthIsCircumference` y corrige el cálculo cuando hay máscara.
 
 ### 3. Operaciones de edición (puras, en `edit.ts` nuevo)
 
@@ -139,9 +179,35 @@ export function newChartPattern(input: NewChartInput): ChartPattern;
 |---|---|---|
 | `TITLE_LENGTH` | error | Título de 1 a 120 caracteres, igual que la columna `patterns.title` |
 | `CHART_RENDER_UNSUPPORTED` | info | `renderAs: "yoke"`: la vista previa todavía no lo dibuja |
-| `CHART_ROWS_SHAPE` | advertencia | Tubo o círculo con `workedIn: "rows"`: la pieza lleva costura |
+| `CHART_ROWS_SHAPE` | advertencia | Tubo o círculo con `workedIn: "rows"`. Mensaje: "se teje de ida y vuelta y se cose". El plano con ida y vuelta no avisa |
 | `CHART_ROW_EMPTY_FULL` | advertencia | Una fila del gráfico completo sin puntos (hoy solo se revisa el motivo) |
-| Reglas del círculo | ver ADR 0005 | Disminuciones, repeticiones y sentido |
+| `CHART_FLOAT_LONG` (ya existe, se corrige) | advertencia | Ver "Umbral de hebras flotantes" abajo |
+| `CHART_COLORS_PER_ROW` (ya existe) | info | Más de 2 lanas en una fila |
+| `YARNS_MIXED_WEIGHT` | info | Las lanas del diseño tienen distinto grosor CYC |
+| Reglas del círculo | ver ADR 0005 | Disminuciones, repeticiones, cierre e inicio |
+
+**Umbral de hebras flotantes**:
+
+- El máximo en puntos es `min(floor(2,5 cm × puntos en 10 cm / 10), 5)`.
+  - Fuentes: Interweave (2,5 cm) y Osborn Fiber (5 puntos).
+- Con la muestra supuesta de la tabla, por categoría 0 a 7 queda en 5, 5, 5, 5, 4, 3, 2 y 1. El valor nunca crece con el grosor.
+- El estudio guarda sin `gauge` mientras la usuaria no confirme la muestra. Sin un dato extra, el validador siempre usaría 5 fijo, así que `ValidateOptions` agrega dos opciones:
+
+  ```ts
+  /** Muestra supuesta (de yarn-catalog) cuando el documento no tiene `gauge`. No se escribe en el documento. */
+  assumedGauge?: Gauge;
+  /** Alternativa: grosor CYC de la lana principal, para que el validador derive el umbral sin depender de yarn-catalog. */
+  weightCat?: WeightCategory;
+  ```
+
+  - Prioridad: `gauge` del documento, después `assumedGauge`, después `weightCat`. Si no hay ninguno, el máximo es 5 puntos y no se informan cm.
+- El mensaje dice "conviene **enganchar** la hebra" (no "atraparla"), según el glosario pendiente del [roadmap](../roadmap.md#glosario-pendiente).
+
+**Aproximaciones** que la vista y la ayuda nombran pero no modelan en v1:
+
+- los orillos en ida y vuelta;
+- el desfase entre el final y el inicio de la vuelta en redondo (*jog*);
+- el plano tejido en redondo con *steek* (corte), que es legítimo. Reconocerlo es una mejora sugerida, no una validación de la fase 2.
 
 ### 5. Migraciones desde el día uno
 
@@ -182,3 +248,16 @@ export function newChartPattern(input: NewChartInput): ChartPattern;
   - `paintCells` seguido de `cellAt` devuelve el valor pintado en todas las repeticiones;
   - `removeYarn` nunca deja índices fuera de rango;
   - `reorderYarns` con una permutación conserva `yarnTotals` permutado.
+- Los casos de dominio para QA están en [docs/casos-dominio-colorwork.md](../casos-dominio-colorwork.md).
+
+## Revisión de experto-tejido (2026-11-05)
+
+El estado sigue aceptado. La revisión corrigió reglas sin cambiar la opción elegida (A):
+
+- **Lectura**: se confirmó `x = 0` y el orden de lectura. Se agregó la convención de que la fila 1 es por el derecho y la regla de numeración del gráfico.
+- **Zurdas**: ya no se espeja por `dominant_hand = 'left'`. Se agrega la preferencia `mirror_knitting`, desactivada por defecto, que requiere un campo nuevo en el perfil (tarea de `backend-supabase`).
+- **`top_down`**: es una rotación de 180°, `(x, y) → (W − 1 − x, H − 1 − y)`, no un espejo vertical. Se agrega `wornOrientation`.
+- **Muestra supuesta**: las filas se derivan con la proporción 1,35 como supuesto visible, con la tabla por grosor. La categoría 7 tiene baja confianza.
+- **`NO_STITCH`**: se agregan los matices sobre el color tras la disminución, los huecos en plano y tubo, y la circunferencia en `dimensionsCm`.
+- **Hebras flotantes**: el umbral queda con tope de 5 puntos. Se agregan `assumedGauge` y `weightCat` en `ValidateOptions`, el mensaje "enganchar", `CHART_FLOAT_LONG` y `CHART_COLORS_PER_ROW` en la tabla, y `YARNS_MIXED_WEIGHT`.
+- **`CHART_ROWS_SHAPE`**: se precisa el mensaje. Se mencionan como aproximaciones el *steek*, los orillos y el *jog*.

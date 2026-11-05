@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-05, agente `arquitecto`. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-05, agente `arquitecto`, con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -24,7 +24,7 @@ El orden original dejaba todo el modo tejiendo en la fase 6. Se propone adelanta
 2. **Contrato de `packages/follow`**:
    - El secuenciador se diseña con el caso simple (filas de un gráfico) y se prueba con datos reales antes de extenderlo al amigurumi punto a punto.
    - Así se evita diseñarlo solo desde el caso más complejo.
-3. **Producto usable antes**: la usuaria puede diseñar un gorro y tejerlo en la plataforma desde la fase 3, y las tejedoras pueden validar pronto la lectura de gráficos (derecha a izquierda, ida y vuelta, zurdas).
+3. **Producto usable antes**: la usuaria puede diseñar un gorro y tejerlo en la plataforma desde la fase 3, y las tejedoras pueden validar pronto la lectura de gráficos (derecha a izquierda, ida y vuelta, tejido en espejo).
 4. **La IA abre en un flujo completo**: en la fase 5, el gráfico generado desde una foto ya se puede editar y tejer.
 
 La fase 5 sigue siendo imagen → patrón, como fija [`docs/seguridad.md`](seguridad.md) para la subida de imágenes por el servidor (M3).
@@ -65,7 +65,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
   | `frontend-editor` | Estudio |
   | `catalogo-lanas` | Muestra sugerida con filas |
   | `backend-supabase` | Guardado y migración menor |
-  | `ux-accesibilidad` | Teclado, lector de pantalla, daltonismo, zurdas |
+  | `ux-accesibilidad` | Teclado, lector de pantalla, daltonismo, tejido en espejo |
   | `documentador` | Textos |
   | `devops` | CI y Playwright |
   | `qa-tester` | Pruebas |
@@ -89,7 +89,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
     - **Lanas guardadas** de la usuaria (`user_yarns`, ya existe la tabla) y nota privada.
     - **Metraje estimado por color**: `yarnTotals` × largo por punto según grosor y muestra, marcado como estimación.
   - **3B. Seguimiento de colorwork**:
-    - paquete `packages/follow`, primera versión: la secuencia de filas derivada del gráfico, con el orden de lectura de ADR 0003 y espejo para zurdas;
+    - paquete `packages/follow`, primera versión: la secuencia de filas derivada del gráfico, con el orden de lectura de ADR 0003 y el espejo opcional del perfil (`mirror_knitting`, desactivado por defecto; no depende de `dominant_hand`);
     - pantalla "Tejiendo" con la fila actual resaltada en el gráfico y en la vista previa, avanzar y retroceder, y contador de filas y repeticiones;
     - "Tejer este diseño": crea un proyecto, fija una versión con `snapshot_pattern()` y guarda el puntero en `project_progress`.
 - **Paquetes**: `yarn-catalog`, `stitch-render`, `pattern-core` (metraje), `follow` (nuevo), `apps/web`, `supabase/`.
@@ -113,7 +113,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
   - el metraje se muestra siempre como estimación;
   - el puntero de un proyecto sobrevive a recargar y a cambiar de dispositivo;
   - las propiedades de `follow` pasan, por ejemplo: la cantidad de pasos es igual a la cantidad de filas del gráfico completo, y avanzar y retroceder son inversas;
-  - `experto-tejido` aprueba la lectura para diestras y zurdas.
+  - `experto-tejido` aprueba la lectura con y sin espejo, y las tejedoras la validan.
 
 ## Fase 4: Estudio amigurumi 3D
 
@@ -128,7 +128,9 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
     - geometría derivada de los conteos por vuelta (radio por vuelta según la muestra) y color por punto;
     - partes posicionadas a mano en la v1;
     - con react-three-fiber. Las dependencias nuevas (`three`, `@react-three/fiber`) se justifican en el PR.
-  - **Paquete `glossary`**: nombres completos y abreviaturas en US, UK y variantes en español, reutilizando `stitches.ts`.
+  - **Paquete `glossary`**:
+    - nombres completos y abreviaturas en US, UK y variantes en español, reutilizando `stitches.ts`;
+    - implementa las decisiones del [glosario pendiente](#glosario-pendiente), una vez validadas con tejedoras.
   - **Notas de armado** en el modelo (`assembly`, ya existe).
   - **ADR nuevo**:
     - geometría 3D derivada de las vueltas;
@@ -217,7 +219,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
   | `modo-tejiendo` | `follow` y pantalla "Tejiendo" |
   | `visor-3d` | 3D parcial |
   | `backend-supabase` | Migración de `project_progress` |
-  | `ux-accesibilidad` | Uso con una mano, zurdas, tamaño de letra |
+  | `ux-accesibilidad` | Uso con una mano, tejido en espejo (`mirror_knitting`), tamaño de letra |
   | `qa-tester` | Pruebas |
   | `experto-tejido` | Validación del dominio |
 
@@ -307,7 +309,13 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 
   La biblioteca completa es de la fase 3.
 - **Vista previa realista** (`stitch-render`) en plano, tubo (con rotación) y círculo, con zoom y desplazamiento.
-- **Muestra**: puntos y filas en 10 cm. Si falta, se usa una muestra supuesta marcada como tal. Se muestran las medidas resultantes en cm (`dimensionsCm`).
+- **Muestra**: puntos y filas en 10 cm, rotulada "muestra en punto jersey".
+  - Si falta, se usa una muestra supuesta marcada como tal:
+    - los puntos son el punto medio del rango CYC;
+    - las filas, `round(puntos × 1,35)`;
+    - la categoría 7 lleva una advertencia de baja confianza;
+    - ver la tabla en [docs/casos-dominio-colorwork.md](casos-dominio-colorwork.md).
+  - Se muestran las medidas resultantes en cm (`dimensionsCm`). En tubo y círculo, el ancho se rotula "circunferencia".
 - **Conteos por vuelta y disminuciones por repetición** en el círculo (`shaping`), derivados de la máscara.
 - **Panel de validación**: hebras flotantes largas, más de 2 colores por fila y reglas del círculo, con la fila o celda resaltada.
 - **Aviso permanente de prototipo digital** (regla de oro 8): "La vista es una aproximación. Teje una muestra para comprobar la muestra y las proporciones."
@@ -343,7 +351,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 | HU-05 | Ingreso mi muestra. Si no la tengo, veo una sugerida, claramente marcada como supuesto. |
 | HU-06 | Elijo si tejo en redondo o de ida y vuelta, y de abajo hacia arriba o de arriba hacia abajo, y la vista lo refleja. |
 | HU-07 | Agrego, cambio y quito lanas del diseño (color de la paleta o personalizado, grosor y composición). |
-| HU-08 | Veo las advertencias (hebras sueltas largas, demasiados colores por fila, copa que no cierra) señaladas en el gráfico. |
+| HU-08 | Veo las advertencias (hebras flotantes largas, demasiados colores por fila, coronilla que no cierra, disminuciones imposibles) señaladas en el gráfico. |
 | HU-09 | Deshago y rehago cualquier cambio. |
 | HU-10 | Mi diseño se guarda solo, puedo guardar una versión con nombre y lo encuentro en "Mis diseños". Si lo edité en otro dispositivo, se me avisa en vez de perder cambios. |
 | HU-11 | Uso el editor con teclado o lector de pantalla, y distingo las lanas aunque no distinga bien los colores. |
@@ -381,6 +389,9 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 | CA-F8 | "Guardar versión" crea una fila en `pattern_versions`. El autoguardado no crea ninguna |
 | CA-F9 | Deshacer y rehacer funcionan para pintar, rellenar, "sin punto", cambiar el tamaño, las repeticiones y las lanas, y cambiar forma, dirección y muestra |
 | CA-F10 | El aviso de prototipo digital está visible en el estudio en todas las formas y no se puede cerrar de forma permanente |
+| CA-F11 | Los 27 casos de [docs/casos-dominio-colorwork.md](casos-dominio-colorwork.md) tienen prueba automática y pasan. Los marcados "validar con tejedora" pasan con el valor actual y quedan señalados en la prueba |
+| CA-F12 | Sin `gauge` en el documento, el umbral de hebras flotantes sale de la muestra supuesta (`assumedGauge` o `weightCat`), no del 5 fijo |
+| CA-F13 | En plano y tubo, la interfaz aclara que los huecos de "sin punto" no existen en la prenda real |
 
 **Accesibilidad**
 
@@ -396,20 +407,30 @@ Detalle en el [ADR 0003](adr/0003-colorwork-en-esquema-v1.md) y el [ADR 0005](ad
 
 - **Sin cambio de forma del documento** (`schemaVersion` sigue en 1). Motivo, repeticiones, muestra, dirección, máscara (`NO_STITCH`) y forma ya existen.
 - **Semántica precisada**:
-  - `x = 0` es la izquierda vista desde el derecho;
-  - el orden de lectura se deriva, con espejo para zurdas solo en la vista;
-  - `direction` decide la orientación de la vista previa y, en el círculo, si la fila 0 es el borde o el centro;
+  - `x = 0` es la izquierda vista desde el derecho, y la fila 1 se teje por el derecho;
+  - el orden de lectura se deriva. El espejo opcional `mirror_knitting` (preferencia del perfil, desactivada por defecto) afecta solo la vista, nunca el documento, y no depende de `dominant_hand`;
+  - `direction`:
+    - `top_down` muestra la pieza rotada 180°, `(x, y) → (W − 1 − x, H − 1 − y)`;
+    - en el círculo decide si la fila 0 es el borde o el centro, y el sentido de giro: antihorario en `bottom_up` y horario en `top_down` (validar con tejedora);
+  - `NO_STITCH` tiene matices visibles:
+    - el color del punto tras una disminución no se expresa;
+    - en plano y tubo se ven huecos que la prenda no tiene;
+    - en tubo y círculo, el ancho es una circunferencia;
   - `yoke` es válido, pero sin vista propia todavía.
-- **Derivados nuevos**: `motifCoord`, `rowStitchCount`, `rowStitchCounts`, `shaping`, `readingDirection`.
+- **Derivados nuevos**: `motifCoord`, `rowStitchCount`, `rowStitchCounts`, `shaping`, `readingDirection` (con `mirror`), `wornOrientation`. Se corrige `dimensionsCm` (circunferencia con máscara).
 - **Operaciones puras nuevas** (`edit.ts`): `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn`, `reorderYarns`, `newChartPattern`.
 - **Migraciones**: `migratePattern` (identidad para v1), en el camino de toda lectura.
-- **Validaciones nuevas**:
-  - `TITLE_LENGTH`;
-  - `CHART_RENDER_UNSUPPORTED`;
-  - `CHART_ROWS_SHAPE`;
-  - `CHART_ROW_EMPTY_FULL`;
-  - reglas del círculo: `CHART_CIRCLE_REPEATS`, `CHART_CIRCLE_REPEAT_Y`, `CHART_SHAPING_UNEXPECTED`, `CHART_SHAPING_STEEP` y `CHART_CIRCLE_NOT_CLOSED`.
-- **En `yarn-catalog`**: `suggestedGauge` también devuelve `rowsPer10cm`, con la proporción filas/puntos que confirme `experto-tejido`. Hoy solo devuelve puntos, y la vista previa necesita las dos medidas para la proporción del punto.
+- **Validaciones nuevas o corregidas** (ADR 0003 y 0005):
+  - `TITLE_LENGTH`, `CHART_RENDER_UNSUPPORTED`, `CHART_ROWS_SHAPE`, `CHART_ROW_EMPTY_FULL`, `YARNS_MIXED_WEIGHT`;
+  - `CHART_FLOAT_LONG`:
+    - máximo de `min(floor(2,5 × puntos / 10), 5)` puntos;
+    - usa `assumedGauge` o `weightCat` cuando el documento no tiene `gauge`;
+    - el mensaje dice "enganchar";
+  - en todas las formas: `CHART_SHAPING_IMPOSSIBLE` (error) y `CHART_SHAPING_TOO_FAST`;
+  - en el círculo: `CHART_SHAPING_STEEP`, `CHART_SHAPING_UNEXPECTED`, `CHART_CIRCLE_REPEATS` (4 a 12), `CHART_WEDGE_TOO_NARROW`, `CHART_CIRCLE_REPEAT_Y` (solo con máscara), `CHART_CIRCLE_NOT_CLOSED` (por total: más de 16 o más de 24) y `CHART_CIRCLE_START`.
+- **En `yarn-catalog`**:
+  - `suggestedGauge` también devuelve `rowsPer10cm = round(puntos × 1,35)`, rotulado como supuesto en punto jersey. La categoría 7 tiene baja confianza. Hoy solo devuelve puntos, y la vista previa necesita las dos medidas para la proporción del punto;
+  - limpieza de alias de `grosores.json` según la regla de oro 9 (T3).
 
 ### Paquetes nuevos y su contrato
 
@@ -424,9 +445,9 @@ Contrato de `pattern-render`:
 export interface ChartSvgOptions {
   cellPx?: number;          // por defecto 16
   showRepeats?: boolean;    // marca los bordes del motivo
-  rowNumbers?: boolean;     // numeración según workedIn y lectura (ADR 0003)
+  rowNumbers?: boolean;     // ida y vuelta: derecho a la derecha, revés a la izquierda; en redondo, todas a la derecha (ADR 0003)
   symbols?: boolean;        // letra por lana (daltonismo)
-  mirror?: boolean;         // zurdas: solo la numeración y las flechas de lectura
+  mirror?: boolean;         // preferencia mirror_knitting: solo la numeración y las flechas de lectura
 }
 export function chartToSvg(pattern: ChartPattern, opts?: ChartSvgOptions): string;
 /** Descripción en español para lectores de pantalla. */
@@ -502,12 +523,11 @@ Hay **una migración menor recomendada**: agregar `document ->> 'title' = title`
 | R1 | El círculo y el tubo con Canvas 2D (una transformación por punto) no cumplen 100 ms | Interfaz de backend reemplazable. Pasar a WebGL2 según el criterio del ADR 0004. Medir temprano (tarea T6) |
 | R2 | Documentos grandes superan 2 MB en la base o el límite de las Server Actions | Límite de 200 × 200 en la interfaz. Prueba del peor caso (T4). Codificación compacta como plan B (ADR 0003) |
 | R3 | Paquetes en TypeScript sin compilar, con imports `.ts` e imports JSON con atributos (`yarn-catalog`), en Next 16 y Turbopack | Prueba de concepto al inicio de T8. `pattern-core` ya funciona con `transpilePackages`; falta probar `yarn-catalog` |
-| R4 | La semántica de lectura y dirección no coincide con lo que esperan las tejedoras, y hay que rehacer trabajo | T1 (`experto-tejido`) antes de implementar. Los puntos marcados (ET) en los ADR quedan bloqueados hasta su aprobación |
-| R5 | Las usuarias esperan ver el tipo de disminución (2 juntos o deslizado) en la copa | Limitación visible en la interfaz y en la ayuda. Capa de símbolos en un ADR futuro |
-| R6 | `apps/web` todavía no tiene Vitest ni Playwright; sin ellos no se pueden medir los criterios de rendimiento | T13 (`devops`) agrega las dependencias, justificadas en el PR |
-| R7 | La CI no corre (repositorio movido) y `pnpm-lock.yaml` no está versionado, mientras la CI usa `--frozen-lockfile` | Versionar el lockfile y habilitar Actions antes de mezclar la fase 2. Lo coordina quien edita `ci.yml` |
-| R8 | Expectativa de realismo: la vista previa se confunde con el resultado real | Aviso permanente (CA-F10) y aviso de deformación en el círculo (ADR 0005) |
-| R9 | Conflictos de autoguardado entre pestañas | Concurrencia optimista y respaldo local (ADR 0006) |
+| R4 | Lo marcado "validar con tejedora" no coincide con lo que esperan las tejedoras reales: sentido de giro en el círculo, proporción 1,35 en colorwork, rango de repeticiones, ancho mínimo de cuña, umbrales de `ringDistortion`, terminología | `experto-tejido` ya revisó las reglas (T1). T1b valida con tejedoras antes de cerrar la fase. Los valores viven en constantes con nombre, para cambiarlos sin rediseñar |
+| R5 | Las usuarias esperan ver el tipo de disminución ("2 juntos al derecho", "inclinada a la izquierda") en la coronilla | Limitación visible en la interfaz y en la ayuda. Capa de símbolos en un ADR futuro |
+| R6 | Expectativa de realismo: la vista previa se confunde con el resultado real (huecos de "sin punto", color tras la disminución, orillos, *jog*) | Aviso permanente (CA-F10), aclaración de los huecos (CA-F13) y aviso de deformación en el círculo (ADR 0005) |
+| R7 | Conflictos de autoguardado entre pestañas | Concurrencia optimista y respaldo local (ADR 0006) |
+| R8 | Cambiar los alias de `grosores.json` cambia el SQL generado de datos de referencia, y la migración original ya está aplicada en el proyecto remoto | Hoy `scripts/gen-reference-sql.ts --write` **sobrescribe** `20261104010100_datos_referencia.sql`, y `reference-sql.test.ts` compara contra ese archivo. Eso choca con no editar migraciones aplicadas. Hay que cambiar el generador para que escriba una migración **nueva** de datos (idempotente, con `on conflict … do update`) y que la prueba compare contra la última (T3b) |
 
 ### Desglose de tareas
 
@@ -515,31 +535,69 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 | # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
 |---|---|---|---|---|---|
-| T0 | A | La usuaria aprueba o ajusta los ADR 0003 a 0006 | (usuaria) | — | — |
-| T1 | A | Validar la semántica marcada (ET): `x = 0`, orden de lectura y espejo para zurdas, `direction` en la vista, sentido antihorario en el círculo, umbrales de disminución, 5 a 10 repeticiones, copa cerrada, proporción filas/puntos por defecto, nombres de herramientas ("sin punto") | `experto-tejido` | Media (sonnet) | — |
-| T2 | B | `pattern-core`: derivados, `edit.ts`, `migrate.ts`, validaciones nuevas, pruebas de propiedades y actualización del README del paquete | `motor-patrones` | Alta (opus) | T0, T1 |
-| T3 | B | `yarn-catalog`: `suggestedGauge` con filas y pruebas | `catalogo-lanas` | Baja (haiku) | T1 |
+| T0 | A | **Hecha (2026-11-05).** La usuaria aprobó los ADR 0003 a 0006 | (usuaria) | — | — |
+| T1 | A | **Hecha (2026-11-05).** `experto-tejido` revisó la semántica y las reglas. Las correcciones están aplicadas en los ADR 0003 a 0005 y en [casos de dominio](casos-dominio-colorwork.md) | `experto-tejido` | Media (sonnet) | — |
+| T1b | A | Validar con tejedoras reales lo marcado "validar con tejedora" (sentido del círculo, proporción 1,35 en colorwork, repeticiones de 4 a 12, cuña mínima, `ringDistortion`) y el [glosario pendiente](#glosario-pendiente). Se cierra antes de T16 | `experto-tejido` con la usuaria | Media (sonnet) | T1 |
+| T2 | B | `pattern-core`: derivados (`motifCoord`, `rowStitchCount(s)`, `shaping`, `readingDirection` con `mirror`, `wornOrientation`), `edit.ts`, `migrate.ts`, pruebas de propiedades y actualización del README del paquete | `motor-patrones` | Alta (opus) | T0, T1 |
+| T2b | B | `validate.ts`: `assumedGauge` y `weightCat` en `ValidateOptions`; tope de 5 puntos en hebras flotantes; mensaje "enganchar"; `TITLE_LENGTH` (1 a 120 caracteres, como la columna); `CHART_RENDER_UNSUPPORTED` para `yoke` (hoy se acepta sin geometría ni aviso); `CHART_ROWS_SHAPE`; `CHART_ROW_EMPTY_FULL`; `YARNS_MIXED_WEIGHT`; `CHART_SHAPING_IMPOSSIBLE` y `TOO_FAST`; `WEDGE_TOO_NARROW`; cierre por total; `CIRCLE_START`; `REPEAT_Y` solo con máscara. Pruebas de los casos 8 a 18 y 21 a 23 | `motor-patrones` | Media (sonnet) | T2 |
+| T2c | B | `chart.ts`: `dimensionsCm` con circunferencia real cuando hay máscara (máximo de `rowStitchCount` en el círculo) y `widthIsCircumference`. Caso 20 | `motor-patrones` | Baja (haiku) | T2 |
+| T3 | B | `yarn-catalog`: `suggestedGauge` devuelve `rowsPer10cm = round(puntos × 1,35)` y una marca de baja confianza en la categoría 7. Caso 19. Limpieza de `grosores.json` (regla de oro 9): mover a la fuente los alias con nombre de tienda ("… en Orquídea", "… en Revés Derecho", "(Modista)") y quitar "Baby" y "Roving" de las equivalencias. Los nombres en español no cambian hasta T1b | `catalogo-lanas` | Baja (haiku) | T1 |
+| T3b | B | Generador de datos de referencia: escribir una migración nueva e idempotente en vez de sobrescribir la ya aplicada; ajustar `reference-sql.test.ts`; aplicar los alias limpios de T3 | `backend-supabase` | Media (sonnet) | T3 |
+| T3c | B | Perfil: columna `profiles.mirror_knitting boolean not null default false`, con permiso de UPDATE por columna y verificación en `10_rls_check.sql`. Interruptor "Tejer en espejo" en `/cuenta` | `backend-supabase` (migración) y `frontend-editor` (interruptor) | Media (sonnet) / Baja (haiku) | T0 |
+| T3d | B | `packages/ai-router` como paquete del workspace: `package.json`, `router.config.ts` a `src/` (así entra en `tsc -p tsconfig.json`), corrección de `model: MODEL_LADDER[capped]` (con `noUncheckedIndexedAccess` es `ModelId \| undefined`) y pruebas de `selectModel`. Actualizar `pnpm-lock.yaml`, porque la CI instala con `--frozen-lockfile` | `ia-pipeline` | Baja (haiku) | — |
 | T4 | B | Migración de consistencia del título, verificación en `10_rls_check.sql`, prueba del peor tamaño de documento. Capa de datos y Server Actions: crear, guardar con `expectedUpdatedAt`, guardar versión, listar, duplicar y borrar | `backend-supabase` | Media (sonnet) | T0 (el guardado necesita T2 para validar) |
-| T5 | C | `stitch-render`: disposición (plano, tubo, círculo) y `yarnLook` neutro, con pruebas de propiedades y la guardia de rendimiento en Node | `render-puntos` | Alta (opus) | T2 |
+| T5 | C | `stitch-render`: disposición (plano, tubo, círculo; `top_down` como rotación de 180°; sentido de giro según la dirección; V abierta hacia donde crece la labor) y `yarnLook` neutro, con pruebas de propiedades (casos 5, 26 y 27) y la guardia de rendimiento en Node | `render-puntos` | Alta (opus) | T2 |
 | T6 | C | `stitch-render`: backend Canvas 2D, redibujo incremental, `hitTest`, `snapshot` y página de benchmark | `render-puntos` | Alta (opus) | T5 |
-| T7 | C | `pattern-render`: `chartToSvg` y `describeChart`, con pruebas | `motor-patrones` | Media (sonnet) | T2 |
-| T8 | C | Web: prueba de concepto de paquetes TS en Next, `transpilePackages`, almacén del documento con historial para deshacer, autoguardado, rutas `/disenos` y `/disenos/nuevo` | `frontend-editor` | Media (sonnet) | T2, T4 |
+| T7 | C | `pattern-render`: `chartToSvg` (numeración según el caso 25) y `describeChart`, con pruebas | `motor-patrones` | Media (sonnet) | T2 |
+| T8a | C | Web: agregar `@loopitalab/yarn-catalog` (y luego `stitch-render` y `pattern-render`) a `transpilePackages` en `next.config.ts` y a las dependencias de `apps/web`. Prueba de concepto de que los imports JSON con atributos (`with { type: "json" }`) compilan en Next 16 | `frontend-editor` | Baja (haiku) | — |
+| T8 | C | Web: almacén del documento con historial para deshacer, autoguardado, rutas `/disenos` y `/disenos/nuevo` | `frontend-editor` | Media (sonnet) | T2, T4, T8a |
 | T9 | D | Web: editor de motivo en canvas (herramientas, teclado, numeración, letras por lana) y paneles (repeticiones, forma, dirección, muestra, lanas mínimas, validación, aviso de prototipo) | `frontend-editor` | Media (sonnet) | T7, T8 |
 | T10 | D | Integrar la vista previa en el estudio. Instrumentación `edit-to-paint`. Cumplir CA-P1 a CA-P4 y CA-P7 | `render-puntos` con `frontend-editor` | Alta (opus) | T6, T9 |
-| T11 | D | Accesibilidad: teclado, lector de pantalla, daltonismo, zurdas y tableta (CA-A1 a CA-A3) | `ux-accesibilidad` | Media (sonnet) | T9 |
-| T12 | D | Textos de la interfaz, aviso de prototipo, ayuda del estudio y explicación de la limitación de las disminuciones | `documentador` | Baja (haiku) | T1 |
-| T13 | B | Vitest y Playwright en `apps/web` (dependencias justificadas). Jobs de CI para `stitch-render`, `pattern-render` y el E2E de latencia (coordinado con quien edita `ci.yml`) | `devops` | Media (sonnet) | — |
-| T14 | E | QA: propiedades, E2E funcional y de latencia. Revisión con opus de T2, T5, T6 y T10 (no se revisa con un modelo inferior cuando la complejidad es alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10, T11, T13 |
-| T15 | E | Revisión de seguridad: Server Actions de guardado (validación en el servidor, tamaño, concurrencia, RLS) y la migración | `revisor-seguridad` | Media (sonnet) | T4, T8 |
-| T16 | E | Revisión final de la lógica de tejido: conteos, disminuciones, lectura y textos | `experto-tejido` | Media (sonnet) | T14 |
+| T11 | D | Accesibilidad: teclado, lector de pantalla, daltonismo, tejido en espejo y tableta (CA-A1 a CA-A3) | `ux-accesibilidad` | Media (sonnet) | T9 |
+| T12 | D | Textos de la interfaz con la terminología del [glosario pendiente](#glosario-pendiente) (provisional hasta T1b): aviso de prototipo, ayuda del estudio, limitación de las disminuciones, huecos de "sin punto", muestra supuesta en punto jersey | `documentador` | Baja (haiku) | T1 |
+| T13 | B | Jobs de CI para `stitch-render`, `pattern-render` y `ai-router`, y el E2E de latencia con Playwright (coordinado con quien edita `ci.yml`). Vitest, Playwright y el lockfile ya están resueltos en esta rama | `devops` | Media (sonnet) | — |
+| T14 | E | QA: propiedades, los 27 casos de dominio (CA-F11), E2E funcional y de latencia. Revisión con opus de T2, T5, T6 y T10 (no se revisa con un modelo inferior cuando la complejidad es alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10, T11, T13 |
+| T15 | E | Revisión de seguridad: Server Actions de guardado (validación en el servidor, tamaño, concurrencia, RLS) y las migraciones (título, `mirror_knitting`, datos de referencia) | `revisor-seguridad` | Media (sonnet) | T3b, T3c, T4, T8 |
+| T16 | E | Revisión final de la lógica de tejido: conteos, disminuciones, lectura y textos | `experto-tejido` | Media (sonnet) | T1b, T14 |
 | T17 | E | Actualizar el README (estado de la fase 2), este roadmap y los ADR a "aceptada" con las enmiendas que hayan surgido | `arquitecto` + `documentador` | Baja (haiku) | T16 |
 
 ### Criterios de salida de la fase 2
 
 - CA-P1 a CA-P7, CA-F1 a CA-F10 y CA-A1 a CA-A3 cumplidos, con la evidencia en el PR (mediciones, capturas de las tres formas, informe de QA).
-- `pnpm test` y `pnpm typecheck` en verde, y la CI corriendo de verdad en el repositorio nuevo.
+- `pnpm test` y `pnpm typecheck` en verde (incluido `ai-router`), y la CI corriendo de verdad en el repositorio nuevo.
+- T1b cerrada: lo marcado "validar con tejedora" está confirmado o corregido.
 - `experto-tejido`, `qa-tester` y `revisor-seguridad` aprueban.
 - Los ADR 0003 a 0006 quedan en estado "aceptada" o enmendados.
+
+---
+
+## Glosario pendiente
+
+Estas son decisiones de terminología de la revisión de `experto-tejido` (2026-11-05). **Todas deben validarse con tejedoras reales** antes de publicarse (regla de oro 5).
+
+- **Fase 2**: los textos las usan de forma provisional (T12).
+- **Fase 4**: se implementan en `packages/glossary`, con variantes regionales configurables.
+- **Fase 7**: quedan cerradas antes del lanzamiento.
+
+| Tema | Propuesta | Alias o notas |
+|---|---|---|
+| Unidad de la cuadrícula | "casilla" en la interfaz (no "celda") | En el código y en los ADR se sigue diciendo *cell* o celda |
+| Vuelta o fila | "vuelta" con `workedIn: "rounds"`; "fila" con `workedIn: "rows"` | Mismo dato, distinta palabra según cómo se teje |
+| Lados y puntos | "lado revés" y "punto revés" | — |
+| Abreviatura de puntos | "pts" (no "p") | "p" se confunde con *purl* (revés) |
+| Disminuciones | "2 juntos al derecho"; "inclinada a la izquierda (desliza, desliza, teje)" | Reemplaza "deslizado". Solo aparecen cuando exista la capa de símbolos |
+| Cierre del círculo | "coronilla" o "remate" | "copa" como alias |
+| Cuña | "cuña" | "gajo" como alias |
+| Colorwork | Subtítulo "Tejido de colores (jacquard)" | — |
+| Hebras | Un solo término: "hebras flotantes" | No usar "hebras sueltas" |
+| Fijar una hebra larga | "enganchar" o "entrelazar" la hebra | No "atrapar" (hoy aparece en `validate.ts`; se corrige en T2b) |
+| Muestra | "muestra" | Alias regional: "tensión" |
+| Lana | "lana" | Alias: "hilado", "hilo" |
+| Crochet | "crochet" | Alias: "ganchillo", "croché" |
+| Palillo | "palillo" | Alias: "aguja" |
+| Punto jersey | "punto jersey" | Alias: "punto media" |
+| Nombres de grosores 0 a 7 | Rotular como "nombres de LoopitaLab": el CYC no publica nombres en español | "Abultado" es poco común. Las tiendas usan "Grueso" y "Súper Grueso", y en Chile se dice "Mediano" para la categoría 4. Tilde uniforme en "Súper" |
+| Alias de tienda en `grosores.json` | Mover el origen ("… en Orquídea", "… en Revés Derecho", "(Modista)") al campo de fuente (regla de oro 9) | Quitar "Baby" y "Roving": son nombres comerciales que aparecen en dos categorías (T3) |
 
 ---
 
@@ -550,7 +608,7 @@ Aprobadas por la usuaria el 2026-11-05:
 1. **ADR 0003 a 0006 aceptados**:
    - 0003: no subir `schemaVersion` en la fase 2 y dejar tallas, secciones y símbolos para después;
    - 0004: Canvas 2D primero, con WebGL2 como plan B;
-   - 0005: disminuciones derivadas de la máscara, sin tipo ni inclinación. Las reglas (ET) se confirman con `experto-tejido` antes de implementarse;
+   - 0005: disminuciones derivadas de la máscara, sin tipo ni inclinación. Las reglas (ET) se confirman con `experto-tejido` antes de implementarse. La revisión se aplicó el 2026-11-05; lo que queda "validar con tejedora" va en T1b;
    - 0006: guardado y migración del título.
 2. **El seguimiento de colorwork fila a fila se adelanta a la fase 3** (en vez de la fase 6).
 3. **Límite del motivo en la interfaz de la fase 2: 200 × 200.**

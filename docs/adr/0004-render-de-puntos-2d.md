@@ -86,6 +86,19 @@ export function hitTest(layout: StitchLayout, px: number, py: number): number | 
 
 Pintar con `NO_STITCH`, o quitarlo, cambia la máscara. En plano y tubo basta con colorear (la instancia queda oculta o visible). En círculo hay que recalcular la geometría, porque cambian los conteos por vuelta.
 
+**Dirección**:
+
+- En `bottom_up`, la disposición usa el gráfico tal cual.
+- En `top_down`, la pieza se dibuja **rotada 180°**: la celda `(x, y)` del gráfico completo va a la posición `(W − 1 − x, H − 1 − y)`, con `W` y `H` del gráfico completo, y la V se dibuja girada 180°.
+- No es un espejo vertical. La correspondencia la da `wornOrientation` de `pattern-core` (ADR 0003); `stitch-render` no la reimplementa.
+- En el círculo, la dirección se aplica según el ADR 0005.
+
+**Aspecto de la vista**:
+
+- En plano y tubo, los huecos de `NO_STITCH` no existen en la prenda real. La interfaz lo aclara junto a la vista previa.
+- El punto que resulta de una disminución toma el color de la fila `y`. Es una aproximación de v1.
+- Los orillos y el desfase de vuelta en redondo (*jog*) no se dibujan.
+
 ### Capa 2: aspecto de la lana (pura)
 
 ```ts
@@ -186,6 +199,15 @@ Implementación de Canvas 2D:
 - La geometría de las tres formas es una función pura con pruebas de propiedades. Por ejemplo:
   - `count` es igual a `stitchTotal(chart)`;
   - toda instancia tiene la lana de `cellAt`;
-  - en el círculo, los ángulos de cada anillo cubren la vuelta completa.
+  - en el círculo, los ángulos de cada anillo cubren la vuelta completa;
+  - en `top_down`, aplicar la rotación dos veces devuelve la disposición de `bottom_up`.
 - La previsualización al pasar el cursor (fase 3) y el resaltado de fila (fases 3 y 6) ya tienen lugar en la interfaz: no obligan a rediseñar.
 - `render-puntos` entrega la medición como parte del PR de la fase 2.
+
+## Revisión de experto-tejido (2026-11-05)
+
+El estado sigue aceptado. La arquitectura de render y el presupuesto de 100 ms no cambian. Lo corregido:
+
+- **`top_down`**: la pieza se dibuja rotada 180° (`(x, y) → (W − 1 − x, H − 1 − y)`), no espejada en vertical. La correspondencia viene de `wornOrientation` de `pattern-core`.
+- **Aproximaciones visibles**: los huecos de `NO_STITCH` en plano y tubo, el color del punto tras una disminución, y los orillos y el *jog* que no se dibujan.
+- **Círculo**: el sentido de giro y la orientación de la V se corrigieron en el ADR 0005.
