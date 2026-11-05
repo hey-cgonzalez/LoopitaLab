@@ -28,7 +28,7 @@
 
 | Hallazgo | Corrección | Dónde |
 |---|---|---|
-| F2-M1. El tope de subidas se saltaba borrando filas propias | Sin DELETE del cliente en `uploads` ni en `storage.objects`. Los topes cuentan sobre `rate_events`, bitácora de solo inserción que el cliente no ve | Migración `20261105010000_denuncias_y_derechos.sql` |
+| F2-M1. El tope de subidas se saltaba borrando filas propias | Sin DELETE del cliente en `uploads` ni en `storage.objects`. Los topes cuentan sobre `rate_events`, bitácora de solo inserción que el cliente no ve | Migración `20261105133225_denuncias_y_derechos.sql` |
 | F2-M2. Intentos fallidos sin límite y sin control de concurrencia | `begin_operation` cobra el intento antes de procesar (60 intentos y 30 imágenes por día). Una subida a la vez por usuaria (`operation_locks`, vence en 2 min). Semáforo de 2 re-codificaciones por instancia. Límite de 24 MP | Migración, `api/_lib/operations.ts`, `api/_lib/semaphore.ts` |
 | F2-M3. Exportación sin tope en memoria | Streaming tabla por tabla; si una tabla falla, la descarga se corta (nunca un JSON válido incompleto). Una a la vez y 5 por día | `api/cuenta/exportar/route.ts` |
 | F2-M4. Re-verificación de contraseña desde el servidor compartía el límite por IP | La contraseña se verifica en el navegador (con CAPTCHA). El servidor exige una autenticación `password` en `amr` de los últimos 5 minutos | `lib/recovery.ts`, `YourData.tsx`, `NewPasswordForm.tsx` |
@@ -61,7 +61,7 @@
 
 | Tema | Cuándo | Qué hacer |
 |---|---|---|
-| Aplicar la migración `20261105010000_denuncias_y_derechos.sql` | Antes de usar las rutas nuevas | Activar pg_cron **antes** (Database > Extensions) para que se programe la purga; si se activa después: `select cron.schedule('loopitalab-purga-diaria', '17 4 * * *', 'select public.purge_expired_data()');`. Luego `npx supabase db push` y correr `10_rls_check.sql` sobre la base real. Configurar `SUPABASE_SECRET_KEY` (solo servidor) en `.env.local` y en el hosting: la necesitan subir, exportar y eliminar |
+| Clave secreta del servidor | Antes de usar las rutas nuevas | La migración `20261105133225_denuncias_y_derechos.sql` ya está aplicada en el proyecto real (2026-11-05, con pg_cron activo y la purga programada) y `10_rls_check.sql` pasó sobre esa base. Falta configurar `SUPABASE_SECRET_KEY` (solo servidor) en `.env.local` y en el hosting: la necesitan subir, exportar y eliminar. Si se recrea el proyecto: activar pg_cron **antes** de aplicar la migración, o programar la purga a mano con `select cron.schedule('loopitalab-purga-diaria', '17 4 * * *', 'select public.purge_expired_data()');` |
 | Comprobaciones en la base real | Al aplicar la migración | Que un token emitido antes del bloqueo deja de servir en `getUser`; que los JWT traen `session_id` (sin él la re-autenticación falla siempre, de forma cerrada); que `amr[].timestamp` no cambia con un refresh |
 | Mitigar F2-M7 | Antes de cualquier beta con personas externas | Authentication > Emails: activar la notificación de "contraseña cambiada". Authentication > Sessions: tiempo máximo de sesión e inactividad. Evaluar MFA. Probar el escenario contra la versión de Auth del proyecto |
 | Purga programada (F2-B18) | Al aplicar la migración y en cada despliegue | Comprobar `select 1 from cron.job where jobname = 'loopitalab-purga-diaria'`. Sin esa tarea, `/privacidad` promete plazos (30 y 180 días) que no se cumplen |

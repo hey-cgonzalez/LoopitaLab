@@ -19,7 +19,7 @@ import { isSameSite, jsonError, jsonOk, readBody } from "../../_lib/request";
  *    mientras se borra.
  * 4. Borra los archivos de Storage (Storage no tiene cascada desde auth.users).
  * 5. Borra la usuaria con la clave secreta; la base borra el resto en cascada
- *    (ver supabase/migrations/20261105010000_denuncias_y_derechos.sql).
+ *    (ver supabase/migrations/20261105133225_denuncias_y_derechos.sql).
  * 6. Vuelve a listar la carpeta y borra lo que haya quedado (una subida que terminó a mitad).
  * 7. Borra las cookies de sesión.
  */
