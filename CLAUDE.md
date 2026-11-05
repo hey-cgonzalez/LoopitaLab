@@ -78,7 +78,7 @@ Reglas adicionales:
 - **3D**: Three.js (vía react-three-fiber).
 - **Backend**: Supabase (Postgres, Auth, Storage, Row Level Security, Edge Functions).
 - **IA**: API de Anthropic (Claude) con router propio en `packages/ai-router`.
-- **Node**: 22.18 o superior (ejecuta TypeScript directamente; los imports internos llevan extensión `.ts`).
+- **Node**: 24 LTS, fijado en `.nvmrc` (mínimo 22.18; ejecuta TypeScript directamente; los imports internos llevan extensión `.ts`).
 - **Procesamiento de imagen determinista**: en servidor (cuantización de color, pixelado, mapeo a paleta).
 - **Pruebas**: núcleo (`pattern-core`, `yarn-catalog`) sin dependencias, con `node:test` y pruebas de propiedades con semilla (ADR 0002); interfaz con Vitest y Playwright (E2E).
 - **Gestor de paquetes**: pnpm con monorepo (Turborepo).

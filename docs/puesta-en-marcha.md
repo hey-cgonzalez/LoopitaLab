@@ -52,10 +52,15 @@ El correo que trae Supabase por defecto tiene un límite bajo de envíos por hor
 
 ## 3. Levantar la web
 
+El proyecto usa Node 24 LTS (mínimo 22.18), fijado en `.nvmrc`. Antes de instalar, activa esa versión:
+
 ```
+nvm use
 pnpm install
 cp apps/web/.env.example apps/web/.env.local
 ```
+
+> Con Node anterior a 22.18, `pnpm test` falla: esas versiones no ejecutan TypeScript directamente, y las pruebas del núcleo corren los archivos `.ts` sin compilar (ADR 0002). Revisa con `node --version`.
 
 Completa `apps/web/.env.local` con la URL del proyecto y la clave publicable (`sb_publishable_…`). Esa clave es pública por diseño: lo que protege los datos son las políticas RLS. La clave secreta (`sb_secret_…`) **nunca** va en un archivo del front ni con prefijo `NEXT_PUBLIC_`.
 
@@ -75,4 +80,4 @@ Abre http://localhost:3000, crea una cuenta, confirma el correo y crea un proyec
 
 GitHub Actions (`.github/workflows/ci.yml`) corre las tres cosas en cada pull request: pruebas, tipos y build de la web, y migraciones con RLS en PostgreSQL 16.
 
-> **Estado al 2026-11-05:** el repositorio se movió a `hey-cgonzalez/LoopitaLab`. En la cuenta anterior la CI nunca corrió porque la facturación de GitHub estaba bloqueada ("Startup failure"). En el repositorio nuevo, revisar que Actions esté habilitado (Settings > Actions). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter web build`.
+> **Estado al 2026-11-05:** el repositorio se movió a `hey-cgonzalez/LoopitaLab`. En la cuenta anterior la CI nunca corrió porque la facturación de GitHub estaba bloqueada ("Startup failure"). En el repositorio nuevo, revisar que Actions esté habilitado (Settings > Actions). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter @loopitalab/web build`.

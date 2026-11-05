@@ -20,7 +20,7 @@ Un patrón es un único documento JSON versionado (`schemaVersion: 1`). Todas la
 | `id`, `title` | Identificación |
 | `technique` | `knit` (palillo) o `crochet` |
 | `kind` | `chart` (gráfico) o `written` (escrito por partes) |
-| `yarns` | Lanas del diseño: `id` corto (A, B…), grosor CYC 0–7, composición `{fiber, percent}[]` que suma 100, color `{hex, paletteId?}`, nombre libre opcional |
+| `yarns` | Lanas del diseño: `id` corto (A, B…), grosor CYC 0–7, composición `{fiber, percent}[]` que suma 100, color `{hex, paletteId?}`, nota libre privada opcional (`note`, nunca se publica) |
 | `gauge` | Muestra opcional: puntos y filas en 10 cm |
 | `origin` | `manual`, `ai` o `ai_edited`; si hay IA, modelo y versión de prompt |
 
@@ -65,3 +65,9 @@ Se eligieron índices en vez de identificadores de lana por compacidad: un gráf
 - Toda edición es una operación sobre el modelo; la interfaz nunca calcula conteos.
 - El validador puede revisar cualquier patrón, venga de la interfaz o de la IA, con las mismas reglas.
 - Agregar palillo escrito, la forma de canesú u otros puntos requiere `schemaVersion: 2` y una migración.
+
+## Notas posteriores (2026-11-05)
+
+- La lana no tiene un "nombre libre". Tiene `note`, una nota privada que la base de datos impide publicar (`patterns_shared_without_private_notes`). La tabla de arriba se corrigió para reflejar el código.
+- `yoke` ya es un valor válido de `renderAs` en el código y en el validador. Lo pendiente es su geometría. Si necesita datos nuevos, irá en `schemaVersion: 2`. Ver [ADR 0003](0003-colorwork-en-esquema-v1.md).
+- El remapeo de índices de lana se especifica en el ADR 0003 (`removeYarn`, `reorderYarns`); todavía no está implementado.

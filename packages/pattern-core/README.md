@@ -9,7 +9,7 @@ Modelo canónico de patrones, motor determinista y validador. Sin dependencias: 
 | `types.ts` | Tipos del modelo: `Pattern` (gráfico o escrito), `Yarn`, `Chart`, `Part`, `Round`, `Item`, `Issue` |
 | `stitches.ts` | Tabla de puntos con cuánto consume y produce cada uno; abreviaturas en español (Chile) e inglés (US) |
 | `written.ts` | `countRound`, `expandRound`, `concreteRounds`, `summarizePart` |
-| `chart.ts` | `fullSize`, `cellAt`, `yarnTotals`, `stitchTotal`, `rowFloats`, `dimensionsCm` |
+| `chart.ts` | `cellIndex`, `motifCell`, `fullSize`, `cellAt`, `fullRow`, `yarnTotals`, `stitchTotal`, `rowFloats`, `dimensionsCm`, `floatLengthCm` |
 | `text.ts` | `parseRound`, `parsePart`, `formatRound`, `formatPart` |
 | `validate.ts` | `validatePattern`, `parsePattern`, `LIMITS` |
 
@@ -62,7 +62,7 @@ Nunca lanza excepciones: acepta cualquier JSON (por ejemplo, propuesto por la IA
 node --test "test/**/*.test.ts"
 ```
 
-Requiere Node 22.18 o superior, que ejecuta TypeScript directamente. Incluye pruebas de propiedades con semilla: si una falla, el mensaje indica `SEED=…` para reproducirla.
+Requiere Node 24 LTS (mínimo 22.18, que ejecuta TypeScript directamente). Incluye pruebas de propiedades con semilla: si una falla, el mensaje indica `SEED=…` para reproducirla.
 
 ## Limitaciones conocidas (v1)
 
