@@ -1,6 +1,6 @@
 # ADR 0006: Guardado de diseños del estudio
 
-- Estado: propuesto (requiere aprobación de la usuaria)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05)
 - Fecha: 2026-11-05
 - Paquetes: `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0003](0003-colorwork-en-esquema-v1.md), [docs/seguridad.md](../seguridad.md)

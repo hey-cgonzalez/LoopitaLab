@@ -81,7 +81,7 @@ Reglas adicionales:
 - **Node**: 24 LTS, fijado en `.nvmrc` (mínimo 22.18; ejecuta TypeScript directamente; los imports internos llevan extensión `.ts`).
 - **Procesamiento de imagen determinista**: en servidor (cuantización de color, pixelado, mapeo a paleta).
 - **Pruebas**: núcleo (`pattern-core`, `yarn-catalog`) sin dependencias, con `node:test` y pruebas de propiedades con semilla (ADR 0002); interfaz con Vitest y Playwright (E2E).
-- **Gestor de paquetes**: pnpm con monorepo (Turborepo).
+- **Gestor de paquetes**: pnpm con monorepo (workspaces y `pnpm -r`; Turborepo se evaluará si el build se vuelve lento).
 
 ## Estructura del repositorio
 

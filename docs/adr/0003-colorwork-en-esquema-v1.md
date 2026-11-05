@@ -1,6 +1,6 @@
 # ADR 0003: Estudio de colorwork sobre el esquema v1
 
-- Estado: propuesto (requiere aprobación de la usuaria)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05)
 - Fecha: 2026-11-05
 - Paquete: `packages/pattern-core`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0005](0005-geometria-circulo-y-disminuciones.md)

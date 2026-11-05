@@ -7,7 +7,7 @@
 | Fase | Nombre | Estado | Complejidad global |
 |---|---|---|---|
 | 1 | Base: modelo canónico, validador, lanas, Supabase con RLS, acceso, proyectos y cuenta | Lista | — |
-| 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Planificada; ADR 0003 a 0006 propuestos | Alta |
+| 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Planificada; ADR 0003 a 0006 aceptados | Alta |
 | 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Pendiente | Media |
 | 4 | Estudio amigurumi 3D | Pendiente | Alta |
 | 5 | Imagen → patrón (IA) | Pendiente | Alta |
@@ -543,14 +543,20 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 ---
 
-## Decisiones abiertas para la usuaria
+## Decisiones
 
-1. **Aprobar los ADR 0003 a 0006**:
+Aprobadas por la usuaria el 2026-11-05:
+
+1. **ADR 0003 a 0006 aceptados**:
    - 0003: no subir `schemaVersion` en la fase 2 y dejar tallas, secciones y símbolos para después;
    - 0004: Canvas 2D primero, con WebGL2 como plan B;
-   - 0005: disminuciones derivadas de la máscara, sin tipo ni inclinación;
+   - 0005: disminuciones derivadas de la máscara, sin tipo ni inclinación. Las reglas (ET) se confirman con `experto-tejido` antes de implementarse;
    - 0006: guardado y migración del título.
-2. **Adelantar el seguimiento de colorwork fila a fila a la fase 3** (en vez de la fase 6).
-3. **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7.
-4. **Límite del motivo en la interfaz de la fase 2** (propuesto: 200 × 200).
-5. **Equipo de referencia** para medir "notebook de gama media" (propuesto: 4 núcleos, 8 GB, GPU integrada, Chrome estable).
+2. **El seguimiento de colorwork fila a fila se adelanta a la fase 3** (en vez de la fase 6).
+3. **Límite del motivo en la interfaz de la fase 2: 200 × 200.**
+4. **Equipo de referencia** para medir "notebook de gama media": 4 núcleos, 8 GB, GPU integrada, Chrome estable.
+5. **Sin Turborepo por ahora**: el monorepo usa `pnpm -r`. Se reevalúa si el build o la CI se vuelven lentos.
+
+Abierta:
+
+- **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7. Las páginas `/terminos` y `/privacidad` existen como borrador con marcadores por completar y requieren revisión legal.

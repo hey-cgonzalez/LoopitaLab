@@ -1,6 +1,6 @@
 # ADR 0005: Forma de círculo y disminuciones radiales derivadas de la máscara
 
-- Estado: propuesto (requiere aprobación de la usuaria y revisión de `experto-tejido`)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05. Las reglas marcadas (ET) siguen sujetas a la revisión de `experto-tejido` antes de implementarse)
 - Fecha: 2026-11-05
 - Paquetes: `packages/pattern-core` (conteos y validación), `packages/stitch-render` (geometría)
 - Relacionado: [ADR 0003](0003-colorwork-en-esquema-v1.md), [ADR 0004](0004-render-de-puntos-2d.md)

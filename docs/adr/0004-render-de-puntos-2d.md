@@ -1,6 +1,6 @@
 # ADR 0004: Render 2D de puntos y presupuesto de 100 ms
 
-- Estado: propuesto (requiere aprobación de la usuaria)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05)
 - Fecha: 2026-11-05
 - Paquete: `packages/stitch-render` (nuevo)
 - Relacionado: [ADR 0003](0003-colorwork-en-esquema-v1.md), [ADR 0005](0005-geometria-circulo-y-disminuciones.md)
