@@ -1,0 +1,5 @@
+# Playwright (T13): resultados, reportes y trazas locales
+/test-results/
+/playwright-report/
+/blob-report/
+/playwright/.cache/
