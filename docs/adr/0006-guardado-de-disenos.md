@@ -115,7 +115,7 @@ La decisión de fondo está en la [enmienda E10 del ADR 0003](0003-colorwork-en-
 
 ## Enmienda E11 (2026-11-06): revisión de T4
 
-Revisión de `arquitecto` de `apps/web/src/app/disenos/actions.ts`, `apps/web/src/lib/designs/` (`prepare.ts`, `types.ts`, `messages.ts`) y `supabase/migrations/20261106100000_consistencia_titulo.sql`. **T4 coincide con este ADR y con E10.** Se aceptan sin cambios de código las precisiones de abajo, que pasan a ser parte del contrato.
+Revisión de `arquitecto` de `apps/web/src/app/disenos/actions.ts`, `apps/web/src/lib/designs/` (`prepare.ts`, `types.ts`, `messages.ts`) y `supabase/migrations/20261106153401_consistencia_titulo.sql`. **T4 coincide con este ADR y con E10.** Se aceptan sin cambios de código las precisiones de abajo, que pasan a ser parte del contrato.
 
 ### Firmas (confirmadas)
 
@@ -156,4 +156,4 @@ Reemplaza los "2 MB" de las secciones "Límites y tamaño" y "Contexto":
 ### Cambios requeridos
 
 - ~~`backend-supabase` (baja): unificar la cifra del peor documento~~ Hecho (T15-O1): cada cifra dice qué mide.
-- **`backend-supabase`**: aplicar `20261106100000_consistencia_titulo.sql` en el proyecto real (pendiente, como indica T4).
+- **`backend-supabase`**: aplicar `20261106153401_consistencia_titulo.sql` en el proyecto real (pendiente, como indica T4).

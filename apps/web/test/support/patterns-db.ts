@@ -34,7 +34,7 @@ export const CONSISTENCY_RULES: { sql: string; ok: (r: Row) => boolean }[] = [
 /** Tope de `patterns_quota`. */
 export const PATTERNS_QUOTA = 500;
 
-/** Columnas con INSERT / UPDATE para `authenticated` (20261106110000_publicar_y_cuotas.sql). */
+/** Columnas con INSERT / UPDATE para `authenticated` (20261106153415_publicar_y_cuotas.sql). */
 export const INSERT_COLUMNS = ["id", "owner_id", "title", "technique", "kind", "schema_version", "origin", "document"];
 export const UPDATE_COLUMNS = ["title", "technique", "kind", "schema_version", "origin", "document"];
 
