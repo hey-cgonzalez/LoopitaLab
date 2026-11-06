@@ -1,4 +1,5 @@
 import { NO_STITCH, paintCells, type CellRef, type ChartPattern, type NewChartInput, type Yarn } from "@loopitalab/pattern-core";
+import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 
 /*
  * Plantillas de "Nuevo diseño" (T8). Solo dibujan celdas con las operaciones de pattern-core; no calculan
@@ -55,18 +56,28 @@ export const bandTemplate: Template = {
   },
 };
 
+/** Puntos por cuña en el borde de la copa y al cerrar. */
+const CROWN_WEDGE = 14;
+const CROWN_CLOSE = 2;
+/** Vueltas de la copa: cada cantidad de puntos por cuña dura 2 vueltas (de 14 a 2: 13 cantidades). */
+const CROWN_ROUNDS = (CROWN_WEDGE - CROWN_CLOSE + 1) * 2;
+
 /**
- * Copa en cuña: 8 repeticiones, cada una con un punto menos por vuelta (de 10 a 1) y un
- * lunar de contraste. Las casillas a la derecha de la cuña quedan "sin punto".
+ * Copa de gorro de adulto en 8 cuñas (E18, experto-tejido). Cada cuña empieza con 14 puntos (112 en el borde) y pierde
+ * 1 punto cada 2 vueltas hasta quedar en 2 (16 en total), que se cierran pasando la hebra. Las casillas a la derecha de
+ * cada cuña quedan "sin punto"; los conteos los calcula pattern-core a partir de esas casillas.
+ * Motivo: lunares de contraste en diagonal en las vueltas 3 a 10, uno cada 4 puntos, así ninguna hebra flotante pasa
+ * de 3 puntos. // validar con tejedora (ritmo de disminución y tamaño del borde)
  */
 export const crownTemplate: Template = {
   id: "crown",
-  name: "Copa en cuña de 8 repeticiones",
-  description: "La copa de un gorro tejida en redondo, con 8 cuñas que disminuyen hacia la punta. Cada cuña tiene un lunar de contraste.",
+  name: STUDIO_TEXTS.asistente.plantillaCopa,
+  description:
+    "La copa de un gorro de adulto tejida en redondo: 8 cuñas de 14 puntos (112 en el borde) que pierden 1 punto por cuña cada 2 vueltas hasta quedar 16 puntos, que se cierran pasando la hebra. Lleva lunares de contraste en diagonal. El tamaño final depende de tu muestra.",
   input: {
-    title: "Copa en cuña",
-    width: 10,
-    height: 10,
+    title: "Copa de gorro",
+    width: CROWN_WEDGE,
+    height: CROWN_ROUNDS,
     repeat: { x: 8, y: 1 },
     workedIn: "rounds",
     renderAs: "circle",
@@ -74,11 +85,15 @@ export const crownTemplate: Template = {
     yarns: [BACKGROUND, CONTRAST],
   },
   paint(doc) {
-    // La vuelta y (0 = borde) conserva 10 − y puntos por cuña: las columnas x ≥ 10 − y quedan sin punto.
+    // La vuelta y (0 = borde) conserva 14 − ⌊y / 2⌋ puntos por cuña: las columnas a partir de ahí quedan sin punto.
+    const keep = (y: number) => CROWN_WEDGE - Math.floor(y / 2);
     const none: CellRef[] = [];
-    for (let y = 0; y < 10; y++) for (let x = 10 - y; x < 10; x++) none.push({ x, y });
-    const withShape = paintAll(doc, none, NO_STITCH);
-    return paintAll(withShape, [{ x: 3, y: 2 }, { x: 4, y: 2 }, { x: 3, y: 3 }, { x: 4, y: 3 }], 1);
+    const dots: CellRef[] = [];
+    for (let y = 0; y < CROWN_ROUNDS; y++) {
+      for (let x = keep(y); x < CROWN_WEDGE; x++) none.push({ x, y });
+      if (y >= 2 && y <= 9) for (let x = 0; x < keep(y); x++) if ((x + y) % 4 === 0) dots.push({ x, y });
+    }
+    return paintAll(paintAll(doc, none, NO_STITCH), dots, 1);
   },
 };
 

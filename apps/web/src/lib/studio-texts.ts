@@ -124,7 +124,9 @@ export const STUDIO_TEXTS = {
     rows: "Ida y vuelta",
     ayudaRedondo: "Todas las vueltas se tejen por el lado derecho.", // validar con tejedora
     ayudaIdaYVuelta:
-      "Las filas impares se tejen por el lado derecho y las pares por el lado revés.", // validar con tejedora
+      "Por convención, la fila 1 se teje por el lado derecho: las filas impares por el derecho y las pares por el revés.", // validar con tejedora (convención)
+    /** Tubo tejido en ida y vuelta: no se bloquea (CHART_ROWS_SHAPE), pero se avisa. */
+    tuboIdaYVuelta: "En ida y vuelta, el tubo se cierra con una costura.", // validar con tejedora
   },
 
   /** Dirección de tejido: de abajo hacia arriba o de arriba hacia abajo. */
@@ -148,6 +150,7 @@ export const STUDIO_TEXTS = {
     porVuelta: "Puntos por vuelta",
     ayudaCircunferencia:
       "En tubo y círculo, el ancho es la circunferencia: la medida alrededor de la pieza.",
+    ayudaCircunferenciaCirculo: "En el círculo es la circunferencia del borde, la vuelta más ancha.", // validar con tejedora
     ayudaSupuesto: "Las medidas usan la muestra supuesta. Con tu muestra, cambian.",
   },
 
@@ -168,7 +171,7 @@ export const STUDIO_TEXTS = {
     comienzoCirculo:
       "Montaje inicial de 8 a 12 puntos para empezar un círculo a palillo (en crochet, anillo mágico de 6 a 12 puntos).", // validar con tejedora
     enganchar:
-      "Una hebra flotante es una hebra larga que queda suelta en el lado revés. Conviene enganchar la hebra para fijarla y que no quede floja.", // validar con tejedora
+      "Una hebra flotante es una hebra que va tendida por el revés entre dos zonas del mismo color. Si es larga, conviene enganchar la hebra para fijarla y que no quede floja.", // validar con tejedora
     atajosTeclado:
       "Usa las flechas para moverte entre casillas y Enter o la barra espaciadora para aplicar la herramienta en la casilla. La lista completa de atajos está en «Atajos de teclado».",
   },
@@ -185,7 +188,7 @@ export const STUDIO_TEXTS = {
     huecosSinPunto:
       "En plano y tubo, los huecos de 'sin punto' no existen en la prenda real. Son una forma de dibujar el motivo, no un hueco del tejido.", // CA-F13
     deformacionCirculo:
-      "Esta vista del círculo se ve deformada: la proyección plana comprime o estira los puntos, porque la copa real forma una cúpula. Es una aproximación, no un error del patrón.", // validar con tejedora (umbrales de ringDistortion)
+      "En un círculo, los dibujos se ven más estirados cerca del borde y más apretados cerca del centro: la vista es plana y la copa real forma una cúpula. Es una aproximación, no un error del patrón.", // validar con tejedora (umbrales de ringDistortion)
   },
 
   /** Disminuciones (ADR 0005). Se muestra la pérdida de punto, sin tipo ni inclinación. */
@@ -194,7 +197,7 @@ export const STUDIO_TEXTS = {
     tipoPendiente:
       "Todavía no se indica el tipo de disminución. Esta vista solo marca dónde se pierde un punto.", // validar con tejedora (los nombres de disminución esperan la capa de símbolos)
     ayuda:
-      "Las disminuciones se marcan en la casilla donde se pierde un punto. Puede que la disminución se teje en una casilla vecina.", // validar con tejedora (ADR 0003, pendiente de experto-tejido)
+      "Las disminuciones se marcan en la casilla donde se pierde un punto. Puede que la disminución se teja en una casilla vecina.", // validar con tejedora (ADR 0003, pendiente de experto-tejido)
   },
 
   /** Estado del guardado (ADR 0006). */
@@ -249,13 +252,15 @@ export const STUDIO_TEXTS = {
     crear: "Crear diseño",
     plantillasTitulo: "Empezar desde una plantilla",
     plantillaBanda: "Banda en tubo",
-    plantillaCopa: "Copa en cuña de 8 gajos", // validar con tejedora (gajo como alias de cuña)
+    plantillaCopa: "Copa de gorro en 8 cuñas", // validar con tejedora ("cuña" es el término principal; "gajo", solo alias)
     tituloPorDefecto: "Mi diseño",
     tituloAyuda: "Entre 1 y 120 caracteres.",
   },
 
   /** Accesibilidad: lector de pantalla y teclado (CA-A1 a CA-A3). */
   accesibilidad: {
+    /** Enlace para saltar directo a la cuadrícula (primer elemento enfocable del estudio). */
+    saltarEditor: "Saltar al editor",
     editorEtiqueta: "Editor del motivo",
     descripcionMotivo: "Descripción del motivo para lectores de pantalla",
     zoom: "Zoom",
@@ -309,7 +314,8 @@ export const STUDIO_TEXTS = {
       "El gráfico con repeticiones es demasiado grande para dibujarlo aquí. Se muestra solo el motivo.",
     lanaActiva: "Lana activa",
     leerDerecho: "Las flechas del borde indican por dónde empieza a leerse cada fila.",
-    espejo: "Lectura en espejo (preferencia de tu cuenta).",
+    espejo:
+      "Lectura en espejo: la preferencia «Tejer en espejo» de tu cuenta, pensada para zurdas que tejen en sentido contrario. Las filas se leen al revés y las casillas se numeran desde la izquierda. El dibujo no cambia.", // validar con tejedora
     sinLanas: "Este diseño no tiene lanas.",
     dedoDibuja: "Dibujar con el dedo o el lápiz",
     dedoAyuda:
@@ -341,7 +347,7 @@ export const STUDIO_TEXTS = {
     cancelar: "Cancelar",
     maximo: "Llegaste al máximo de lanas del diseño.",
     sugerencia: "Para este grosor, suele usarse",
-    agujas: "agujas",
+    agujas: "palillos", // "aguja" se acepta como alias (CLAUDE.md: tejido a palillo)
     crochet: "crochet",
     muestraCyc: "muestra de referencia",
   },
@@ -360,6 +366,8 @@ export const STUDIO_TEXTS = {
     filasMotivo: "Filas (alto)",
     aplicarTamano: "Aplicar tamaño",
     tamanoAyuda: "Si agrandas el motivo, lo nuevo se rellena con la lana A. Se ancla abajo a la izquierda.",
+    tamanoCirculo:
+      "En el círculo, las casillas nuevas se rellenan con la lana A y pueden romper la forma de la cuña. Revisa los bordes y marca con «sin punto» las que queden fuera de la cuña.", // validar con tejedora
     repeticionesRango: "Repeticiones recomendadas en el círculo: de 4 a 12.",
     puntosEn10: "Puntos en 10 cm",
     filasEn10: "Filas en 10 cm",
@@ -436,7 +444,8 @@ export function yarnTitle(letter: string, name?: string): string {
 
 /**
  * Anuncio de la casilla enfocada para lectores de pantalla (CA-A3).
- * Ejemplo: "Fila 3, casilla 5, lana B". `yarn` es el texto de la lana o "sin punto".
+ * Ejemplo: "Fila 3, casilla 5, lana B". `yarn` es el texto de la lana o "sin punto". `col` ya viene numerada con
+ * `columnLabel` (casilla 1 a la derecha; a la izquierda con espejo, E18).
  */
 export function cellAnnouncement(row: number, col: number, yarn: string, workedIn: WorkedIn): string {
   const unit = workedIn === "rounds" ? STUDIO_TEXTS.unidades.vuelta : STUDIO_TEXTS.unidades.fila;
@@ -450,7 +459,11 @@ export type ReadDirection = "right_to_left" | "left_to_right";
 export function readingNote(workedIn: WorkedIn, direction: ReadDirection, mirror: boolean): string {
   const unit = workedIn === "rounds" ? "vuelta" : "fila";
   const from = direction === "right_to_left" ? "derecha a izquierda" : "izquierda a derecha";
-  return `Esta ${unit} se lee de ${from}${mirror ? " (lectura en espejo)" : ""}`;
+  const base = `Esta ${unit} se lee de ${from}${mirror ? " (lectura en espejo, para zurdas)" : ""}.`;
+  if (workedIn === "rounds") return base;
+  // Por el derecho se lee de derecha a izquierda; el espejo invierte la lectura, no el lado. // validar con tejedora
+  const rightSide = (direction === "right_to_left") !== mirror;
+  return `${base} Se teje por el ${rightSide ? "lado derecho" : "revés"}.`;
 }
 
 /** Nombre accesible del editor, con su tamaño: "Editor del motivo: 12 puntos de ancho y 10 filas de alto". */
@@ -469,14 +482,27 @@ export function yarnRemovedText(removedLetter: string, replacementLetter: string
   return `Se quitó la lana ${removedLetter}. Sus casillas ahora usan la lana ${replacementLetter}.${lettersShift ? " Las lanas siguientes cambiaron de letra." : ""}`;
 }
 
+/**
+ * Lana en la revisión agrupada: "la lana B (rojo)" con el nombre de la paleta, o "la lana B (color personalizado)".
+ * Nunca el hex: no le dice nada a quien teje.
+ */
+export function yarnReviewLabel(letter: string, paletteName?: string): string {
+  return `la lana ${letter} (${paletteName && paletteName.length > 0 ? paletteName : "color personalizado"})`;
+}
+
 /** Lana agregada. */
 export function yarnAddedText(letter: string): string {
   return `Se agregó la lana ${letter}. Puedes cambiar su color y su grosor.`;
 }
 
-/** Nombre accesible de un botón de una lana: "Quitar lana A" (contiene el texto visible, WCAG 2.5.3). */
+/**
+ * Nombre accesible de un botón de una lana: "Quitar lana A", "Editar lana A" (contiene el texto visible, WCAG 2.5.3).
+ * Si el texto visible ya dice "lana" ("Quitar lana"), no se repite: "Quitar lana B", no "Quitar lana lana B".
+ */
 export function yarnButtonLabel(verb: string, letter: string, suffix = ""): string {
-  return `${verb} lana ${letter}${suffix}`;
+  const base = verb.trimEnd();
+  const head = /(^|\s)lana$/i.test(base) ? base : `${base} lana`;
+  return `${head} ${letter}${suffix}`;
 }
 
 /** Conteos de la revisión del diseño (por grupo de aviso), para el resumen que lee el lector de pantalla. */
@@ -545,15 +571,20 @@ function signed(n: number): string {
 
 /**
  * Línea de disminuciones de una fila del panel. Los valores llegan de `shaping` (pattern-core).
- * Ejemplo: "Fila 31: 56 pts, −8 en la vuelta, −1 por repetición".
+ * Ejemplo en redondo: "Vuelta 31: 56 pts, −8 en la vuelta, −1 por repetición"; en ida y vuelta, "Fila 31: …, −8 en la fila…".
  */
-export function shapingLine(row: number, stitches: number, change: number, perRepeat: number): string {
-  return `Fila ${row}: ${stitches} ${STUDIO_TEXTS.unidades.puntosAbrev}, ${signed(change)} en la vuelta, ${signed(perRepeat)} por repetición`;
+export function shapingLine(row: number, stitches: number, change: number, perRepeat: number, workedIn: WorkedIn = "rounds"): string {
+  const unit = workedIn === "rounds" ? "vuelta" : "fila";
+  return `${rowWord(workedIn, false)} ${row}: ${stitches} ${STUDIO_TEXTS.unidades.puntosAbrev}, ${signed(change)} en la ${unit}, ${signed(perRepeat)} por repetición`;
 }
 
-/** Aviso en una casilla de disminución: se pierde un punto aquí. No decide el tipo de disminución. */
-export function lostStitchNote(row: number, col: number): string {
-  return `Aquí se pierde un punto (fila ${row}, casilla ${col}). La vista no indica todavía el tipo de disminución.`; // validar con tejedora
+/**
+ * Aviso en una casilla de disminución: se pierde un punto aquí. No decide el tipo de disminución.
+ * `col` ya viene numerada con `columnLabel` (E18).
+ */
+export function lostStitchNote(row: number, col: number, workedIn: WorkedIn): string {
+  const unit = workedIn === "rounds" ? "vuelta" : "fila";
+  return `Aquí se pierde un punto (${unit} ${row}, casilla ${col}). La vista no indica todavía el tipo de disminución.`; // validar con tejedora
 }
 
 /** Texto de la muestra supuesta. `lowConfidence` agrega la advertencia de la categoría 7. */
@@ -617,10 +648,14 @@ export function issueGroupText(
   if (kind === "float") {
     const cm = p.cm ? ` (≈ ${p.cm} cm)` : "";
     const max = p.max !== undefined ? ` Máximo sugerido: ${p.max} puntos.` : "";
-    return `${head}: la hebra flotante de ${p.yarn ?? "una lana"} llega a ${p.length ?? "?"} puntos${cm}; conviene enganchar la hebra o cambiar el dibujo.${max}`;
+    return `${head}: la hebra flotante de ${p.yarn ?? "una lana"} llega a ${p.length ?? "?"} puntos${cm} en el peor caso; conviene enganchar la hebra o cambiar el dibujo.${max}`;
   }
   if (kind === "colors") {
     return `${head}: usan hasta ${p.colors ?? "más de 2"} lanas; en colorwork de hebras lo habitual es 2 por ${p.workedIn === "rounds" ? "vuelta" : "fila"}.`;
+  }
+  if (p.ranges && p.rowCount > 0) {
+    const where = `${p.rowCount === 1 ? "en la" : "en las"} ${rowWord(p.workedIn, p.rowCount !== 1).toLowerCase()} ${p.ranges}`;
+    return `${p.message ?? ""} (se repite ${p.count} veces, ${where})`;
   }
   return `${p.message ?? ""} (se repite ${p.count} veces)`;
 }

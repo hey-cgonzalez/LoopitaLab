@@ -90,7 +90,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <>
       <AppHeader name={name} />
-      <StudioShell document={doc} updatedAt={data.updated_at} draftIssues={errors} mirror={profile?.mirror_knitting ?? false} />
+      <StudioShell document={doc} updatedAt={data.updated_at} ownerId={user.id} draftIssues={errors} mirror={profile?.mirror_knitting ?? false} />
     </>
   );
 }

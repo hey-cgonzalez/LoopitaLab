@@ -482,9 +482,11 @@ function validateChart(input: Rec, yarnIds: string[], c: Collector, opts: Valida
     }
   }
   if (bad > 0) {
+    // Casilla contada desde la derecha, como en los gráficos de tejido (ADR 0003, E18); `data.x` sigue
+    // siendo el índice del modelo (x = 0 a la izquierda visto por el derecho).
     const x = firstBad % width;
     const y = Math.floor(firstBad / width);
-    c.error("CHART_CELL_VALUE", `chart.cells[${firstBad}]`, `Hay ${bad} casilla${bad === 1 ? "" : "s"} con una lana que no existe en la paleta; la primera está en la ${word} ${y + 1}, casilla ${x + 1}.`, { count: bad, x, y });
+    c.error("CHART_CELL_VALUE", `chart.cells[${firstBad}]`, `Hay ${bad} casilla${bad === 1 ? "" : "s"} con una lana que no existe en la paleta; la primera está en la ${word} ${y + 1}, casilla ${width - x}.`, { count: bad, x, y });
     return;
   }
   if (stitches === 0) {

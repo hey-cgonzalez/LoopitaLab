@@ -19,7 +19,7 @@ import {
 import type { DocumentStore } from "@/lib/studio/store.ts";
 import type { Tool } from "@/lib/studio/tools.ts";
 import { STUDIO_TEXTS, yarnTitle, zoomAnnouncement } from "@/lib/studio-texts.ts";
-import { ChartEditor } from "./ChartEditor";
+import { CHART_CANVAS_ID, ChartEditor } from "./ChartEditor";
 import { EditorToolbar } from "./EditorToolbar";
 import { PerfPanel } from "./PerfPanel";
 import { PreviewPane } from "./PreviewPane";
@@ -35,13 +35,19 @@ const T = STUDIO_TEXTS;
 interface Props {
   document: ChartPattern;
   updatedAt: string;
+  /** `user.id` de la dueña: identifica su respaldo local (seguridad, ALTO-1). En `/dev/estudio`, uno ficticio. */
+  ownerId: string;
   /** Errores de tejido con que se abrió el diseño (borrador). El panel de revisión los recalcula en vivo. */
   draftIssues: Issue[];
   /** Preferencia `mirror_knitting` del perfil: solo cambia la numeración y las flechas de lectura. */
   mirror?: boolean;
   /** Sin sesión ni guardado: para la página de desarrollo `/dev/estudio`. */
   detached?: boolean;
-  /** Recolector `edit-to-paint` (T10). Solo lo activa `/dev/estudio?perf=1`; nunca en producción. */
+  /**
+   * Recolector `edit-to-paint` (T10). Solo lo activa `/dev/estudio?perf=1`, que en un build de producción existe
+   * únicamente con `LOOPITA_DEV_PAGES=1` (medición local con `next start`; el despliegue real lo impide, ver
+   * `src/lib/dev-pages.ts`).
+   */
   perf?: boolean;
 }
 
@@ -98,8 +104,8 @@ function inTextField(target: EventTarget | null): boolean {
  * (lanas, deshacer, repeticiones), así una pincelada no lo vuelve a renderizar; el editor lee el gráfico, la vista
  * previa se conecta directo al almacén y el panel lateral recibe el documento diferido.
  */
-export function StudioShell({ document: initial, updatedAt, draftIssues, mirror = false, detached = false, perf = false }: Props) {
-  const session = useStudioSession({ document: initial, updatedAt, openedAsDraft: draftIssues.length > 0, detached });
+export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues, mirror = false, detached = false, perf = false }: Props) {
+  const session = useStudioSession({ document: initial, updatedAt, ownerId, openedAsDraft: draftIssues.length > 0, detached });
   const { store, autosave, status, recovery } = session;
   const yarns = useStoreSelector(store, selectYarns);
   const canUndo = useStoreSelector(store, selectCanUndo);
@@ -199,6 +205,14 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
     window.document.getElementById(`tab-${to}`)?.focus();
   };
 
+  /** "Saltar al editor": en tableta y móvil primero muestra la pestaña del editor; después enfoca la cuadrícula. */
+  function skipToEditor(e: React.MouseEvent<HTMLAnchorElement>) {
+    e.preventDefault();
+    setTab("editor");
+    // La pestaña se muestra en el próximo render: el foco espera un frame.
+    requestAnimationFrame(() => window.document.getElementById(CHART_CANVAS_ID)?.focus());
+  }
+
   function onTitle(raw: string) {
     setTitleText(raw);
     // El texto vive en el campo hasta que es válido: un título inválido bloquearía el guardado (ADR 0006, E10).
@@ -275,6 +289,15 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
+      {/* Primer elemento enfocable del estudio: sin él, la cuadrícula queda a ~50 tabulaciones (T11, ux-accesibilidad). */}
+      <a
+        href={`#${CHART_CANVAS_ID}`}
+        onClick={skipToEditor}
+        className="sr-only rounded-full bg-marino px-5 py-2 font-bold text-white focus:not-sr-only focus:absolute focus:left-4 focus:top-2 focus:z-50"
+        data-testid="skip-to-editor"
+      >
+        {T.accesibilidad.saltarEditor}
+      </a>
       <div className="border-b-2 border-linea bg-superficie">
         <div className="mx-auto flex max-w-[1600px] flex-wrap items-start gap-x-6 gap-y-3 px-4 py-3">
           <Link href="/disenos" className="py-2 text-sm underline underline-offset-4">

@@ -6,6 +6,7 @@ import { DocumentStore } from "@/lib/studio/store.ts";
 import type { SaveDesignResult } from "@/lib/designs/types";
 
 const ID = "aaaaaaaa-0000-4000-8000-000000000001";
+const OWNER = "11111111-0000-4000-8000-000000000001";
 const T0 = "2026-11-06T10:00:00.000000+00:00";
 const T1 = "2026-11-06T10:00:05.000000+00:00";
 const T2 = "2026-11-06T10:00:09.000000+00:00";
@@ -39,7 +40,7 @@ const fail = (code: string, extra: Record<string, unknown> = {}): SaveDesignResu
 function setup(save: ReturnType<typeof vi.fn>, extra: { validate?: (d: ChartPattern) => { savable: boolean; issues: Issue[] } } = {}) {
   const store = new DocumentStore(doc());
   const storage = memoryStorage();
-  const autosave = new Autosave(store, { patternId: ID, initialUpdatedAt: T0, save: save as unknown as AutosaveDeps["save"], storage, ...extra });
+  const autosave = new Autosave(store, { patternId: ID, ownerId: OWNER, initialUpdatedAt: T0, save: save as unknown as AutosaveDeps["save"], storage, ...extra });
   autosave.start();
   return { store, storage, autosave };
 }
@@ -163,7 +164,7 @@ describe("autoguardado: qué se envía (savable)", () => {
     expect(save).not.toHaveBeenCalled();
     expect(autosave.getStatus()).toEqual({ kind: "blocked", issues: [issue] });
     expect(describeStatus(autosave.getStatus()).detail).toContain("La muestra debe indicar");
-    expect(storage.data.has(backupKey(ID))).toBe(true);
+    expect(storage.data.has(backupKey(OWNER, ID))).toBe(true);
   });
 
   it("si el servidor rechaza por NOT_SAVABLE también queda bloqueado", async () => {
@@ -192,7 +193,7 @@ describe("autoguardado: conflicto", () => {
     await vi.advanceTimersByTimeAsync(0);
     expect(save).toHaveBeenCalledTimes(1);
     // Las ediciones siguen respaldadas localmente.
-    expect(readBackup(storage, ID)).not.toBeNull();
+    expect(readBackup(storage, OWNER, ID)).not.toBeNull();
   });
 
   it("sobrescribir es explícito: vuelve a llamar con el currentUpdatedAt", async () => {
@@ -222,7 +223,7 @@ describe("autoguardado: sin conexión y otras fallas", () => {
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
     expect(autosave.getStatus()).toMatchObject({ kind: "offline", attempt: 1, reason: "network" });
     expect(describeStatus(autosave.getStatus()).label).toBe("Sin conexión");
-    expect(storage.data.has(backupKey(ID))).toBe(true);
+    expect(storage.data.has(backupKey(OWNER, ID))).toBe(true);
     await vi.advanceTimersByTimeAsync(1999);
     expect(save).toHaveBeenCalledTimes(1);
     await vi.advanceTimersByTimeAsync(1);
@@ -233,7 +234,7 @@ describe("autoguardado: sin conexión y otras fallas", () => {
     await vi.advanceTimersByTimeAsync(1);
     expect(save).toHaveBeenCalledTimes(3);
     expect(autosave.getStatus().kind).toBe("saved");
-    expect(storage.data.has(backupKey(ID))).toBe(false); // respaldo limpio tras guardar
+    expect(storage.data.has(backupKey(OWNER, ID))).toBe(false); // respaldo limpio tras guardar
   });
 
   it("la espera tiene tope", async () => {
@@ -290,12 +291,12 @@ describe("autoguardado: respaldo local y guardar ahora", () => {
     paint(store, 0);
     expect(storage.data.size).toBe(0); // no se serializa en cada edición
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS);
-    const b = readBackup(storage, ID);
+    const b = readBackup(storage, OWNER, ID);
     expect(b?.baseUpdatedAt).toBe(T0);
     expect(b?.document).toEqual(store.doc);
     release(ok(T1));
     await vi.advanceTimersByTimeAsync(0);
-    expect(readBackup(storage, ID)).toBeNull();
+    expect(readBackup(storage, OWNER, ID)).toBeNull();
     expect(autosave.getStatus().kind).toBe("saved");
   });
 
@@ -305,22 +306,24 @@ describe("autoguardado: respaldo local y guardar ahora", () => {
     expect(storage.data.size).toBe(0);
     paint(store, 0);
     autosave.writeBackupNow();
-    expect(readBackup(storage, ID)?.document).toEqual(store.doc);
+    expect(readBackup(storage, OWNER, ID)?.document).toEqual(store.doc);
   });
 
   it("un respaldo dañado o un almacenamiento que falla no rompen nada", () => {
     const storage = memoryStorage();
-    storage.data.set(backupKey(ID), "{no es json");
-    expect(readBackup(storage, ID)).toBeNull();
-    storage.data.set(backupKey(ID), JSON.stringify({ v: 2 }));
-    expect(readBackup(storage, ID)).toBeNull();
+    storage.data.set(backupKey(OWNER, ID), "{no es json");
+    expect(readBackup(storage, OWNER, ID)).toBeNull();
+    storage.data.set(backupKey(OWNER, ID), JSON.stringify({ v: 2 }));
+    storage.data.set(backupKey(OWNER, ID), JSON.stringify({ v: 1, baseUpdatedAt: T0, savedAt: Date.now(), document: {} }));
+    expect(readBackup(storage, OWNER, ID)).toBeNull(); // formato viejo, sin dueña
+    expect(readBackup(storage, OWNER, ID)).toBeNull();
     const store = new DocumentStore(doc());
     const broken: BackupStorage = { getItem: () => { throw new Error("x"); }, setItem: () => { throw new Error("cuota"); }, removeItem: () => { throw new Error("x"); } };
-    const a = new Autosave(store, { patternId: ID, initialUpdatedAt: T0, save: vi.fn().mockResolvedValue(ok(T1)) as unknown as AutosaveDeps["save"], storage: broken });
+    const a = new Autosave(store, { patternId: ID, ownerId: OWNER, initialUpdatedAt: T0, save: vi.fn().mockResolvedValue(ok(T1)) as unknown as AutosaveDeps["save"], storage: broken });
     a.start();
     paint(store, 0);
     expect(() => a.writeBackupNow()).not.toThrow();
-    expect(readBackup(broken, ID)).toBeNull();
+    expect(readBackup(broken, OWNER, ID)).toBeNull();
   });
 
   it("saveNow() envía de inmediato y responde si quedó todo guardado", async () => {
@@ -370,20 +373,20 @@ describe("pendientes de T8 (T9)", () => {
   it("holdBackup: editar y guardar no pisa ni borra el respaldo ofrecido", async () => {
     const save = vi.fn(async () => ok(T1));
     const { store, storage, autosave } = setup(save);
-    storage.data.set(backupKey(ID), JSON.stringify({ v: 1, baseUpdatedAt: T0, savedAt: 1, document: { marca: "respaldo" } }));
+    storage.data.set(backupKey(OWNER, ID), JSON.stringify({ v: 2, ownerId: OWNER, baseUpdatedAt: T0, savedAt: Date.now(), document: { marca: "respaldo" } }));
     autosave.holdBackup(true);
     paint(store, 1);
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + 10);
     expect(save).toHaveBeenCalled();
-    expect(JSON.parse(storage.data.get(backupKey(ID))!).document).toEqual({ marca: "respaldo" });
+    expect(JSON.parse(storage.data.get(backupKey(OWNER, ID))!).document).toEqual({ marca: "respaldo" });
     autosave.holdBackup(false);
   });
   it("clearAllBackups borra solo los respaldos de diseños", async () => {
     const { clearAllBackups } = await import("@/lib/studio/autosave.ts");
-    const data = new Map<string, string>([["loopitalab:diseno:a", "1"], ["loopitalab:diseno:b", "2"], ["otra", "3"]]);
+    const data = new Map<string, string>([["loopitalab:diseno:a", "1"], [`loopitalab:${OWNER}:diseno:b`, "2"], ["otra", "3"], ["loopitalab:preferencia", "4"]]);
     const storage = { get length() { return data.size; }, key: (i: number) => [...data.keys()][i] ?? null, getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
     expect(clearAllBackups(storage)).toBe(2);
-    expect([...data.keys()]).toEqual(["otra"]);
+    expect([...data.keys()]).toEqual(["otra", "loopitalab:preferencia"]);
     expect(clearAllBackups(null)).toBe(0);
   });
 });

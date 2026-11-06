@@ -40,7 +40,7 @@ describe("textos del gráfico", () => {
   it("CHART_CELL_VALUE en singular y en plural", () => {
     const one = clone(smallChart());
     one.chart.cells[5] = 7;
-    assert.deepEqual(msg(one, "CHART_CELL_VALUE"), ["Hay 1 casilla con una lana que no existe en la paleta; la primera está en la vuelta 2, casilla 2."]);
+    assert.deepEqual(msg(one, "CHART_CELL_VALUE"), ["Hay 1 casilla con una lana que no existe en la paleta; la primera está en la vuelta 2, casilla 3."]); // desde la derecha (E18)
     const two = clone(smallChart());
     two.chart.cells[5] = 7;
     two.chart.cells[6] = 9;

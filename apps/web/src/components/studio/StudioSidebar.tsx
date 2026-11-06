@@ -1,9 +1,11 @@
 "use client";
 
 import { EDIT_LIMITS, yarnLetter, type Chart, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
+import { PALETTE } from "@loopitalab/yarn-catalog";
 import { useDeferredValue, useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { assumedSampleNote, measureText, repeatsText, reviewSummary, shapeName, shapingLine, STUDIO_TEXTS, stitchesPerRoundText, stitchTotalText } from "@/lib/studio-texts.ts";
+import { assumedSampleNote, measureText, repeatsText, reviewSummary, shapeName, shapingLine, STUDIO_TEXTS, stitchesPerRoundText, stitchTotalText, rowWord, yarnReviewLabel } from "@/lib/studio-texts.ts";
 import { groupIssueLines, type GroupContext } from "@/lib/studio/issue-groups.ts";
+import { tubeSeamNotice } from "@/lib/studio/wizard.ts";
 import { measures, validateForPanel, type IssueGroups } from "@/lib/studio/measures.ts";
 import { paintGate } from "@/lib/studio/paint-gate.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
@@ -137,6 +139,11 @@ export function StudioSidebar({ store, doc, design }: Props) {
           onChange={(workedIn) => store.dispatch({ type: "setWorkedIn", workedIn })}
         />
         <p className="text-sm text-tinta-suave">{chart.workedIn === "rounds" ? T.tejido.ayudaRedondo : T.tejido.ayudaIdaYVuelta}</p>
+        {tubeSeamNotice(chart.renderAs, chart.workedIn) ? (
+          <p className="text-sm font-bold" data-testid="tube-seam-notice">
+            {tubeSeamNotice(chart.renderAs, chart.workedIn)}
+          </p>
+        ) : null}
 
         <Radios
           legend={T.direccion.titulo}
@@ -193,6 +200,11 @@ export function StudioSidebar({ store, doc, design }: Props) {
             </p>
           )}
           <p className="text-sm text-tinta-suave">{T.panel.tamanoAyuda}</p>
+          {chart.renderAs === "circle" ? (
+            <p className="text-sm font-bold" data-testid="circle-resize-notice">
+              {T.panel.tamanoCirculo}
+            </p>
+          ) : null}
         </fieldset>
       </Section>
 
@@ -304,7 +316,12 @@ function MeasuresView({ doc, m }: { doc: ChartPattern; m: ReturnType<typeof meas
           {m.total === 0 ? <p className="text-sm text-tinta-suave">{T.panel.sinPuntos}</p> : null}
         </>
       )}
-      {m.dims?.widthIsCircumference ? <p className="text-sm text-tinta-suave">{T.medidas.ayudaCircunferencia}</p> : null}
+      {m.dims?.widthIsCircumference ? (
+        <p className="text-sm text-tinta-suave">
+          {T.medidas.ayudaCircunferencia}
+          {doc.chart.renderAs === "circle" ? ` ${T.medidas.ayudaCircunferenciaCirculo}` : ""}
+        </p>
+      ) : null}
       {assumed ? <p className="text-sm text-tinta-suave">{T.medidas.ayudaSupuesto}</p> : null}
       <p className="font-bold" data-testid="stitch-total">
         {T.medidas.total}: {m.total === 0 ? T.panel.sinMedidas : stitchTotalText(m.total)}
@@ -316,7 +333,7 @@ function MeasuresView({ doc, m }: { doc: ChartPattern; m: ReturnType<typeof meas
             {m.rounds.shaping
               .filter((r, i) => i === 0 || r.change !== 0 || i === m.rounds!.shaping.length - 1)
               .map((r) => (
-                <li key={r.row}>{r.row === 0 ? `${T.unidades.vuelta} 1: ${stitchesPerRoundText(r.stitches)}` : shapingLine(r.row + 1, r.stitches, r.change, r.perRepeat)}</li>
+                <li key={r.row}>{r.row === 0 ? `${rowWord(doc.chart.workedIn, false)} 1: ${stitchesPerRoundText(r.stitches)}` : shapingLine(r.row + 1, r.stitches, r.change, r.perRepeat, doc.chart.workedIn)}</li>
               ))}
           </ol>
           <p className="mt-1 text-sm text-tinta-suave">{T.disminuciones.tipoPendiente}</p>
@@ -330,9 +347,10 @@ function MeasuresView({ doc, m }: { doc: ChartPattern; m: ReturnType<typeof meas
 function groupCtx(doc: ChartPattern): GroupContext {
   return {
     workedIn: doc.chart.workedIn,
+    // Letra y nombre del color de la paleta; nunca el hex (E18, experto-tejido).
     yarnLabel: (i) => {
-      const y = doc.yarns[i];
-      return `la lana ${yarnLetter(i)}${y?.color?.hex ? ` (${y.color.hex.toUpperCase()})` : ""}`;
+      const pid = doc.yarns[i]?.color.paletteId;
+      return yarnReviewLabel(yarnLetter(i), pid ? PALETTE.find((c) => c.id === pid)?.nombre : undefined);
     },
   };
 }

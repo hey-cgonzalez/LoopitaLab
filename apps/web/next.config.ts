@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { assertDevPagesSafe } from "./src/lib/dev-pages.ts";
+
+// Falla el build y el arranque si las páginas `/dev/*` quedaran activas en el despliegue real (seguridad, MEDIO-2).
+// `next build` corre con NODE_ENV=production; `next start` también.
+assertDevPagesSafe();
 
 /**
  * Cabeceras de seguridad para todas las rutas.

@@ -7,7 +7,7 @@ import { useId, useState } from "react";
 import { Field } from "@/components/Field";
 import { FormMessage } from "@/components/FormMessage";
 import { TEMPLATES, type NewDesignInput, type Template } from "@/lib/studio/templates.ts";
-import { buildWizardInput, DEFAULT_WIZARD, TITLE_MAX, type WizardForm } from "@/lib/studio/wizard.ts";
+import { buildWizardInput, DEFAULT_WIZARD, TITLE_MAX, tubeSeamNotice, type WizardForm } from "@/lib/studio/wizard.ts";
 import { createChartPattern, savePattern } from "../actions";
 
 const selectClass = "rounded-xl border-2 border-linea bg-superficie px-4 py-3 aria-invalid:border-error";
@@ -140,6 +140,11 @@ export function NewDesignWizard() {
             { value: "rows", label: "Ida y vuelta", disabled: form.renderAs === "circle" },
           ]}
         />
+        {tubeSeamNotice(form.renderAs, form.workedIn) ? (
+          <p className="text-sm font-bold text-tinta" data-testid="wizard-tube-seam">
+            {tubeSeamNotice(form.renderAs, form.workedIn)}
+          </p>
+        ) : null}
         <Radio
           name="direction"
           legend="Dirección de tejido"

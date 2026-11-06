@@ -84,8 +84,10 @@ export class PreviewEngine {
           } finally {
             // Aunque el recálculo falle con un error inesperado, el renderer dibuja y sigue programando frames.
             cb();
-            paintGate.painted();
+            // Primero se marca el fin del frame (CA-P7): `painted()` libera trabajo diferido (validación), y si el
+            // recolector marcara después, ese trabajo quedaría contado dentro de la ventana de la edición.
             activePerf()?.previewFrameEnd();
+            paintGate.painted();
           }
         }),
     });

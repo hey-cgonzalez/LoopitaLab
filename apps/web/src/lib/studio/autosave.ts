@@ -1,6 +1,7 @@
 import { validatePattern, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import type { DesignErrorCode } from "@/lib/designs/messages.ts";
 import type { SaveDesignResult } from "@/lib/designs/types.ts";
+import { backupKey, clearBackup, isValidOwnerId, MAX_BACKUP_CHARS, type BackupStorage, type LocalBackup } from "./backup.ts";
 import { paintGate } from "./paint-gate.ts";
 import { perfSpan } from "./perf.ts";
 import type { DocumentStore } from "./store.ts";
@@ -15,6 +16,22 @@ import type { DocumentStore } from "./store.ts";
  *    hasta que la usuaria elija recargar o sobrescribir; nunca se sobrescribe en silencio.
  *  - Sin conexión: reintento con espera creciente. Respaldo en localStorage solo como red ante cierre o caída.
  */
+
+export {
+  BACKUP_TTL_MS,
+  backupKey,
+  clearAllBackups,
+  clearBackup,
+  clearBrowserBackups,
+  isBackupKey,
+  LEGACY_BACKUP_PREFIX,
+  MAX_BACKUP_CHARS,
+  pruneBackups,
+  readBackup,
+  type BackupStorage,
+  type EnumerableStorage,
+  type LocalBackup,
+} from "./backup.ts";
 
 export const AUTOSAVE_DEBOUNCE_MS = 1500;
 /**
@@ -39,14 +56,10 @@ export type SaveStatus =
   /** Falla que reintentar no arregla (sesión vencida, tamaño, cuota…). */
   | { kind: "failed"; code: DesignErrorCode; message: string };
 
-export interface BackupStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
-
 export interface AutosaveDeps {
   patternId: string;
+  /** `user.id` de la dueña: va en la clave y en el contenido del respaldo local. */
+  ownerId: string;
   /** `updated_at` que recibió la interfaz al abrir. */
   initialUpdatedAt: string;
   /** Server Action `savePattern`. */
@@ -62,64 +75,6 @@ export interface AutosaveDeps {
    * estudio (`paintGate`), que lo ejecuta de inmediato si no hay edición en vuelo.
    */
   afterPaint?: (fn: () => void) => void;
-}
-
-export interface LocalBackup {
-  v: 1;
-  /** `updated_at` del servidor sobre el que se hizo la edición. */
-  baseUpdatedAt: string;
-  savedAt: number;
-  document: unknown;
-}
-
-export const BACKUP_PREFIX = "loopitalab:diseno:";
-export const backupKey = (id: string) => `${BACKUP_PREFIX}${id}`;
-
-/** Almacenamiento con enumeración, como `localStorage`. */
-export interface EnumerableStorage extends BackupStorage {
-  readonly length: number;
-  key(index: number): string | null;
-}
-
-/**
- * Borra todos los respaldos locales de diseños (al cerrar sesión: en un equipo compartido no deben quedar
- * diseños de otra persona). Devuelve cuántos borró. Nunca lanza.
- */
-export function clearAllBackups(storage: EnumerableStorage | null | undefined): number {
-  if (!storage) return 0;
-  try {
-    const keys: string[] = [];
-    for (let i = 0; i < storage.length; i++) {
-      const k = storage.key(i);
-      if (k && k.startsWith(BACKUP_PREFIX)) keys.push(k);
-    }
-    for (const k of keys) storage.removeItem(k);
-    return keys.length;
-  } catch {
-    return 0;
-  }
-}
-
-/** Lee el respaldo local sin lanzar. El llamador debe migrar y validar `document` antes de usarlo. */
-export function readBackup(storage: BackupStorage | null | undefined, id: string): LocalBackup | null {
-  if (!storage) return null;
-  try {
-    const raw = storage.getItem(backupKey(id));
-    if (!raw) return null;
-    const b = JSON.parse(raw) as Partial<LocalBackup> | null;
-    if (!b || b.v !== 1 || typeof b.baseUpdatedAt !== "string" || typeof b.savedAt !== "number" || typeof b.document !== "object" || b.document === null) return null;
-    return b as LocalBackup;
-  } catch {
-    return null;
-  }
-}
-
-export function clearBackup(storage: BackupStorage | null | undefined, id: string): void {
-  try {
-    storage?.removeItem(backupKey(id));
-  } catch {
-    /* sin acceso al almacenamiento: no es grave, es solo una red de seguridad */
-  }
 }
 
 type Listener = () => void;
@@ -222,7 +177,7 @@ export class Autosave {
 
   /** Quita el respaldo local (al recargar la versión del servidor o al aceptar la recuperación). */
   discardBackup(): void {
-    clearBackup(this.#deps.storage, this.#deps.patternId);
+    clearBackup(this.#deps.storage, this.#deps.ownerId, this.#deps.patternId);
   }
 
   /** Escribe el respaldo ahora (síncrono). Se llama al cerrar o ocultar la pestaña. */
@@ -319,7 +274,7 @@ export class Autosave {
         }, this.#deps.debounceMs);
         return;
       }
-      if (!this.#backupHeld) clearBackup(this.#deps.storage, this.#deps.patternId);
+      if (!this.#backupHeld) clearBackup(this.#deps.storage, this.#deps.ownerId, this.#deps.patternId);
       this.#set({ kind: "saved", draft: outcome.draft, at: this.#deps.now() });
       return;
     }
@@ -331,6 +286,11 @@ export class Autosave {
         return;
       case "DATABASE":
         this.#scheduleRetry("server");
+        return;
+      case "UNAUTHENTICATED":
+        // La sesión venció: el respaldo (con la clave de esta dueña) queda para la próxima vez que entre.
+        this.#writeBackup(doc);
+        this.#set({ kind: "failed", code: outcome.code, message: outcome.error });
         return;
       case "NOT_SAVABLE":
         this.#set({ kind: "blocked", issues: (outcome.issues ?? []).filter((i) => i.severity === "error") });
@@ -355,9 +315,14 @@ export class Autosave {
   #writeBackup(doc: ChartPattern): void {
     const storage = this.#deps.storage;
     if (!storage || this.#backupHeld) return;
-    const backup: LocalBackup = { v: 1, baseUpdatedAt: this.#updatedAt, savedAt: this.#deps.now(), document: doc };
+    const { ownerId, patternId } = this.#deps;
+    if (!isValidOwnerId(ownerId)) return; // sin dueña conocida no se respalda
+    const backup: LocalBackup = { v: 2, ownerId, baseUpdatedAt: this.#updatedAt, savedAt: this.#deps.now(), document: doc };
     try {
-      storage.setItem(backupKey(this.#deps.patternId), JSON.stringify(backup));
+      const text = JSON.stringify(backup);
+      // Un respaldo que no se podría leer de vuelta no se escribe (y no se deja uno viejo que lo contradiga).
+      if (text.length > MAX_BACKUP_CHARS) storage.removeItem(backupKey(ownerId, patternId));
+      else storage.setItem(backupKey(ownerId, patternId), text);
     } catch {
       /* cuota llena o modo privado: el respaldo es solo una red de seguridad */
     }

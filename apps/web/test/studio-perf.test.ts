@@ -158,6 +158,29 @@ describe("recolector edit-to-paint", () => {
     expect(insideEditWindows([{ name: "v", start: 104, end: 105 }], h.rec.samples)).toHaveLength(1);
   });
 
+  it("una validación que la compuerta libera tras el frame no cuenta dentro de la ventana (F2, CA-P7)", () => {
+    // Caso real: el frame de la vista previa termina en 116, `painted()` libera la validación del autoguardado en la
+    // tarea siguiente (116,5) y la muestra se cierra en 118. Antes se comparaba con 118 y se contaba como violación.
+    const h = harness();
+    const timers: (() => void)[] = [];
+    const gate = new PaintGate({ setTimeout: (cb) => (timers.push(cb), timers.length), clearTimeout: () => undefined });
+    h.rec.input("pointerdown", 100);
+    h.at(102);
+    gate.editQueued();
+    h.rec.previewQueued({ change: "cells", editor: false });
+    gate.run(() => h.rec.span("validate:autosave", 116.5, 120));
+    h.at(116);
+    h.rec.previewFrameEnd(); // primero el recolector…
+    gate.painted(); // …y después la compuerta (orden de preview-engine)
+    for (const t of timers.splice(0)) t(); // la tarea siguiente: corre la validación
+    h.at(118);
+    h.tasks();
+    expect(h.rec.samples[0]).toMatchObject({ previewMs: 16, end: 118 });
+    expect(h.rec.summary().validations).toMatchObject({ n: 1, insideEditWindow: 0 });
+    // Una validación que sí empezó antes del fin del frame sigue contando.
+    expect(insideEditWindows([{ name: "v", start: 115, end: 117 }], h.rec.samples)).toHaveLength(1);
+  });
+
   it("overlapping: un tramo que solo toca el borde no se solapa", () => {
     const edits = [{ t0: 10, end: 20 }];
     expect(overlapping([{ name: "v", start: 20, end: 25 }, { name: "v", start: 0, end: 10 }, { name: "v", start: 19, end: 30 }], edits)).toEqual([{ name: "v", start: 19, end: 30 }]);
@@ -311,7 +334,7 @@ describe("compuerta después del frame (CA-P7)", () => {
     const store = new DocumentStore(doc());
     const validate = vi.fn(() => ({ savable: true, issues: [] }));
     const save = vi.fn().mockResolvedValue({ ok: true, updatedAt: "2026-11-06T10:00:05.000000+00:00", draft: false });
-    const a = new Autosave(store, { patternId: store.doc.id, initialUpdatedAt: "2026-11-06T10:00:00.000000+00:00", save, validate, storage: null });
+    const a = new Autosave(store, { patternId: store.doc.id, ownerId: "11111111-0000-4000-8000-000000000001", initialUpdatedAt: "2026-11-06T10:00:00.000000+00:00", save, validate, storage: null });
     a.start();
     store.dispatch({ type: "paint", refs: [{ x: 0, y: 0 }], value: 1 });
     await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS - 10);
@@ -425,6 +448,23 @@ describe("PreviewEngine: geometría agrupada por frame", () => {
     expect(r.invalidate).toHaveBeenCalledTimes(1); // sin geometría pendiente: camino rápido
     frame();
     expect(r.setLayout).toHaveBeenCalledTimes(2);
+  });
+
+  it("al terminar el frame avisa al recolector antes de abrir la compuerta (F2)", () => {
+    const { make, frame } = stubRenderer();
+    const order: string[] = [];
+    const painted = vi.spyOn(paintGate, "painted").mockImplementation(() => void order.push("painted"));
+    setActivePerf({ previewFrameEnd: () => void order.push("previewFrameEnd"), previewQueued: () => undefined } as unknown as PerfRecorder);
+    try {
+      const engine = new PreviewEngine(make);
+      engine.attach({} as HTMLCanvasElement);
+      engine.connect(new DocumentStore(doc()));
+      frame();
+      expect(order).toEqual(["previewFrameEnd", "painted"]);
+    } finally {
+      setActivePerf(null);
+      painted.mockRestore();
+    }
   });
 
   it("si el recálculo lanza un error inesperado, el frame igual dibuja y el renderer sigue vivo", () => {

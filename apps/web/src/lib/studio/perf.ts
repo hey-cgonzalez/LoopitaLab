@@ -279,9 +279,13 @@ export function overlapping(spans: readonly Span[], edits: readonly Pick<EditSam
   return spans.filter((s) => edits.some((e) => s.start < e.end && s.end > e.t0));
 }
 
-/** Tramos que empezaron después de despachar una edición y antes de que su frame se pintara (violación de CA-P7). */
-export function insideEditWindows(spans: readonly Span[], edits: readonly Pick<EditSample, "queuedAt" | "end">[]): Span[] {
-  return spans.filter((s) => edits.some((e) => s.start >= e.queuedAt && s.start < e.end));
+/**
+ * Tramos que empezaron después de despachar una edición y antes de que terminara el frame de la vista previa que la
+ * pintó (`t0 + previewMs`; violación de CA-P7). No se compara con `end` (el cierre de la muestra, en la tarea o el
+ * frame siguiente): lo que la compuerta libera justo después de ese frame ya no demora la edición.
+ */
+export function insideEditWindows(spans: readonly Span[], edits: readonly Pick<EditSample, "queuedAt" | "t0" | "previewMs">[]): Span[] {
+  return spans.filter((s) => edits.some((e) => s.start >= e.queuedAt && s.start < e.t0 + e.previewMs));
 }
 
 // ------------------------------------------------------------------ recolector activo (ganchos del camino caliente)

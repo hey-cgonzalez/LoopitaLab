@@ -183,7 +183,17 @@ export function rowSide(chart: Chart, y: number, mirror: boolean): "left" | "rig
   return readingDirection(chart, y, { mirror }) === "right_to_left" ? "right" : "left";
 }
 
-/** Columnas con número (base 1) con la misma regla rala que las filas. */
+/**
+ * Número de la columna `x` (base 0, x = 0 a la izquierda) de una cuadrícula de `width` casillas (E18, ADR 0003).
+ * Por convención el gráfico se lee por el derecho de derecha a izquierda: la casilla 1 queda a la derecha.
+ * Con "tejer en espejo" (preferencia de la cuenta, para zurdas) se numera de izquierda a derecha.
+ * La usan los números dibujados, los anuncios y las notas: siempre la misma numeración. // validar con tejedora
+ */
+export function columnLabel(x: number, width: number, mirror: boolean): number {
+  return mirror ? x + 1 : width - x;
+}
+
+/** Columnas con número (base 1, ya con `columnLabel`) con la misma regla rala que las filas. */
 export function columnHasNumber(cellPx: number, col1: number, cols: number): boolean {
   if (cellPx >= 22) return true;
   return isNumberedRow(col1, cols);

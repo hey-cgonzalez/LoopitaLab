@@ -540,6 +540,10 @@ Aprobado por el orquestador al integrar la implementación:
 2. `yarnLetter(index)` se exporta desde `pattern-core` (`src/letters.ts`) y es la única regla de letras: A a Z y, desde la lana 27, AA, AB… (como columnas de planilla; antes era el número, que se confundía con la numeración de filas). La usan el validador, `pattern-render` y, desde T9, el editor. Por validar con `experto-tejido`.
 3. `pattern-render` publica `isNumberedRow` para que el editor (T9) numere las filas igual que el SVG cuando las casillas son chicas (fila 1, múltiplos de 5 y la última).
 
+### E18. Numeración de columnas en el editor (revisión de experto-tejido del estudio, 2026-11-06)
+
+Aprobado por el orquestador. Convención de los gráficos de tejido: la casilla 1 está abajo a la derecha, donde empieza la lectura por el derecho. En el editor, las columnas se numeran de derecha a izquierda (casilla 1 a la derecha), sin importar si la fila es por el derecho o por el revés. Con la preferencia "tejer en espejo" se numeran de izquierda a derecha. Solo cambia la presentación: el modelo sigue con `x = 0` a la izquierda visto por el derecho, y la conversión vive en un helper de la interfaz. El anuncio de la casilla enfocada ("Fila 3, casilla 5") usa la misma numeración. Por validar con tejedoras (T1b).
+
 ### Cambios que aplica `motor-patrones` (T2d)
 
 | # | Archivo | Cambio |

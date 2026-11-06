@@ -1,17 +1,13 @@
 "use client";
 
-import { migratePattern, validatePattern, type ChartPattern } from "@loopitalab/pattern-core";
+import type { ChartPattern } from "@loopitalab/pattern-core";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { savePattern } from "@/app/disenos/actions";
-import { Autosave, readBackup, type AutosaveDeps, type BackupStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
+import { Autosave, pruneBackups, readBackup, type AutosaveDeps, type EnumerableStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
+import { decideRecovery, type Recovery } from "@/lib/studio/backup-recovery.ts";
 import { DocumentStore } from "@/lib/studio/store.ts";
 
-export interface Recovery {
-  document: ChartPattern;
-  savedAt: number;
-  /** El servidor tiene una versión más nueva que la que se estaba editando cuando se hizo el respaldo. */
-  serverIsNewer: boolean;
-}
+export type { Recovery };
 
 export interface StudioSession {
   store: DocumentStore;
@@ -22,9 +18,9 @@ export interface StudioSession {
   dismissRecovery(): void;
 }
 
-function localStorageOrNull(): BackupStorage | null {
+function localStorageOrNull(): EnumerableStorage | null {
   try {
-    return typeof window === "undefined" ? null : window.localStorage;
+    return typeof window === "undefined" ? null : (window.localStorage as EnumerableStorage);
   } catch {
     return null; // acceso denegado (modo privado, política del navegador)
   }
@@ -34,12 +30,12 @@ function localStorageOrNull(): BackupStorage | null {
  * Monta el almacén del documento y el autoguardado de un diseño y los conecta con la página
  * (reconexión, cierre de pestaña, respaldo local). T9 usa `store` para las herramientas y la vista previa.
  */
-export function useStudioSession(opts: { document: ChartPattern; updatedAt: string; openedAsDraft: boolean; detached?: boolean }): StudioSession {
+export function useStudioSession(opts: { document: ChartPattern; updatedAt: string; ownerId: string; openedAsDraft: boolean; detached?: boolean }): StudioSession {
   const [{ store, autosave }] = useState(() => {
     const store = new DocumentStore(opts.document);
     // `detached`: página de desarrollo sin sesión. No llama al servidor ni escribe en el almacenamiento local.
     const save: AutosaveDeps["save"] = opts.detached ? async () => ({ ok: true, updatedAt: opts.updatedAt, draft: false }) : savePattern;
-    const autosave = new Autosave(store, { patternId: opts.document.id, initialUpdatedAt: opts.updatedAt, save, storage: opts.detached ? null : localStorageOrNull() });
+    const autosave = new Autosave(store, { patternId: opts.document.id, ownerId: opts.ownerId, initialUpdatedAt: opts.updatedAt, save, storage: opts.detached ? null : localStorageOrNull() });
     autosave.markOpenedAsDraft(opts.openedAsDraft);
     return { store, autosave };
   });
@@ -64,18 +60,17 @@ export function useStudioSession(opts: { document: ChartPattern; updatedAt: stri
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("visibilitychange", onVisibility);
 
-    // ¿Quedó un respaldo de una sesión anterior que no alcanzó a guardarse?
-    const backup = readBackup(localStorageOrNull(), opts.document.id);
-    if (backup) {
-      const m = migratePattern(backup.document);
-      const doc = m.ok ? (m.document as ChartPattern) : null;
-      if (doc && doc.kind === "chart" && doc.id === opts.document.id && validatePattern(doc).savable && JSON.stringify(doc) !== JSON.stringify(opts.document)) {
-        // Hasta que la usuaria decida, editar no pisa el respaldo ofrecido ni un guardado lo borra (T8, c).
-        autosave.holdBackup(true);
-        setRecovery({ document: doc, savedAt: backup.savedAt, serverIsNewer: backup.baseUpdatedAt !== opts.updatedAt });
-      } else {
-        autosave.discardBackup();
-      }
+    // ¿Quedó un respaldo de una sesión anterior que no alcanzó a guardarse? (sin almacenamiento en `detached`)
+    const storage = opts.detached ? null : localStorageOrNull();
+    // Primero se borra lo que no es de esta cuenta, lo de formato viejo y lo caducado (seguridad, ALTO-1).
+    pruneBackups(storage, opts.ownerId);
+    const decision = decideRecovery(readBackup(storage, opts.ownerId, opts.document.id), opts.document, opts.updatedAt);
+    if (decision.kind === "offer") {
+      // Hasta que la usuaria decida, editar no pisa el respaldo ofrecido ni un guardado lo borra (T8, c).
+      autosave.holdBackup(true);
+      setRecovery(decision.recovery);
+    } else if (decision.kind === "discard") {
+      autosave.discardBackup();
     }
 
     return () => {

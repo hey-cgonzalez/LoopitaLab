@@ -138,7 +138,7 @@ describe("gráfico", () => {
     const i = validatePattern(p).issues.find((x) => x.code === "CHART_CELL_VALUE");
     assert.ok(i);
     // En redondo el mensaje dice "vuelta" (glosario pendiente); de ida y vuelta, "fila".
-    assert.match(i.message, /vuelta 2, casilla 2/);
+    assert.match(i.message, /vuelta 2, casilla 3/);
     const q = smallChart();
     q.chart.cells.pop();
     assert.ok(codes(validatePattern(q).issues).includes("CHART_CELLS_LENGTH"));

@@ -1,5 +1,5 @@
 import { yarnLetter, type Chart } from "@loopitalab/pattern-core";
-import { cellOrigin, columnHasNumber, rowHasNumber, rowSide, valueAt, type Cell, type GridLayout, type RowNumbering } from "@/lib/studio/editor-grid.ts";
+import { cellOrigin, columnHasNumber, columnLabel, rowHasNumber, rowSide, valueAt, type Cell, type GridLayout, type RowNumbering } from "@/lib/studio/editor-grid.ts";
 
 /*
  * Dibujo de la cuadrícula del editor en un canvas 2D (T9). Sin React. Convenciones iguales al SVG de pattern-render:
@@ -172,10 +172,12 @@ function paintMargins(ctx: CanvasRenderingContext2D, p: DrawParams): void {
   }
   ctx.textAlign = "center";
   for (let x = 0; x < l.cols; x++) {
-    if (!columnHasNumber(s, x + 1, l.cols)) continue;
+    // Casilla 1 a la derecha (E18); con espejo, a la izquierda.
+    const label = columnLabel(x, l.cols, p.mirror);
+    if (!columnHasNumber(s, label, l.cols)) continue;
     const cx = l.left + x * s + s / 2;
-    ctx.fillText(String(x + 1), cx, l.top / 2);
-    ctx.fillText(String(x + 1), cx, l.top + l.rows * s + l.top / 2);
+    ctx.fillText(String(label), cx, l.top / 2);
+    ctx.fillText(String(label), cx, l.top + l.rows * s + l.top / 2);
   }
 }
 

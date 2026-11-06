@@ -21,5 +21,5 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ f
   const n = Math.max(1, Math.min(30, Number.parseInt(reps ?? "3", 10) || 3));
   const base = forma === "circulo" ? (motivo === "rombos" ? diamondsPattern(n, "circle") : crownPattern(8)) : diamondsPattern(n, forma === "plano" ? "flat" : "tube");
   const doc = forma === "plano" ? { ...base, chart: { ...base.chart, workedIn: "rows" as const } } : base;
-  return <StudioShell document={doc} updatedAt="2026-11-06T00:00:00.000000+00:00" draftIssues={[]} mirror={espejo === "1"} detached perf={perf === "1"} />;
+  return <StudioShell document={doc} updatedAt="2026-11-06T00:00:00.000000+00:00" ownerId="dev" draftIssues={[]} mirror={espejo === "1"} detached perf={perf === "1"} />;
 }

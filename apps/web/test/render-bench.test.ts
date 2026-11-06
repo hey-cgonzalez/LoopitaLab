@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { NO_STITCH, rowStitchCounts, stitchTotal, validatePattern } from "@loopitalab/pattern-core";
 import { colorize, layoutGeometry, visibleCount } from "@loopitalab/stitch-render";
-import { devPagesEnabled } from "@/lib/dev-pages";
+import { assertDevPagesSafe, devPagesEnabled } from "@/lib/dev-pages";
 import { BENCH_GAUGE, crownPattern, diamondsPattern, fpsFromFrames, percentile, summarize } from "@/lib/render-bench";
 
 describe("páginas de desarrollo", () => {
@@ -11,6 +11,19 @@ describe("páginas de desarrollo", () => {
     expect(devPagesEnabled({ NODE_ENV: "production" })).toBe(false);
     expect(devPagesEnabled({ NODE_ENV: "production", LOOPITA_DEV_PAGES: "true" })).toBe(false);
     expect(devPagesEnabled({ NODE_ENV: "production", LOOPITA_DEV_PAGES: "1" })).toBe(true);
+  });
+
+  it("en el despliegue real LOOPITA_DEV_PAGES=1 hace fallar el build y se ignora (MEDIO-2)", () => {
+    for (const marker of [{ VERCEL_ENV: "production" }, { LOOPITA_ENV: "production" }]) {
+      const env = { NODE_ENV: "production", LOOPITA_DEV_PAGES: "1", ...marker };
+      expect(() => assertDevPagesSafe(env)).toThrow(/LOOPITA_DEV_PAGES/);
+      expect(devPagesEnabled(env)).toBe(false);
+      expect(() => assertDevPagesSafe({ ...env, LOOPITA_DEV_PAGES: undefined })).not.toThrow();
+    }
+    // Medición local con `next start` (sin marcas de despliegue) y previews de Vercel: se permite.
+    expect(() => assertDevPagesSafe({ NODE_ENV: "production", LOOPITA_DEV_PAGES: "1" })).not.toThrow();
+    expect(() => assertDevPagesSafe({ NODE_ENV: "production", LOOPITA_DEV_PAGES: "1", VERCEL_ENV: "preview" })).not.toThrow();
+    expect(() => assertDevPagesSafe({ NODE_ENV: "development", LOOPITA_DEV_PAGES: "1", LOOPITA_ENV: "production" })).not.toThrow();
   });
 });
 

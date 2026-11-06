@@ -1,6 +1,7 @@
 import type { Issue } from "@loopitalab/pattern-core";
 import { describe, expect, it } from "vitest";
 import { compactRanges, groupIssueLines } from "@/lib/studio/issue-groups.ts";
+import { yarnReviewLabel } from "@/lib/studio-texts.ts";
 
 const float = (row: number, yarn: number, length: number): Issue => ({
   code: "CHART_FLOAT_LONG",
@@ -9,11 +10,12 @@ const float = (row: number, yarn: number, length: number): Issue => ({
   message: `En la vuelta ${row + 1}, la hebra mide ${length} puntos (≈${(length * 0.5).toFixed(1).replace(".", ",")} cm).`,
   data: { row, yarn, length, max: 5 },
 });
-const ctx = { workedIn: "rounds" as const, yarnLabel: (i: number) => (i === 3 ? "la lana D (#CFA92A)" : `la lana ${i}`) };
+const ctx = { workedIn: "rounds" as const, yarnLabel: (i: number) => (i === 3 ? yarnReviewLabel("D", "mostaza") : yarnReviewLabel(String(i))) };
 
 describe("compactRanges", () => {
   it("compacta rangos", () => {
-    expect(compactRanges([2, 3, 4, 5, 8, 10, 11, 12, 19].filter((n) => n < 13))).toBe("2–5, 8, 10–12");
+    expect(compactRanges([2, 3, 4, 5, 8, 10, 11, 12, 19].filter((n) => n < 13))).toBe("2 a 5, 8, 10 a 12");
+    expect(compactRanges([2, 3, 4, 5, 8, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19])).toBe("2 a 5, 8, 10 a 19");
     expect(compactRanges([5, 3, 4, 3])).toBe("3 a 5");
     expect(compactRanges([2, 3])).toBe("2 y 3");
     expect(compactRanges([7])).toBe("7");
@@ -26,7 +28,7 @@ describe("groupIssueLines", () => {
     const lines = groupIssueLines(issues, ctx);
     expect(lines).toHaveLength(2);
     expect(lines[0]?.text).toBe(
-      "Vueltas 2 a 19: la hebra flotante de la lana D (#CFA92A) llega a 27 puntos (≈ 13,5 cm); conviene enganchar la hebra o cambiar el dibujo. Máximo sugerido: 5 puntos.",
+      "Vueltas 2 a 19: la hebra flotante de la lana D (mostaza) llega a 27 puntos (≈ 13,5 cm) en el peor caso; conviene enganchar la hebra o cambiar el dibujo. Máximo sugerido: 5 puntos.",
     );
     expect(lines[0]?.details).toHaveLength(18);
     expect(lines[1]?.text).toContain("En la vuelta 1");
@@ -46,6 +48,15 @@ describe("groupIssueLines", () => {
     const lines = groupIssueLines([i, i, i], ctx);
     expect(lines[0]?.text).toBe("Algo pasa (se repite 3 veces)");
     expect(groupIssueLines([i], ctx)[0]?.text).toBe("Algo pasa");
+    const r = (row: number): Issue => ({ ...i, data: { row } });
+    expect(groupIssueLines([r(1), r(2), r(3), r(7)], ctx)[0]?.text).toBe("Algo pasa (se repite 4 veces, en las vueltas 2 a 4, 8)");
+    expect(groupIssueLines([r(4), r(4)], { ...ctx, workedIn: "rows" })[0]?.text).toBe("Algo pasa (se repite 2 veces, en la fila 5)");
+  });
+  it("nombra la lana por letra y color, nunca por hex", () => {
+    expect(yarnReviewLabel("B", "rojo")).toBe("la lana B (rojo)");
+    expect(yarnReviewLabel("C")).toBe("la lana C (color personalizado)");
+    const lines = groupIssueLines([float(1, 2, 9), float(2, 2, 9)], { workedIn: "rounds", yarnLabel: () => yarnReviewLabel("C") });
+    expect(lines[0]?.text).not.toMatch(/#[0-9A-F]{6}/i);
   });
   it("orden estable por primera aparición", () => {
     const a: Issue = { code: "B", severity: "info", path: "p", message: "b" };

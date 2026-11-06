@@ -14,13 +14,13 @@ export interface IssueLine {
 
 export interface GroupContext {
   workedIn: WorkedIn;
-  /** Color hex de la lana por índice, si se conoce. */
+  /** Nombre de la lana por índice ("la lana B (rojo)"; ver `yarnReviewLabel`), si se conoce. */
   yarnLabel?: (index: number) => string;
 }
 
 const isNum = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
 
-/** Compacta números ascendentes sin repetir en rangos: [2,3,4,5,8,10,11] -> "2–5, 8, 10–11". Un solo rango contiguo se escribe "2 a 19". */
+/** Compacta números ascendentes sin repetir en rangos, con "a" (no guion): [2,3,4,5,8,10,11,12] -> "2 a 5, 8, 10 a 12"; dos seguidos, "2 y 3". */
 export function compactRanges(values: readonly number[]): string {
   const v = [...new Set(values)].sort((a, b) => a - b);
   const parts: string[] = [];
@@ -29,11 +29,9 @@ export function compactRanges(values: readonly number[]): string {
     while (j + 1 < v.length && v[j + 1] === (v[j] as number) + 1) j++;
     const a = v[i] as number;
     const b = v[j] as number;
-    parts.push(a === b ? `${a}` : j - i === 1 ? `${a} y ${b}` : `${a}–${b}`);
+    parts.push(a === b ? `${a}` : j - i === 1 ? `${a} y ${b}` : `${a} a ${b}`);
     i = j + 1;
   }
-  if (parts.length === 1 && v.length > 2) return `${v[0]} a ${v[v.length - 1]}`;
-  if (parts.length === 1) return parts[0] as string;
   return parts.join(", ");
 }
 
@@ -89,7 +87,9 @@ export function groupIssueLines(issues: readonly Issue[], ctx: GroupContext): Is
         text: issueGroupText("colors", { workedIn: ctx.workedIn, ranges: compactRanges(rows), count: list.length, rowCount: new Set(rows).size, ...(colors ? { colors } : {}) }),
       });
     } else {
-      lines.push({ ...base, text: issueGroupText("generic", { workedIn: ctx.workedIn, ranges: "", count: list.length, rowCount: 0, message: first.message }) });
+      // Genérico: dice en qué filas o vueltas, si los avisos las traen.
+      const ranges = rows.length > 0 ? compactRanges(rows) : "";
+      lines.push({ ...base, text: issueGroupText("generic", { workedIn: ctx.workedIn, ranges, count: list.length, rowCount: new Set(rows).size, message: first.message }) });
     }
   }
   return lines;

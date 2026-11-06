@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { nextTabId, noticeReserve, revealOffset } from "@/lib/studio/a11y.ts";
 import type { SaveStatus } from "@/lib/studio/autosave.ts";
 import { contrastRatio, inkFor } from "@/lib/studio/color.ts";
-import { moveFocus } from "@/lib/studio/editor-grid.ts";
+import { columnLabel, moveFocus } from "@/lib/studio/editor-grid.ts";
 import { SAVED_SPEAK_GAP_MS, saveAnnouncement, type SpokenSave } from "@/lib/studio/save-status.ts";
-import { STUDIO_TEXTS, cellAnnouncement, editorLabel, readingNote, reviewSummary, yarnAddedText, yarnButtonLabel, yarnMovedText, yarnRemovedText } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, cellAnnouncement, editorLabel, lostStitchNote, readingNote, shapingLine, reviewSummary, yarnAddedText, yarnButtonLabel, yarnMovedText, yarnRemovedText } from "@/lib/studio-texts.ts";
 
 const css = readFileSync(new URL("../src/app/globals.css", import.meta.url), "utf8");
 const read = (rel: string) => readFileSync(new URL(rel, import.meta.url), "utf8");
@@ -113,6 +113,22 @@ describe("anuncio de la casilla enfocada (CA-A3)", () => {
       yarns: [{ id: "A", weight: 4 as const, composition: [{ fiber: "lana", percent: 100 }], color: { hex: "#ffffff" } }],
     }).chart;
 
+  it("E18: las casillas se numeran de derecha a izquierda; con espejo, de izquierda a derecha", () => {
+    expect([0, 1, 2, 3].map((x) => columnLabel(x, 4, false))).toEqual([4, 3, 2, 1]);
+    expect([0, 1, 2, 3].map((x) => columnLabel(x, 4, true))).toEqual([1, 2, 3, 4]);
+    for (let w = 1; w < 12; w++) for (let x = 0; x < w; x++) {
+      expect(columnLabel(x, w, false)).toBeGreaterThanOrEqual(1);
+      expect(columnLabel(x, w, false) + columnLabel(x, w, true)).toBe(w + 1);
+    }
+    // El anuncio usa la misma numeración que los números dibujados.
+    expect(cellAnnouncement(1, columnLabel(3, 4, false), "Lana A", "rounds")).toBe("Vuelta 1, casilla 1, Lana A");
+  });
+  it("la casilla donde se pierde un punto y las disminuciones dicen vuelta o fila", () => {
+    expect(lostStitchNote(4, 2, "rounds")).toContain("(vuelta 4, casilla 2)");
+    expect(lostStitchNote(4, 2, "rows")).toContain("(fila 4, casilla 2)");
+    expect(shapingLine(31, 56, -8, -1, "rounds")).toBe("Vuelta 31: 56 pts, −8 en la vuelta, −1 por repetición");
+    expect(shapingLine(31, 56, -8, -1, "rows")).toBe("Fila 31: 56 pts, −8 en la fila, −1 por repetición");
+  });
   it("dice fila o vuelta, casilla y lana", () => {
     expect(cellAnnouncement(3, 5, "Lana B", "rows")).toBe("Fila 3, casilla 5, Lana B");
     expect(cellAnnouncement(3, 5, "Lana B", "rounds")).toBe("Vuelta 3, casilla 5, Lana B");
@@ -125,8 +141,12 @@ describe("anuncio de la casilla enfocada (CA-A3)", () => {
     expect(readingDirection(c, 1, { mirror: true })).toBe("right_to_left");
   });
   it("el aviso de lectura sigue a la dirección y menciona el espejo", () => {
-    expect(readingNote("rows", "right_to_left", false)).toBe("Esta fila se lee de derecha a izquierda");
-    expect(readingNote("rounds", "left_to_right", true)).toBe("Esta vuelta se lee de izquierda a derecha (lectura en espejo)");
+    expect(readingNote("rows", "right_to_left", false)).toBe("Esta fila se lee de derecha a izquierda. Se teje por el lado derecho.");
+    expect(readingNote("rows", "left_to_right", false)).toBe("Esta fila se lee de izquierda a derecha. Se teje por el revés.");
+    expect(readingNote("rows", "left_to_right", true)).toBe("Esta fila se lee de izquierda a derecha (lectura en espejo, para zurdas). Se teje por el lado derecho.");
+    expect(readingNote("rows", "right_to_left", true)).toContain("Se teje por el revés.");
+    expect(readingNote("rounds", "left_to_right", true)).toBe("Esta vuelta se lee de izquierda a derecha (lectura en espejo, para zurdas).");
+    expect(readingNote("rounds", "right_to_left", false)).toBe("Esta vuelta se lee de derecha a izquierda.");
     const c = chart("rounds");
     expect(readingNote("rounds", readingDirection(c, 2, { mirror: true }), true)).toContain("de izquierda a derecha");
   });
@@ -149,9 +169,16 @@ describe("anuncio de la casilla enfocada (CA-A3)", () => {
 
 describe("lanas: nombres y anuncios", () => {
   it("el nombre accesible de cada botón contiene su texto visible (WCAG 2.5.3)", () => {
-    expect(yarnButtonLabel(STUDIO_TEXTS.lanas.quitar, "B")).toContain(STUDIO_TEXTS.lanas.quitar);
+    expect(yarnButtonLabel(STUDIO_TEXTS.lanas.quitar, "B")).toBe("Quitar lana B");
     expect(yarnButtonLabel(STUDIO_TEXTS.panelLanas.editar, "B")).toContain(STUDIO_TEXTS.panelLanas.editar);
     expect(yarnButtonLabel(STUDIO_TEXTS.panelLanas.subir, "B", " en la lista")).toBe("Subir lana B en la lista");
+    expect(yarnButtonLabel(STUDIO_TEXTS.panelLanas.bajar, "B", " en la lista")).toBe("Bajar lana B en la lista");
+    expect(yarnButtonLabel(STUDIO_TEXTS.panelLanas.editar, "B")).toBe("Editar lana B");
+    expect(yarnButtonLabel(STUDIO_TEXTS.panelLanas.cerrar, "B")).toBe("Cerrar lana B");
+    for (const verb of [STUDIO_TEXTS.lanas.quitar, STUDIO_TEXTS.panelLanas.subir, STUDIO_TEXTS.panelLanas.bajar, STUDIO_TEXTS.panelLanas.editar]) {
+      expect(yarnButtonLabel(verb, "B")).not.toMatch(/lana lana/i);
+      expect(yarnButtonLabel(verb, "B")).toContain(verb);
+    }
   });
   it("cada botón de lana es distinto de los demás (no hay dos 'Quitar lana' iguales)", () => {
     const names = ["A", "B", "C"].map((l) => yarnButtonLabel(STUDIO_TEXTS.lanas.quitar, l));

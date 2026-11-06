@@ -10,6 +10,7 @@ import {
   DEFAULT_CELL_PX,
   cellOrigin,
   clampCellPx,
+  columnLabel,
   fitCellPx,
   gridLayout,
   gridSize,
@@ -65,6 +66,9 @@ export interface ChartEditorProps {
   /** Tamaño de casilla en uso (con "ajustar", el calculado), para el porcentaje de zoom. */
   onEffectivePx(px: number): void;
 }
+
+/** `id` del canvas del editor: destino del enlace "Saltar al editor" (hay un solo estudio por página). */
+export const CHART_CANVAS_ID = "studio-chart-canvas";
 
 /**
  * Editor del motivo (T9): cuadrícula en canvas con la fila 1 abajo, numeración y flechas de lectura como el SVG,
@@ -201,8 +205,8 @@ export function ChartEditor(props: ChartEditorProps) {
   // ------------------------------------------------------------------ anuncios
   /**
    * "Fila 3, casilla 5, Lana B (rojo)". `withRow` agrega por dónde se lee la fila (con el espejo del perfil ya
-   * aplicado): se dice al entrar a una fila nueva, no en cada casilla. La casilla se numera desde la izquierda,
-   * igual que los números dibujados sobre la cuadrícula.
+   * aplicado): se dice al entrar a una fila nueva, no en cada casilla. La casilla se numera con `columnLabel`
+   * (desde la derecha; desde la izquierda con espejo), igual que los números dibujados sobre la cuadrícula.
    */
   const describeCellIn = useCallback(
     (ch: ChartPattern["chart"], c: Cell, withRow = false): string => {
@@ -212,13 +216,15 @@ export function ChartEditor(props: ChartEditorProps) {
       const paletteId = y?.color.paletteId;
       const colorName = paletteId ? PALETTE.find((p) => p.id === paletteId)?.nombre : undefined;
       const yarn = y ? yarnTitle(yarnLetter(v), colorName) : STUDIO_TEXTS.herramientas.sinPunto.toLowerCase();
-      let text = cellAnnouncement(c.y + 1, c.x + 1, yarn, chart.workedIn);
+      // Misma numeración que los números dibujados (E18): casilla 1 a la derecha, o a la izquierda con espejo.
+      const col = columnLabel(c.x, cols, mirror);
+      let text = cellAnnouncement(c.y + 1, col, yarn, chart.workedIn);
       const lost = rowShapingColumns(chart, c.y).decreases.includes(c.x % chart.width);
-      if (lost && v === NO_STITCH) text += `. ${lostStitchNote(c.y + 1, c.x + 1)}`;
+      if (lost && v === NO_STITCH) text += `. ${lostStitchNote(c.y + 1, col, chart.workedIn)}`;
       if (withRow) text += `. ${readingNote(chart.workedIn, readingDirection(chart, c.y, { mirror }), mirror)}`;
       return text;
     },
-    [yarns, mirror],
+    [yarns, mirror, cols],
   );
   const describeCell = (c: Cell, withRow = false) => describeCellIn(chart, c, withRow);
 
@@ -409,6 +415,7 @@ export function ChartEditor(props: ChartEditorProps) {
       <div ref={hostRef} className="max-h-[70vh] min-h-48 overflow-auto rounded-xl border-2 border-borde bg-white p-1" data-testid="chart-scroll">
         <canvas
           ref={canvasRef}
+          id={CHART_CANVAS_ID}
           data-testid="chart-canvas"
           data-cols={cols}
           data-rows={rows}

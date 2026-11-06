@@ -5,7 +5,7 @@ import { contrastRatio, inkFor } from "@/lib/studio/color.ts";
 import { gridLayout, gridSize, lostStitchMarks, moveFocus, pointToCell, rowHasNumber, rowNumbering, rowSide, maxCellPx, clampCellPx } from "@/lib/studio/editor-grid.ts";
 import { DocumentStore } from "@/lib/studio/store.ts";
 import { applyTool, lineCells, toolForKey, yarnIndexForKey } from "@/lib/studio/tools.ts";
-import { cellsOfMotifIndex } from "@/components/studio/draw-grid.ts";
+import { cellsOfMotifIndex, paintAll } from "@/components/studio/draw-grid.ts";
 
 const yarn = (id: string, hex: string) => ({ id, weight: 4 as const, composition: [{ fiber: "lana", percent: 100 }], color: { hex } });
 function doc(over: Partial<Parameters<typeof newChartPattern>[0]> = {}): ChartPattern {
@@ -82,6 +82,22 @@ describe("numeración y lectura iguales al SVG", () => {
       for (let y = 0; y < 4; y++)
         for (const mirror of [false, true]) expect(rowSide(c, y, mirror) === "right").toBe(readingDirection(c, y, { mirror }) === "right_to_left");
     }
+  });
+  it("los números de columna del canvas: casilla 1 a la derecha; con espejo, a la izquierda (E18)", () => {
+    const c = doc({ width: 4, height: 2, repeat: { x: 1, y: 1 } }).chart;
+    const layout = gridLayout(4, 2, 24);
+    const drawn = (mirror: boolean) => {
+      const texts: { t: string; x: number; y: number }[] = [];
+      const ctx = new Proxy({} as Record<string, unknown>, {
+        get: (target, k) => (k === "fillText" ? (t: string, x: number, y: number) => void texts.push({ t, x, y }) : typeof k === "string" && k in target ? target[k] : () => undefined),
+        set: (target, k, v) => ((target[k as string] = v), true),
+      }) as unknown as CanvasRenderingContext2D;
+      paintAll(ctx, { chart: c, yarnHex: ["#FFFFFF", "#BA222C"], yarnInk: ["#000", "#FFF"], layout, numbering: rowNumbering(c, 24), mirror, marks: new Uint8Array(8), hatch: "#fff", focus: null, showRepeats: false }, 1);
+      // Fila de números de arriba (y = top / 2), de izquierda a derecha en pantalla.
+      return texts.filter((t) => t.y === layout.top / 2).sort((a, b) => a.x - b.x).map((t) => t.t);
+    };
+    expect(drawn(false)).toEqual(["4", "3", "2", "1"]);
+    expect(drawn(true)).toEqual(["1", "2", "3", "4"]);
   });
   it("numeración rala con casillas chicas usa isNumberedRow", () => {
     const c = doc({ workedIn: "rows" }).chart;

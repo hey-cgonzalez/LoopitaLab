@@ -11,6 +11,7 @@ import Link from "next/link";
 import { CREATE_PASSWORD_FIRST, PASSWORD_STATUS_UNKNOWN, REAUTH_FAILED_MESSAGE, REAUTH_RETURN_NOTICE } from "@/lib/auth-messages";
 import { providerLabel, type ReauthChoice } from "@/lib/auth-providers";
 import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
+import { clearBrowserBackups } from "@/lib/studio/backup.ts";
 import { createClient } from "@/lib/supabase/client";
 
 const CONFIRM_TEXT = "ELIMINAR";
@@ -99,6 +100,8 @@ export function YourData({ choice, reauthDone = false, reauthFailed = false }: P
       setPending(false);
       return;
     }
+    // La cuenta ya no existe: tampoco deben quedar sus respaldos locales en este navegador (seguridad, ALTO-1).
+    clearBrowserBackups();
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     window.location.assign("/");
   }

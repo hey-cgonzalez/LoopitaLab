@@ -1,7 +1,17 @@
 import { EDIT_LIMITS, LIMITS, type Chart, type Gauge, type WeightCategory } from "@loopitalab/pattern-core";
 import { PALETTE, FIBER_IDS } from "@loopitalab/yarn-catalog";
 import { gaugeProblems, normalizeTitle, titleProblems } from "./fields.ts";
+import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 import type { NewDesignInput } from "./templates.ts";
+
+/**
+ * Aviso (no bloquea) de tubo tejido de ida y vuelta: la pieza queda abierta y se cierra con una costura. Es el mismo
+ * caso que `CHART_ROWS_SHAPE` del validador; lo usan el asistente y el panel lateral. El círculo de ida y vuelta, en
+ * cambio, el asistente lo rechaza.
+ */
+export function tubeSeamNotice(renderAs: Chart["renderAs"], workedIn: Chart["workedIn"]): string | null {
+  return renderAs === "tube" && workedIn === "rows" ? STUDIO_TEXTS.tejido.tuboIdaYVuelta : null;
+}
 
 /** Respuestas del asistente "Nuevo diseño", tal como las escribe la usuaria (texto en los números). */
 export interface WizardForm {

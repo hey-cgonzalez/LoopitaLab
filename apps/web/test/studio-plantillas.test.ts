@@ -1,4 +1,5 @@
-import { stitchTotal, validatePattern, type ChartPattern } from "@loopitalab/pattern-core";
+import { rowStitchCounts, stitchTotal, validatePattern, type ChartPattern } from "@loopitalab/pattern-core";
+import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 import { describe, expect, it } from "vitest";
 import { newChartPattern } from "@loopitalab/pattern-core";
 import { TEMPLATES } from "@/lib/studio/templates.ts";
@@ -25,6 +26,26 @@ describe("plantillas", () => {
     expect(doc?.chart.cells).toContain(-1);
     expect(doc?.chart.repeat.x).toBe(8);
     expect(doc?.chart.renderAs).toBe("circle");
+  });
+
+  it("la copa es de adulto: 112 puntos en el borde, −8 cada 2 vueltas, cierra con 16 (conteos de pattern-core)", () => {
+    const crown = TEMPLATES.find((t) => t.id === "crown")!;
+    const doc = crown.paint(newChartPattern({ id: ID, ...crown.input }));
+    const counts = rowStitchCounts(doc.chart);
+    expect(counts[0]).toBe(112);
+    expect(counts.at(-1)).toBe(16);
+    for (let y = 1; y < counts.length; y++) expect((counts[y - 1] as number) - (counts[y] as number)).toBe(y % 2 === 0 ? 8 : 0);
+    const r = validatePattern(doc);
+    expect(r.valid).toBe(true);
+    // Hebras flotantes razonables: sin avisos de hebra larga ni de más de 2 lanas por vuelta.
+    expect(r.issues.filter((i) => i.code === "CHART_FLOAT_LONG" || i.code === "CHART_COLORS_PER_ROW")).toEqual([]);
+    // La descripción lo dice y no promete un tamaño exacto en cm.
+    expect(crown.description).toContain("112");
+    expect(crown.description).toContain("16");
+    expect(crown.description).toContain("depende de tu muestra");
+    expect(crown.description).not.toMatch(/\d\s*cm/);
+    expect(crown.name).toBe(STUDIO_TEXTS.asistente.plantillaCopa);
+    expect(crown.name).toContain("cuñas");
   });
 });
 
