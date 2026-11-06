@@ -1,7 +1,8 @@
 "use client";
 
 import type { ChartPattern } from "@loopitalab/pattern-core";
-import { useDeferredValue, useMemo } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef } from "react";
+import { noticeReserve } from "@/lib/studio/a11y.ts";
 import { applicableLimitations } from "@/lib/studio/preview-plan.ts";
 import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 
@@ -12,17 +13,29 @@ const T = STUDIO_TEXTS;
  * Mantiene `data-zone="prototype-notice"`.
  */
 export function PrototypeNotice() {
+  const ref = useRef<HTMLParagraphElement>(null);
+  // WCAG 2.4.11: el aviso queda pegado abajo, en el flujo (al final de la página no tapa nada). Su alto real (cambia
+  // con el ancho de la pantalla) se publica en `--aviso-alto`; globals.css lo usa como `scroll-padding-bottom` de la
+  // página, así el navegador deja ese espacio libre al desplazar hacia un elemento que recibe el foco.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const root = document.documentElement;
+    const publish = () => root.style.setProperty("--aviso-alto", noticeReserve(el.getBoundingClientRect().height));
+    publish();
+    const ro = new ResizeObserver(publish);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      root.style.removeProperty("--aviso-alto");
+    };
+  }, []);
   return (
-    <>
-      {/* WCAG 2.4.11: el aviso queda pegado abajo, en el flujo (al final de la página no tapa nada). Mientras se navega con
-          teclado, el navegador deja este margen libre al desplazar el elemento enfocado. */}
-      <style>{"html{scroll-padding-bottom:6rem}"}</style>
-      <p data-zone="prototype-notice" className="sticky bottom-0 z-10 shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-2 text-xs sm:text-sm">
-        <span className="mx-auto block max-w-[1600px]">
-          <strong>{T.prototipo.etiqueta}.</strong> {T.prototipo.aviso}
-        </span>
-      </p>
-    </>
+    <p ref={ref} data-zone="prototype-notice" className="sticky bottom-0 z-10 shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-2 text-sm">
+      <span className="mx-auto block max-w-[1600px]">
+        <strong>{T.prototipo.etiqueta}.</strong> {T.prototipo.aviso}
+      </span>
+    </p>
   );
 }
 

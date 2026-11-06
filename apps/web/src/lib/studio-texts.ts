@@ -260,8 +260,9 @@ export const STUDIO_TEXTS = {
     descripcionMotivo: "Descripción del motivo para lectores de pantalla",
     zoom: "Zoom",
     instrucciones:
-      "Flechas: moverte entre casillas. Enter o Espacio: aplicar la herramienta en la casilla. L, R, C y S eligen la herramienta; 1 a 9 eligen la lana.",
+      "Flechas: moverte entre casillas. Enter o Espacio: aplicar la herramienta en la casilla. Mayús con las flechas: pintar mientras te mueves. L, R, C y S eligen la herramienta; 1 a 9 eligen la lana. Tab: salir de la cuadrícula.",
     anuncioHerramienta: "Herramienta",
+    anuncioZoomAjustado: "Zoom ajustado a la pantalla",
     anuncioLana: "Lana activa",
     anuncioPintada: "pintada",
     anuncioRellenada: "rellenada",
@@ -281,6 +282,8 @@ export const STUDIO_TEXTS = {
       { teclas: "Inicio / Fin", accion: "Ir a la primera o a la última casilla de la fila" },
       { teclas: "Re Pág / Av Pág", accion: "Subir o bajar 5 filas" },
       { teclas: "Enter o Espacio", accion: "Aplicar la herramienta en la casilla enfocada" },
+      { teclas: "Mayús + flechas", accion: "Pintar las casillas por las que pasas (lápiz y sin punto); se deshace de una vez" },
+      { teclas: "Tab", accion: "Salir de la cuadrícula hacia el siguiente control" },
       { teclas: "L", accion: "Lápiz" },
       { teclas: "R", accion: "Relleno" },
       { teclas: "C", accion: "Cuentagotas" },
@@ -308,6 +311,11 @@ export const STUDIO_TEXTS = {
     leerDerecho: "Las flechas del borde indican por dónde empieza a leerse cada fila.",
     espejo: "Lectura en espejo (preferencia de tu cuenta).",
     sinLanas: "Este diseño no tiene lanas.",
+    dedoDibuja: "Dibujar con el dedo o el lápiz",
+    dedoAyuda:
+      "Apagado, con el dedo o el lápiz desplazas la cuadrícula y tocas una casilla para aplicar la herramienta. Encendido, arrastrar dibuja y la página no se desplaza sobre la cuadrícula.",
+    descripcionTitulo: "Descripción del motivo en texto",
+    descripcionVacia: "Calculando la descripción…",
   },
 
   /** Panel de lanas. */
@@ -385,6 +393,8 @@ export const STUDIO_TEXTS = {
     ajustar: "Ajustar",
     acercar: "Acercar",
     alejar: "Alejar",
+    moverConDedo: "Mover la vista con el dedo",
+    moverConDedoAyuda: "Apagado, el dedo desplaza la página. Encendido, arrastrar mueve la vista previa.",
     descripcionCarga: "Descripción del diseño",
     limitacionesAbrir: "Lo que la vista no muestra",
   },
@@ -431,6 +441,64 @@ export function yarnTitle(letter: string, name?: string): string {
 export function cellAnnouncement(row: number, col: number, yarn: string, workedIn: WorkedIn): string {
   const unit = workedIn === "rounds" ? STUDIO_TEXTS.unidades.vuelta : STUDIO_TEXTS.unidades.fila;
   return `${unit} ${row}, ${STUDIO_TEXTS.unidades.casilla} ${col}, ${yarn}`;
+}
+
+/** Por dónde empieza a leerse una fila o vuelta. Sale de `readingDirection` de pattern-core (ya con el espejo aplicado). */
+export type ReadDirection = "right_to_left" | "left_to_right";
+
+/** Aviso de lectura de la fila o vuelta: se dice al entrar a una fila nueva, no en cada casilla. */
+export function readingNote(workedIn: WorkedIn, direction: ReadDirection, mirror: boolean): string {
+  const unit = workedIn === "rounds" ? "vuelta" : "fila";
+  const from = direction === "right_to_left" ? "derecha a izquierda" : "izquierda a derecha";
+  return `Esta ${unit} se lee de ${from}${mirror ? " (lectura en espejo)" : ""}`;
+}
+
+/** Nombre accesible del editor, con su tamaño: "Editor del motivo: 12 puntos de ancho y 10 filas de alto". */
+export function editorLabel(cols: number, rows: number, workedIn: WorkedIn): string {
+  const unit = workedIn === "rounds" ? (rows === 1 ? "vuelta" : "vueltas") : rows === 1 ? "fila" : "filas";
+  return `${STUDIO_TEXTS.accesibilidad.editorEtiqueta}: ${cols} ${cols === 1 ? "punto" : "puntos"} de ancho y ${rows} ${unit} de alto`;
+}
+
+/** Lana movida en la lista: al cambiar de posición cambia de letra, y el dibujo conserva sus colores. */
+export function yarnMovedText(fromLetter: string, toLetter: string): string {
+  return `La lana ${fromLetter} ahora es la lana ${toLetter}. El dibujo conserva sus colores.`;
+}
+
+/** Lana quitada: sus casillas pasan a la lana de reemplazo (letras ya calculadas después de quitar). */
+export function yarnRemovedText(removedLetter: string, replacementLetter: string, lettersShift: boolean): string {
+  return `Se quitó la lana ${removedLetter}. Sus casillas ahora usan la lana ${replacementLetter}.${lettersShift ? " Las lanas siguientes cambiaron de letra." : ""}`;
+}
+
+/** Lana agregada. */
+export function yarnAddedText(letter: string): string {
+  return `Se agregó la lana ${letter}. Puedes cambiar su color y su grosor.`;
+}
+
+/** Nombre accesible de un botón de una lana: "Quitar lana A" (contiene el texto visible, WCAG 2.5.3). */
+export function yarnButtonLabel(verb: string, letter: string, suffix = ""): string {
+  return `${verb} lana ${letter}${suffix}`;
+}
+
+/** Conteos de la revisión del diseño (por grupo de aviso), para el resumen que lee el lector de pantalla. */
+export interface ReviewCounts {
+  cannotKnit: number;
+  cannotSave: number;
+  warnings: number;
+  info: number;
+}
+
+function plural(n: number, one: string, many: string): string {
+  return `${n} ${n === 1 ? one : many}`;
+}
+
+/** Resumen de la revisión: solo cambia cuando cambian los conteos, así el lector de pantalla no repite lo mismo. */
+export function reviewSummary(c: ReviewCounts): string {
+  const parts: string[] = [];
+  if (c.cannotSave > 0) parts.push(`${plural(c.cannotSave, "error que impide guardar", "errores que impiden guardar")}`);
+  if (c.cannotKnit > 0) parts.push(`${plural(c.cannotKnit, "error que impide tejer", "errores que impiden tejer")}`);
+  if (c.warnings > 0) parts.push(plural(c.warnings, "advertencia", "advertencias"));
+  if (c.info > 0) parts.push(plural(c.info, "aviso informativo", "avisos informativos"));
+  return parts.length === 0 ? "Revisión del diseño: sin avisos." : `Revisión del diseño: ${parts.join(", ")}.`;
 }
 
 /** Formato de cantidades con separador de miles. */

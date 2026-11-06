@@ -2,14 +2,14 @@
 
 import { EDIT_LIMITS, yarnLetter, type Chart, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import { useDeferredValue, useEffect, useId, useMemo, useState, type ReactNode } from "react";
-import { assumedSampleNote, measureText, repeatsText, shapeName, shapingLine, STUDIO_TEXTS, stitchesPerRoundText, stitchTotalText } from "@/lib/studio-texts.ts";
+import { assumedSampleNote, measureText, repeatsText, reviewSummary, shapeName, shapingLine, STUDIO_TEXTS, stitchesPerRoundText, stitchTotalText } from "@/lib/studio-texts.ts";
 import { groupIssueLines, type GroupContext } from "@/lib/studio/issue-groups.ts";
 import { measures, validateForPanel, type IssueGroups } from "@/lib/studio/measures.ts";
 import { paintGate } from "@/lib/studio/paint-gate.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 
 const T = STUDIO_TEXTS;
-const FIELD = "w-24 rounded-xl border-2 border-linea bg-superficie px-3 py-1.5";
+const FIELD = "w-24 rounded-xl border-2 border-borde bg-superficie px-3 py-1.5";
 const BTN = "rounded-full border-2 border-marino px-4 py-1.5 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 const SHAPES: Chart["renderAs"][] = ["flat", "tube", "circle", "yoke"];
 const SHAPE_HELP: Record<Chart["renderAs"], string> = {
@@ -71,7 +71,7 @@ function Radios<V extends string>({ legend, name, value, options, onChange }: { 
       <legend className="font-bold">{legend}</legend>
       {options.map((o) => (
         <label key={o.value} className="flex items-center gap-2">
-          <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="size-5 accent-marino" />
+          <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="size-6 accent-marino" />
           {o.label}
         </label>
       ))}
@@ -100,7 +100,7 @@ export function StudioSidebar({ store, doc, design }: Props) {
   useEffect(() => setMotifH(String(chart.height)), [chart.height]);
   const mw = Number(motifW);
   const mh = Number(motifH);
-  const sizeValid = [mw, mh].every((n) => Number.isInteger(n) && n >= 1 && n <= EDIT_LIMITS.maxMotifWidth);
+  const sizeValid = Number.isInteger(mw) && mw >= 1 && mw <= EDIT_LIMITS.maxMotifWidth && Number.isInteger(mh) && mh >= 1 && mh <= EDIT_LIMITS.maxMotifHeight;
 
   return (
     <aside aria-label={T.panel.titulo} data-zone="sidebar" className="rounded-2xl border-2 border-linea bg-superficie px-4 py-2">
@@ -155,16 +155,43 @@ export function StudioSidebar({ store, doc, design }: Props) {
           <div className="flex flex-wrap items-end gap-4">
             <div className="grid gap-1">
               <label htmlFor={`${uid}-mw`}>{T.panel.puntosMotivo}</label>
-              <input id={`${uid}-mw`} type="number" inputMode="numeric" min={1} max={EDIT_LIMITS.maxMotifWidth} value={motifW} onChange={(e) => setMotifW(e.target.value)} className={FIELD} />
+              <input
+                id={`${uid}-mw`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={EDIT_LIMITS.maxMotifWidth}
+                value={motifW}
+                aria-invalid={sizeValid ? undefined : true}
+                aria-describedby={sizeValid ? undefined : `${uid}-size-err`}
+                onChange={(e) => setMotifW(e.target.value)}
+                className={`${FIELD} aria-invalid:border-error`}
+              />
             </div>
             <div className="grid gap-1">
               <label htmlFor={`${uid}-mh`}>{T.panel.filasMotivo}</label>
-              <input id={`${uid}-mh`} type="number" inputMode="numeric" min={1} max={EDIT_LIMITS.maxMotifHeight} value={motifH} onChange={(e) => setMotifH(e.target.value)} className={FIELD} />
+              <input
+                id={`${uid}-mh`}
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={EDIT_LIMITS.maxMotifHeight}
+                value={motifH}
+                aria-invalid={sizeValid ? undefined : true}
+                aria-describedby={sizeValid ? undefined : `${uid}-size-err`}
+                onChange={(e) => setMotifH(e.target.value)}
+                className={`${FIELD} aria-invalid:border-error`}
+              />
             </div>
             <button type="button" disabled={!sizeValid || (mw === chart.width && mh === chart.height)} onClick={() => store.dispatch({ type: "resize", width: mw, height: mh, anchor: "bottom_left", fill: 0 })} className={BTN}>
               {T.panel.aplicarTamano}
             </button>
           </div>
+          {sizeValid ? null : (
+            <p id={`${uid}-size-err`} className="text-sm font-bold text-error">
+              Escribe números enteros: de 1 a {EDIT_LIMITS.maxMotifWidth} puntos de ancho y de 1 a {EDIT_LIMITS.maxMotifHeight} filas de alto.
+            </p>
+          )}
           <p className="text-sm text-tinta-suave">{T.panel.tamanoAyuda}</p>
         </fieldset>
       </Section>
@@ -335,8 +362,13 @@ function ValidationList({ doc }: { doc: ChartPattern }) {
   const pending = result.doc !== doc;
   const ctx = groupCtx(result.doc);
   const empty = g.cannotKnit.length + g.cannotSave.length + g.warnings.length + g.info.length === 0;
+  // Resumen para el lector de pantalla: el texto solo cambia cuando cambian los conteos, así la región viva no se repite.
+  const summary = reviewSummary({ cannotKnit: g.cannotKnit.length, cannotSave: g.cannotSave.length, warnings: g.warnings.length, info: g.info.length });
   return (
     <div className="grid gap-3" data-testid="validation" aria-busy={pending}>
+      <p role="status" aria-live="polite" className="sr-only" data-testid="validation-summary">
+        {summary}
+      </p>
       {pending ? <p className="text-sm text-tinta-suave">{T.panel.revisando}</p> : null}
       {empty && !pending ? <p className="text-exito">{T.panel.todoBien}</p> : null}
       <IssueList title={T.validacion.impideTejer} help={T.validacion.impideTejerAyuda} issues={g.cannotKnit} ctx={ctx} tone="error" testId="issues-cannot-knit" />
@@ -367,7 +399,7 @@ function IssueList({ title, help, issues, tone, testId, ctx }: { title: string; 
             {l.text}
             {l.count > 1 ? (
               <details className="mt-1">
-                <summary className="cursor-pointer font-bold">
+                <summary className="cursor-pointer py-1 font-bold">
                   {T.validacion.verDetalle} ({l.count})
                 </summary>
                 <ul className="mt-1 grid list-disc gap-1 pl-5">

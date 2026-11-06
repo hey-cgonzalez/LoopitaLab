@@ -2,8 +2,9 @@
 
 import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import Link from "next/link";
-import { memo, useCallback, useDeferredValue, useEffect, useId, useState, type ReactNode } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { savePatternVersion } from "@/app/disenos/actions";
+import { nextTabId } from "@/lib/studio/a11y.ts";
 import { DEFAULT_CELL_PX, type GridView } from "@/lib/studio/editor-grid.ts";
 import {
   selectCanRedo,
@@ -17,7 +18,7 @@ import {
 } from "@/lib/studio/select.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 import type { Tool } from "@/lib/studio/tools.ts";
-import { STUDIO_TEXTS, yarnTitle } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, yarnTitle, zoomAnnouncement } from "@/lib/studio-texts.ts";
 import { ChartEditor } from "./ChartEditor";
 import { EditorToolbar } from "./EditorToolbar";
 import { PerfPanel } from "./PerfPanel";
@@ -52,6 +53,18 @@ const TABS: { id: Tab; label: string }[] = [
   { id: "preview", label: T.pestanas.vista },
   { id: "settings", label: T.pestanas.ajustes },
 ];
+
+const TAB_IDS: readonly Tab[] = TABS.map((t) => t.id);
+
+/** ¿Pantalla de tableta o móvil (menos de 1024 px, el punto `lg` de Tailwind), donde hay pestañas? */
+function subscribeWide(notify: () => void): () => void {
+  const mq = window.matchMedia("(min-width: 1024px)");
+  mq.addEventListener("change", notify);
+  return () => mq.removeEventListener("change", notify);
+}
+function useCompactLayout(): boolean {
+  return useSyncExternalStore(subscribeWide, () => !window.matchMedia("(min-width: 1024px)").matches, () => false);
+}
 
 const MemoSidebar = memo(StudioSidebar);
 
@@ -164,11 +177,27 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
   );
   const onZoom = useCallback(
     (d: "in" | "out" | "fit") => {
-      if (d === "fit") return setCellPx(null);
-      setCellPx(d === "in" ? Math.max(effectivePx + 1, Math.round(effectivePx * 1.25)) : Math.min(effectivePx - 1, Math.round(effectivePx / 1.25)));
+      if (d === "fit") {
+        setCellPx(null);
+        setAnnounce(T.accesibilidad.anuncioZoomAjustado);
+        return;
+      }
+      const next = d === "in" ? Math.max(effectivePx + 1, Math.round(effectivePx * 1.25)) : Math.min(effectivePx - 1, Math.round(effectivePx / 1.25));
+      setCellPx(next);
+      // El tope real lo acota el editor; el aviso da el valor pedido, que es el que la persona ve en el botón.
+      setAnnounce(zoomAnnouncement(Math.round((next / DEFAULT_CELL_PX) * 100)));
     },
     [effectivePx],
   );
+
+  // Pestañas (tableta y móvil): flechas, Inicio y Fin mueven entre pestañas y activan la que reciben el foco.
+  const onTabKey = (e: React.KeyboardEvent<HTMLButtonElement>, id: Tab) => {
+    const to = nextTabId(TAB_IDS, id, e.key);
+    if (!to) return;
+    e.preventDefault();
+    setTab(to);
+    window.document.getElementById(`tab-${to}`)?.focus();
+  };
 
   function onTitle(raw: string) {
     setTitleText(raw);
@@ -212,6 +241,9 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
   }
 
   const show = (t: Tab) => (tab === t ? "block" : "hidden lg:block");
+  // En escritorio las tres zonas se ven a la vez y no hay pestañas: sin rol de panel de pestaña (que apuntaría a una pestaña oculta).
+  const compact = useCompactLayout();
+  const panelA11y = (t: Tab) => (compact ? { role: "tabpanel" as const, "aria-labelledby": `tab-${t}` } : {});
 
   const design = (
     <>
@@ -229,7 +261,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
         <label htmlFor={`${titleId}-version`} className="font-bold">
           Nombre de la versión (opcional)
         </label>
-        <input id={`${titleId}-version`} value={versionLabel} maxLength={80} onChange={(e) => setVersionLabel(e.target.value)} className="rounded-xl border-2 border-linea bg-superficie px-3 py-2" />
+        <input id={`${titleId}-version`} value={versionLabel} maxLength={80} onChange={(e) => setVersionLabel(e.target.value)} className="rounded-xl border-2 border-borde bg-superficie px-3 py-2" />
         <button type="button" onClick={onSaveVersion} disabled={versionBusy || detached} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo disabled:opacity-60">
           {versionBusy ? "Guardando versión…" : T.guardado.guardarVersion}
         </button>
@@ -258,7 +290,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
               onChange={(e) => onTitle(e.target.value)}
               aria-invalid={titleProblems.length > 0 ? true : undefined}
               aria-describedby={titleProblems.length > 0 ? `${titleId}-error` : undefined}
-              className="w-full rounded-xl border-2 border-linea bg-superficie px-3 py-2 font-display text-xl font-bold aria-invalid:border-error"
+              className="w-full rounded-xl border-2 border-borde bg-superficie px-3 py-2 font-display text-xl font-bold aria-invalid:border-error"
             />
             {titleProblems.length > 0 ? (
               <p id={`${titleId}-error`} className="mt-1 text-sm font-bold text-error">
@@ -328,6 +360,8 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
             id={`tab-${t.id}`}
             aria-selected={tab === t.id}
             aria-controls={`panel-${t.id}`}
+            tabIndex={tab === t.id ? 0 : -1}
+            onKeyDown={(e) => onTabKey(e, t.id)}
             onClick={() => setTab(t.id)}
             className={`flex-1 rounded-full border-2 border-marino px-4 py-2 font-bold ${tab === t.id ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
           >
@@ -337,10 +371,10 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
       </div>
 
       <div className="mx-auto grid w-full max-w-[1600px] flex-1 content-start gap-4 p-4 lg:grid-cols-[19rem_minmax(0,1.15fr)_minmax(0,1fr)]" data-testid="studio-layout">
-        <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" className={`${show("settings")} lg:row-span-2`}>
+        <div id="panel-settings" {...panelA11y("settings")} className={`${show("settings")} lg:row-span-2`}>
           <SidebarSlot store={store} design={design} />
         </div>
-        <div id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`${show("editor")} grid content-start gap-4`}>
+        <div id="panel-editor" {...panelA11y("editor")} className={`${show("editor")} grid content-start gap-4`}>
           <EditorToolbar
             tool={tool}
             onTool={changeTool}
@@ -375,7 +409,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues, mirror 
             />
           </section>
         </div>
-        <div id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" className={`${show("preview")} lg:self-start`}>
+        <div id="panel-preview" {...panelA11y("preview")} className={`${show("preview")} lg:self-start`}>
           <PreviewPane store={store} />
         </div>
       </div>

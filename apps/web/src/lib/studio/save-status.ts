@@ -10,6 +10,53 @@ export interface StatusView {
   detail?: string;
 }
 
+/** Lo último que se le dijo a la persona sobre el guardado. */
+export interface SpokenSave {
+  key: string;
+  at: number;
+}
+
+/** Entre dos "Guardado" seguidos pasa al menos esto: el autoguardado corre tras cada pausa y no debe hablar cada vez. */
+export const SAVED_SPEAK_GAP_MS = 60_000;
+
+/**
+ * Qué anuncia el lector de pantalla sobre el guardado (CA-A3), o `null` si calla.
+ * Calla en "Cambios sin guardar" y "Guardando…" (pasan en cada pausa), no repite "Sin conexión" en cada reintento y
+ * deja el conflicto y los errores que bloquean el guardado a sus propias alertas (ya se anuncian).
+ * Dice "Guardado" una vez por minuto como máximo y siempre dice si quedó como borrador o si falló.
+ */
+export function saveAnnouncement(s: SaveStatus, last: SpokenSave | null, now: number): { text: string; spoken: SpokenSave } | null {
+  let key = "";
+  let text = "";
+  switch (s.kind) {
+    case "pending":
+    case "saving":
+    case "conflict":
+    case "blocked":
+      return null;
+    case "saved":
+      if (s.draft) {
+        key = "draft";
+        text = `${describeStatus(s).label}. ${STUDIO_TEXTS.guardado.borrador}`;
+      } else {
+        key = "saved";
+        text = STUDIO_TEXTS.guardado.guardado;
+        if (last && last.key === "saved" && now - last.at < SAVED_SPEAK_GAP_MS) return null;
+      }
+      break;
+    case "offline":
+      key = "offline";
+      text = STUDIO_TEXTS.guardado.sinConexion;
+      break;
+    case "failed":
+      key = `failed:${s.code}`;
+      text = `No se pudo guardar. ${s.message}`;
+      break;
+  }
+  if (last && last.key === key && key !== "saved") return null;
+  return { text, spoken: { key, at: now } };
+}
+
 export function describeStatus(s: SaveStatus, now: number = Date.now()): StatusView {
   switch (s.kind) {
     case "saved":

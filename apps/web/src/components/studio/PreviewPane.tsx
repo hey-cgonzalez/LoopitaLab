@@ -14,6 +14,7 @@ import { useSettledDoc, useStoreSelector } from "./useStoreSelector.ts";
 
 const T = STUDIO_TEXTS;
 const BTN = "rounded-full border-2 border-marino px-3 py-1.5 text-sm font-bold hover:bg-marino hover:text-white";
+
 const DESCRIBE_DEBOUNCE_MS = 300;
 
 /** Descripción del motivo para lectores de pantalla: con el documento asentado, nunca entre la edición y el dibujo (CA-P7). */
@@ -44,6 +45,8 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
   const engineRef = useRef<PreviewEngine | null>(null);
   const [status, setStatus] = useState<EngineStatus>({ kind: "ok", slow: false, count: 0, distorted: false });
   const [rotation, setRotation] = useState(0);
+  /** Dedo o lápiz: apagado, desplazan la página; encendido, mueven la vista previa (touch-action: none). */
+  const [touchMove, setTouchMove] = useState(false);
   const uid = useId();
   const renderAs = useStoreSelector(store, selectRenderAs);
   const assumed = useStoreSelector(store, selectAssumedGauge);
@@ -115,6 +118,14 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
           </button>
         </div>
       </div>
+      <div className="hidden gap-1 [@media(any-pointer:coarse)]:grid">
+        <button type="button" aria-pressed={touchMove} aria-describedby={`${uid}-touch`} onClick={() => setTouchMove((v) => !v)} className={`justify-self-start ${BTN} ${touchMove ? "bg-marino text-white" : ""}`}>
+          {T.vistaPrevia.moverConDedo}
+        </button>
+        <p id={`${uid}-touch`} className="text-sm text-tinta-suave">
+          {T.vistaPrevia.moverConDedoAyuda}
+        </p>
+      </div>
       {assumed ? (
         <p className="text-sm font-bold" data-testid="preview-assumed">
           {T.vistaPrevia.muestraSupuesta}
@@ -127,7 +138,8 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
           role="img"
           aria-label={T.accesibilidad.vistaPreviaEtiqueta}
           aria-describedby={`${uid}-desc`}
-          style={{ touchAction: "none", visibility: hidden ? "hidden" : "visible" }}
+          // Con el modo apagado, el dedo desplaza la página (pan-y) y solo los arrastres horizontales mueven la vista.
+          style={{ touchAction: touchMove ? "none" : "pan-y pinch-zoom", visibility: hidden ? "hidden" : "visible" }}
           className="absolute inset-0 size-full cursor-grab active:cursor-grabbing"
           onPointerDown={(e) => {
             e.currentTarget.setPointerCapture(e.pointerId);
@@ -168,7 +180,7 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
           <label htmlFor={`${uid}-rot`} className="font-bold">
             {T.vistaPrevia.rotacion}
           </label>
-          <input id={`${uid}-rot`} type="range" min={0} max={Math.round(Math.PI * 2 * 100)} value={Math.round(rotation * 100)} onChange={(e) => setRotation(Number(e.target.value) / 100)} className="flex-1 accent-marino" />
+          <input id={`${uid}-rot`} type="range" min={0} max={Math.round(Math.PI * 2 * 100)} value={Math.round(rotation * 100)} onChange={(e) => setRotation(Number(e.target.value) / 100)} className="h-6 flex-1 accent-marino" />
         </div>
       ) : null}
       <SettledLimitations store={store} distorted={status.kind === "ok" && status.distorted} />

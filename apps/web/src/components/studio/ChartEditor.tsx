@@ -1,10 +1,14 @@
 "use client";
 
-import { NO_STITCH, rowShapingColumns, yarnLetter, type ChartPattern } from "@loopitalab/pattern-core";
+import { NO_STITCH, readingDirection, rowShapingColumns, yarnLetter, type ChartPattern } from "@loopitalab/pattern-core";
+import { describeChart } from "@loopitalab/pattern-render";
+import { PALETTE } from "@loopitalab/yarn-catalog";
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { revealOffset } from "@/lib/studio/a11y.ts";
 import { inkFor } from "@/lib/studio/color.ts";
 import {
   DEFAULT_CELL_PX,
+  cellOrigin,
   clampCellPx,
   fitCellPx,
   gridLayout,
@@ -22,11 +26,25 @@ import { activePerf } from "@/lib/studio/perf.ts";
 import { selectChart, selectYarns } from "@/lib/studio/select.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 import { applyTool, lineCells, paintCellsOf, toolForKey, yarnIndexForKey, type Tool } from "@/lib/studio/tools.ts";
-import { STUDIO_TEXTS, cellAnnouncement, lostStitchNote, yarnTitle } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, cellAnnouncement, editorLabel, lostStitchNote, readingNote, yarnTitle } from "@/lib/studio-texts.ts";
 import { cellsOfMotifIndex, makeHatch, paintAll, paintCells, type DrawParams } from "./draw-grid.ts";
-import { useStoreSelector } from "./useStoreSelector.ts";
+import { useSettledDoc, useStoreSelector } from "./useStoreSelector.ts";
 
 const MAX_FIT_PX = 32;
+/** Un toque que se mueve menos que esto (px) es un toque y no el inicio de un desplazamiento. */
+const TAP_SLOP_PX = 10;
+const DESCRIBE_DEBOUNCE_MS = 300;
+
+/** Descripción del motivo en texto (CA-A3): se calcula solo mientras el panel está abierto, con el documento asentado. */
+function MotifDescription({ store }: { store: DocumentStore }) {
+  const doc = useSettledDoc(store, DESCRIBE_DEBOUNCE_MS);
+  const text = useMemo(() => describeChart(doc, { paletteName: (pid) => PALETTE.find((c) => c.id === pid)?.nombre }), [doc]);
+  return (
+    <p className="mt-2 whitespace-pre-line rounded-lg border-2 border-linea p-3" data-testid="motif-description">
+      {text}
+    </p>
+  );
+}
 /** Sobre esta cantidad de casillas del motivo cambiadas de una vez (relleno), se repinta todo en lugar de casilla por casilla. */
 const INCREMENTAL_MAX_CELLS = 1500;
 
@@ -55,8 +73,14 @@ export interface ChartEditorProps {
  * El estado del dibujo se deriva del modelo (`doc`); cada edición es una operación sobre el almacén. Pintar una casilla
  * redibuja solo las casillas cambiadas (más sus bordes), por eso responde dentro del presupuesto de 100 ms.
  *
- * Accesibilidad provisional (T11 la afina): el canvas es un `role="application"` enfocable con instrucciones;
- * las flechas mueven la casilla enfocada y una región `aria-live` discreta anuncia cada casilla.
+ * Accesibilidad (T11). Patrón elegido: el canvas es un único control enfocable con `role="application"` (el editor
+ * maneja sus propias teclas, así el lector de pantalla le deja las flechas), con nombre que incluye el tamaño e
+ * instrucciones por `aria-describedby`. Una región `aria-live="polite"` anuncia la casilla enfocada: fila o vuelta,
+ * casilla, lana (con su letra y el nombre del color si es de la paleta) y, al cambiar de fila, por dónde se lee.
+ * No se usa `role="grid"` porque obligaría a tener un nodo del DOM por casilla (miles) o a depender de
+ * `aria-activedescendant` dentro de un canvas, que no se puede verificar sin lector de pantalla real.
+ * Además: descripción del motivo en texto (`describeChart`), Mayús + flechas para pintar con teclado, la casilla
+ * enfocada se mantiene a la vista, y un modo "dibujar con el dedo" para no bloquear el desplazamiento táctil.
  */
 export function ChartEditor(props: ChartEditorProps) {
   const { store, tool, activeYarn, view, cellPx, mirror } = props;
@@ -75,8 +99,15 @@ export function ChartEditor(props: ChartEditorProps) {
   const [hasFocus, setHasFocus] = useState(false);
   const [message, setMessage] = useState("");
   const [dpr, setDpr] = useState(1);
+  /** Con el dedo o el lápiz: apagado, el toque desplaza la cuadrícula y un toque corto aplica la herramienta. */
+  const [fingerDraw, setFingerDraw] = useState(false);
+  const [descOpen, setDescOpen] = useState(false);
+  const tap = useRef<{ id: number; x: number; y: number; cell: Cell } | null>(null);
+  /** Hay un trazo abierto por Mayús + flechas (se cierra al soltar Mayús o al salir de la cuadrícula). */
+  const keyStroke = useRef(false);
   const descId = useId();
   const noteId = useId();
+  const touchId = useId();
 
   const size = gridSize(chart, view);
   const { cols, rows } = size;
@@ -168,19 +199,40 @@ export function ChartEditor(props: ChartEditorProps) {
   }, [cols, rows]);
 
   // ------------------------------------------------------------------ anuncios
+  /**
+   * "Fila 3, casilla 5, Lana B (rojo)". `withRow` agrega por dónde se lee la fila (con el espejo del perfil ya
+   * aplicado): se dice al entrar a una fila nueva, no en cada casilla. La casilla se numera desde la izquierda,
+   * igual que los números dibujados sobre la cuadrícula.
+   */
   const describeCellIn = useCallback(
-    (ch: ChartPattern["chart"], c: Cell): string => {
+    (ch: ChartPattern["chart"], c: Cell, withRow = false): string => {
       const chart = ch;
       const v = valueAt(chart, c);
-      const yarn = v >= 0 && v < yarns.length ? yarnTitle(yarnLetter(v)) : STUDIO_TEXTS.herramientas.sinPunto.toLowerCase();
+      const y = v >= 0 && v < yarns.length ? yarns[v] : undefined;
+      const paletteId = y?.color.paletteId;
+      const colorName = paletteId ? PALETTE.find((p) => p.id === paletteId)?.nombre : undefined;
+      const yarn = y ? yarnTitle(yarnLetter(v), colorName) : STUDIO_TEXTS.herramientas.sinPunto.toLowerCase();
       let text = cellAnnouncement(c.y + 1, c.x + 1, yarn, chart.workedIn);
       const lost = rowShapingColumns(chart, c.y).decreases.includes(c.x % chart.width);
       if (lost && v === NO_STITCH) text += `. ${lostStitchNote(c.y + 1, c.x + 1)}`;
+      if (withRow) text += `. ${readingNote(chart.workedIn, readingDirection(chart, c.y, { mirror }), mirror)}`;
       return text;
     },
-    [yarns.length],
+    [yarns, mirror],
   );
-  const describeCell = (c: Cell) => describeCellIn(chart, c);
+  const describeCell = (c: Cell, withRow = false) => describeCellIn(chart, c, withRow);
+
+  /** Mantiene a la vista la casilla enfocada cuando la cuadrícula es más grande que su marco (flechas, Inicio, Fin…). */
+  function revealCell(c: Cell) {
+    const host = hostRef.current;
+    const canvas = canvasRef.current;
+    if (!host || !canvas) return;
+    const o = cellOrigin(layout, c);
+    const hr = host.getBoundingClientRect();
+    const cr = canvas.getBoundingClientRect();
+    host.scrollLeft = revealOffset(host.scrollLeft, host.clientWidth, cr.left - hr.left + host.scrollLeft + o.x, layout.cellPx);
+    host.scrollTop = revealOffset(host.scrollTop, host.clientHeight, cr.top - hr.top + host.scrollTop + o.y, layout.cellPx);
+  }
 
   // ------------------------------------------------------------------ puntero
   function cellFromEvent(e: React.PointerEvent<HTMLCanvasElement>): Cell | null {
@@ -200,6 +252,12 @@ export function ChartEditor(props: ChartEditorProps) {
     if (e.button !== 0) return;
     const c = cellFromEvent(e);
     if (!c) return;
+    // Dedo o lápiz con el modo apagado: la página puede desplazarse. Se espera al final del toque: si fue un toque
+    // corto se aplica la herramienta; si el navegador empezó a desplazar, llega `pointercancel` y no se pinta nada.
+    if (e.pointerType !== "mouse" && !fingerDraw) {
+      tap.current = { id: e.pointerId, x: e.clientX, y: e.clientY, cell: c };
+      return;
+    }
     e.currentTarget.focus({ preventScroll: true });
     setFocus(c);
     if (tool === "pencil" || tool === "nostitch") {
@@ -231,6 +289,31 @@ export function ChartEditor(props: ChartEditorProps) {
     if (e.currentTarget.hasPointerCapture(e.pointerId)) e.currentTarget.releasePointerCapture(e.pointerId);
   }
 
+  function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>) {
+    const t = tap.current;
+    if (t && t.id === e.pointerId) {
+      tap.current = null;
+      if (Math.hypot(e.clientX - t.x, e.clientY - t.y) <= TAP_SLOP_PX) {
+        e.currentTarget.focus({ preventScroll: true });
+        setFocus(t.cell);
+        applyAt(t.cell);
+      }
+      return;
+    }
+    endStroke(e);
+  }
+
+  function onPointerCancel(e: React.PointerEvent<HTMLCanvasElement>) {
+    tap.current = null;
+    endStroke(e);
+  }
+
+  function endKeyStroke() {
+    if (!keyStroke.current) return;
+    keyStroke.current = false;
+    store.endStroke();
+  }
+
   // Un trazo abierto no puede quedar colgado si el componente se desmonta.
   useEffect(() => () => store.endStroke(), [store]);
 
@@ -240,10 +323,24 @@ export function ChartEditor(props: ChartEditorProps) {
     const next = moveFocus(focus, e.key, cols, rows);
     if (e.key.startsWith("Arrow") || e.key === "Home" || e.key === "End" || e.key === "PageUp" || e.key === "PageDown") {
       e.preventDefault();
-      if (next !== focus) {
+      if (next === focus) return;
+      const newRow = next.y !== focus.y;
+      if (e.shiftKey && (tool === "pencil" || tool === "nostitch")) {
+        // Mayús + flechas pinta las casillas por las que pasas; todo el recorrido se deshace de una vez.
+        if (!keyStroke.current) {
+          store.endStroke();
+          store.beginStroke();
+          keyStroke.current = true;
+        }
+        paintCellsOf(store, tool, lineCells(focus, next), activeYarn);
         setFocus(next);
-        setMessage(describeCell(next));
+        revealCell(next);
+        setMessage(`${describeCellIn(store.doc.chart, next, newRow)}${tool === "pencil" ? `, ${STUDIO_TEXTS.accesibilidad.anuncioPintada}` : ""}`);
+        return;
       }
+      setFocus(next);
+      revealCell(next);
+      setMessage(describeCell(next, newRow));
       return;
     }
     if (e.key === "Enter" || e.key === " ") {
@@ -294,7 +391,22 @@ export function ChartEditor(props: ChartEditorProps) {
 
   return (
     <div className="grid gap-2">
-      <div ref={hostRef} className="max-h-[70vh] min-h-48 overflow-auto rounded-xl border-2 border-linea bg-white p-1" data-testid="chart-scroll">
+      {/* Solo donde hay pantalla táctil. Sin este modo, un canvas con touch-action: none atraparía el desplazamiento. */}
+      <div className="hidden gap-1 [@media(any-pointer:coarse)]:grid">
+        <button
+          type="button"
+          aria-pressed={fingerDraw}
+          aria-describedby={touchId}
+          onClick={() => setFingerDraw((v) => !v)}
+          className={`justify-self-start rounded-full border-2 border-marino px-4 py-2 font-bold ${fingerDraw ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
+        >
+          {STUDIO_TEXTS.editor.dedoDibuja}
+        </button>
+        <p id={touchId} className="text-sm text-tinta-suave">
+          {STUDIO_TEXTS.editor.dedoAyuda}
+        </p>
+      </div>
+      <div ref={hostRef} className="max-h-[70vh] min-h-48 overflow-auto rounded-xl border-2 border-borde bg-white p-1" data-testid="chart-scroll">
         <canvas
           ref={canvasRef}
           data-testid="chart-canvas"
@@ -303,22 +415,28 @@ export function ChartEditor(props: ChartEditorProps) {
           data-cell-px={effective}
           role="application"
           aria-roledescription="cuadrícula del motivo"
-          aria-label={STUDIO_TEXTS.accesibilidad.editorEtiqueta}
+          aria-label={editorLabel(cols, rows, chart.workedIn)}
           aria-describedby={`${descId} ${noteId}`}
           tabIndex={0}
-          style={{ width: layout.width, height: layout.height, touchAction: paints ? "none" : "auto", cursor: paints ? "crosshair" : "cell" }}
+          style={{ width: layout.width, height: layout.height, touchAction: paints && fingerDraw ? "none" : "manipulation", cursor: paints ? "crosshair" : "cell" }}
           className="block max-w-none"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
-          onPointerUp={endStroke}
-          onPointerCancel={endStroke}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerCancel}
           onLostPointerCapture={endStroke}
           onKeyDown={onKeyDown}
+          onKeyUp={(e) => {
+            if (e.key === "Shift") endKeyStroke();
+          }}
           onFocus={() => {
             setHasFocus(true);
-            setMessage(describeCell(focus));
+            setMessage(describeCell(focus, true));
           }}
-          onBlur={() => setHasFocus(false)}
+          onBlur={() => {
+            endKeyStroke();
+            setHasFocus(false);
+          }}
         />
       </div>
       <p id={descId} className="sr-only">
@@ -330,10 +448,22 @@ export function ChartEditor(props: ChartEditorProps) {
       <div role="status" aria-live="polite" aria-atomic="true" className="sr-only" data-testid="cell-announcement">
         {message}
       </div>
+      <details className="text-sm" onToggle={(e) => setDescOpen(e.currentTarget.open)}>
+        <summary className="cursor-pointer py-1 font-bold underline-offset-4 hover:underline">{STUDIO_TEXTS.editor.descripcionTitulo}</summary>
+        {descOpen ? <MotifDescription store={store} /> : null}
+      </details>
       <ul className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-tinta-suave" aria-label="Leyenda del gráfico">
         <li>{STUDIO_TEXTS.ayuda.cuadricula}</li>
-        <li>{STUDIO_TEXTS.editor.leyendaSinPunto}</li>
-        <li>{STUDIO_TEXTS.editor.leyendaPierde}</li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="inline-block size-4 border border-borde" style={{ background: "repeating-linear-gradient(135deg, #fff 0 3px, #7a7a7a 3px 5px)" }} />
+          {STUDIO_TEXTS.editor.leyendaSinPunto}
+        </li>
+        <li className="flex items-center gap-1.5">
+          <span aria-hidden="true" className="text-marino">
+            ◥
+          </span>
+          {STUDIO_TEXTS.editor.leyendaPierde}
+        </li>
         <li>{STUDIO_TEXTS.editor.leerDerecho}</li>
         {mirror ? <li>{STUDIO_TEXTS.editor.espejo}</li> : null}
       </ul>

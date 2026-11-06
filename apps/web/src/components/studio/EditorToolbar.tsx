@@ -61,8 +61,11 @@ export function EditorToolbar(p: Props) {
           <button type="button" onClick={() => p.onZoom("out")} aria-label={T.herramientas.zoomAlejar} title={`${T.herramientas.zoomAlejar} (−)`} className={BTN}>
             <span aria-hidden="true">−</span>
           </button>
-          <span role="status" aria-label={zoomAnnouncement(p.zoomPercent)} className="min-w-12 text-center text-sm font-bold">
-            {p.zoomPercent} %
+          {/* Texto simple, sin región viva: cambia también al redimensionar la ventana y no debe hablar solo.
+              El anuncio del zoom lo hace el estudio cuando la persona pulsa un botón de zoom. */}
+          <span className="min-w-12 text-center text-sm font-bold">
+            <span className="sr-only">{zoomAnnouncement(p.zoomPercent)}</span>
+            <span aria-hidden="true">{p.zoomPercent} %</span>
           </span>
           <button type="button" onClick={() => p.onZoom("in")} aria-label={T.herramientas.zoomAcercar} title={`${T.herramientas.zoomAcercar} (+)`} className={BTN}>
             <span aria-hidden="true">+</span>
@@ -93,7 +96,7 @@ export function EditorToolbar(p: Props) {
       </div>
 
       <details className="text-sm">
-        <summary className="cursor-pointer font-bold underline-offset-4 hover:underline">{T.atajos.titulo}</summary>
+        <summary className="cursor-pointer py-1 font-bold underline-offset-4 hover:underline">{T.atajos.titulo}</summary>
         <p className="mt-2 text-tinta-suave">{T.atajos.nota}</p>
         <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
           {T.atajos.lista.map((a) => (
