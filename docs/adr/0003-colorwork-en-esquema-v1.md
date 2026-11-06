@@ -1,6 +1,6 @@
 # ADR 0003: Estudio de colorwork sobre el esquema v1
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 tras implementar T2 (ver [Enmiendas](#enmiendas-tras-la-implementación-de-t2-2026-11-06))
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 tras implementar T2 (ver [Enmiendas](#enmiendas-tras-la-implementación-de-t2-2026-11-06)) y tras T2b y T2c (ver [E10 a E13](#enmiendas-tras-t2b-y-t2c-2026-11-06))
 - Fecha: 2026-11-05
 - Paquete: `packages/pattern-core`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0005](0005-geometria-circulo-y-disminuciones.md)
@@ -180,7 +180,7 @@ export function newChartPattern(input: NewChartInput): ChartPattern;
 | `TITLE_LENGTH` | error | Título de 1 a 120 caracteres, igual que la columna `patterns.title` |
 | `CHART_RENDER_UNSUPPORTED` | info | `renderAs: "yoke"`: la vista previa todavía no lo dibuja |
 | `CHART_ROWS_SHAPE` | advertencia | Tubo o círculo con `workedIn: "rows"`. Mensaje: "se teje de ida y vuelta y se cose". El plano con ida y vuelta no avisa |
-| `CHART_ROW_EMPTY_FULL` | advertencia | Una fila del gráfico completo sin puntos (hoy solo se revisa el motivo) |
+| `CHART_ROW_EMPTY_FULL` | advertencia; **error de tejido desde E10** | Una fila del gráfico completo sin puntos (hoy solo se revisa el motivo) |
 | `CHART_FLOAT_LONG` (ya existe, se corrige) | advertencia | Ver "Umbral de hebras flotantes" abajo |
 | `CHART_COLORS_PER_ROW` (ya existe) | info | Más de 2 lanas en una fila |
 | `YARNS_MIXED_WEIGHT` | info | Las lanas del diseño tienen distinto grosor CYC |
@@ -314,7 +314,9 @@ resizeMotif(chart: Chart, width: number, height: number, anchor: Anchor, fill: n
 - el autoguardado **no** lo envía (el servidor lo rechazaría, CA-F7), lo deja en el respaldo local y el estado del guardado dice por qué no se guarda;
 - se guarda en cuanto vuelva a haber un punto.
 
-Es el único error que las operaciones pueden producir (ADR 0006). Las filas sin puntos (`CHART_EMPTY_ROW`, `CHART_ROW_EMPTY_FULL`) son advertencias y no impiden guardar.
+Es el único error que las operaciones pueden producir (ADR 0006). Las filas sin puntos (`CHART_ROW_EMPTY_FULL`) son errores de tejido desde E10 y no impiden guardar el borrador (E10, E14).
+
+> **Reemplazado en parte por E10.** `CHART_EMPTY` no era el único error que producían las operaciones (también `CHART_SHAPING_IMPOSSIBLE`, que E10 pasa a advertencia). Desde E10, `CHART_EMPTY` y `CHART_ROW_EMPTY_FULL` (que pasa a error) son errores de tejido: no impiden el autoguardado, pero sí tejer y publicar. Lo que sigue vigente de E3: la edición es legítima, el historial la registra y el panel de validación la muestra.
 
 ### E4. `removeYarn(pattern, index, replaceWith)`
 
@@ -420,3 +422,131 @@ Pruebas de propiedades nuevas o ajustadas:
 - un valor `≥ yarnCount` devuelve el mismo objeto;
 - la propiedad de `rowShapingColumns` con `shaping` (E8);
 - `migratePattern` con `ok: false` cumple `to === from`.
+
+## Enmiendas tras T2b y T2c (2026-11-06)
+
+`motor-patrones` aplicó C1 a C9 y las validaciones de T2b y T2c. La revisión encontró un conflicto de contrato (E10) y tres decisiones del implementador que no estaban en el ADR (E11 a E13). La opción A y `schemaVersion: 1` no cambian. Ninguna enmienda cambia la forma del documento.
+
+### E10. Errores estructurales y errores de tejido
+
+**Problema.** E3 y el [ADR 0006](0006-guardado-de-disenos.md) afirman que `CHART_EMPTY` es el único error que pueden producir las operaciones de `edit.ts`. No es cierto: pintar casillas "sin punto" puede producir `CHART_SHAPING_IMPOSSIBLE` (error en el ADR 0005). También lo producen `resizeMotif` (achicar una cuña) y `setRepeat`: con `repeat.y > 1`, el borde entre la última fila del motivo y la primera de la repetición siguiente se compara, y una cuña `top_down` de 8 a 80 puntos pasa de 80 a 8 en ese borde. Ese estado intermedio es lo **normal** mientras se dibuja una cuña (por ejemplo, vaciar primero la última vuelta y después las intermedias) y puede durar minutos. Con el contrato actual, el servidor rechaza esos documentos y el autoguardado queda bloqueado justo en el flujo central de HU-03.
+
+**Criterio de `experto-tejido` (2026-11-06).** Pasar de 80 a menos de 27 puntos en una vuelta **sí se puede tejer**: cerrando o rematando puntos (sisas, escote), dejando puntos en espera con hebra de desecho (pulgar de un mitón), tejiendo 4 o más juntos, o pasando la hebra por todos los puntos (cierre de coronilla). Lo único cierto es que, disminuyendo de a 2 o 3 juntos, un tercio es el piso. Recomienda advertencia en todas las formas, sin cambiar el código, y reservar el error para lo que de verdad no se teje: una vuelta sin puntos.
+
+**Opciones.**
+
+- **(a) Bajar `CHART_SHAPING_IMPOSSIBLE` a advertencia.** **Elegida en parte**, por la razón de dominio de arriba, no por la de persistencia. Por sí sola no resuelve el contrato: `CHART_EMPTY` y una vuelta sin puntos siguen siendo errores de lo realmente no tejible, y siguen siendo estados normales mientras se dibuja.
+- **(b) Mantener los errores y guardar solo en el respaldo local**, como E3 hacía con `CHART_EMPTY`. El trabajo de varios minutos queda solo en `localStorage` de un dispositivo, `updated_at` no avanza y los conflictos con otra pestaña se descubren tarde, con más trabajo en juego. **Descartada**: el respaldo local es para cortes de conexión, no para el flujo normal de dibujo.
+- **(c) Distinguir dos clases de error.** **Elegida**, junto con (a).
+
+**Decisión: (a) + (c).**
+
+1. `CHART_SHAPING_IMPOSSIBLE` pasa a **advertencia** en todas las formas. El código no cambia (no se rompen pruebas ni consumidores). El mensaje dice que no se alcanza **solo disminuyendo** y nombra las alternativas, por ejemplo: "En la vuelta 12 se pasa de 80 a 8 puntos: disminuyendo de a 2 o 3 juntos quedan como mínimo 27. Para llegar a 8 hay que cerrar puntos, dejarlos en espera, tejer 4 o más juntos o pasar la hebra por todos." `CHART_SHAPING_TOO_FAST` se mantiene como regla aparte (entre un tercio y la mitad). Una transición dispara una sola de las dos.
+2. `CHART_ROW_EMPTY_FULL` (una vuelta del gráfico completo sin puntos) pasa de advertencia a **error de tejido**: es lo que la experta reserva para error, y el modo tejiendo no puede ofrecer un paso de 0 puntos. `CHART_EMPTY_ROW` ya no se emite (E14): `CHART_ROW_EMPTY_FULL` es el único aviso por fila y su `data` incluye `motifRows` para resaltar las filas del motivo.
+3. Se distinguen dos clases de error. La severidad `error` se mantiene (`valid: false`), y se agrega una clasificación:
+
+- **Error estructural**: el documento no es interpretable o rompe un invariante del que dependen las vistas derivadas (índices de lana inexistentes, `cells` de largo distinto a ancho × alto, tamaño o repeticiones fuera de límite, muestra inválida, título fuera de 1 a 120, versión desconocida…). **Bloquea guardar.**
+- **Error de tejido**: el documento es estructuralmente sano y todas las vistas derivadas funcionan, pero el patrón no se puede tejer tal cual. **No bloquea guardar el borrador.** Bloquea empezar un proyecto, publicar o compartir, exportar y aceptar una salida de IA.
+
+La clasificación es una **lista cerrada de códigos tolerados en borrador**, en `pattern-core` (única fuente). Todo código que no está en la lista es estructural, así que un error nuevo bloquea guardar hasta que alguien lo clasifique a propósito.
+
+```ts
+// validate.ts
+/** Errores de tejido: el documento es sano y se puede guardar como borrador, pero no tejer, publicar ni aceptar de la IA (ADR 0003, E10). */
+export const DRAFT_ERROR_CODES: readonly string[] = Object.freeze(["CHART_EMPTY", "CHART_ROW_EMPTY_FULL"]);
+export function isDraftError(issue: Issue): boolean; // severity === "error" && code ∈ DRAFT_ERROR_CODES
+
+export interface ValidationResult {
+  /** true si no hay ningún error. Requisito para tejer, publicar, exportar y aceptar salida de IA. */
+  valid: boolean;
+  /** true si todos los errores son de tejido (o no hay errores). Requisito para guardar. `valid` implica `savable`. */
+  savable: boolean;
+  issues: Issue[];
+}
+```
+
+- `parsePattern` no cambia: sigue exigiendo `valid`.
+- `CHART_EMPTY` y `CHART_ROW_EMPTY_FULL` forman la lista. Ninguno rompe un derivado (`stitchTotal` es 0 o positivo, `rowStitchCounts` da ceros en esas filas, `dimensionsCm` en el círculo da ancho 0 si todo está vacío), y vaciar una vuelta o todo el motivo para volver a dibujar es un estado normal del editor. Así desaparece el camino especial de E3 (solo respaldo local) y queda una sola regla.
+- Las operaciones de `edit.ts` **nunca producen errores estructurales** (garantía de E2, ahora con prueba de propiedades). Sí pueden producir errores de tejido y advertencias (`CHART_SHAPING_IMPOSSIBLE`, `CHART_SHAPING_TOO_FAST`).
+- Con (a), la cuña a medio dibujar ya no es error. La clase "error de tejido" sigue siendo necesaria por las vueltas sin puntos, y prepara la fase 4 (abajo).
+- **Invariante de opciones**: ninguna opción de `ValidateOptions` cambia el conjunto de errores; solo agrega o ajusta advertencias e información. Así el cliente y el servidor llegan al mismo `valid` y `savable` aunque pasen opciones distintas (catálogo de fibras, muestra supuesta).
+- **Contrato de los derivados**: los derivados de `chart.ts` (y `stitch-render`) se pueden llamar con cualquier documento `savable`, no solo con uno `valid`.
+- El flujo de guardado, lo que bloquea cada clase y el impacto en `expectedUpdatedAt` y en las Server Actions de T4 están en la [enmienda E10 del ADR 0006](0006-guardado-de-disenos.md#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido).
+- **Patrones escritos** (fase 4): los descuadres de conteo (`ROUND_COUNT_MISMATCH`, `ROUND_CONSUMPTION_MISMATCH`, `ROUND_ZERO`, `ROUND_RANGE_CHANGES`, `ROUND_NUMBERING`) son candidatos naturales a error de tejido, porque al escribir un amigurumi vuelta a vuelta el documento descuadra todo el tiempo. Se clasifican en el ADR de la fase 4, no ahora.
+
+**Validar con tejedora (T1b)**: el texto del mensaje de `CHART_SHAPING_IMPOSSIBLE` y que una vuelta sin puntos sea error. Si cambia la severidad de una regla, basta con cambiarla en `validate.ts` y, si corresponde, en `DRAFT_ERROR_CODES`; el contrato del guardado no cambia.
+
+**Nota sobre el nombre**: "IMPOSSIBLE" ya no describe la regla ("no se alcanza solo disminuyendo"). Se mantiene para no romper pruebas, casos de dominio ni `data` consumida por la interfaz. Si se renombra, será con un alias en una versión mayor del validador, no en la fase 2.
+
+**Descartado también**: un campo `blocksSave` en cada `Issue`. Cambia un tipo que viaja a la interfaz y a `ai_jobs`, y repite la clasificación en cada problema en vez de tenerla en un solo lugar.
+
+### E11. `validateYarn(input, path = "yarn", opts?)`
+
+**Decisión: aprobar, con el tipo acotado.** Pasar el catálogo de fibras y la paleta es útil para que el formulario de lana avise "No conozco la fibra…" igual que el panel de validación. Solo agrega advertencias, así que cumple el invariante de opciones de E10, y `addYarn` sigue llamándola sin opciones (una fibra desconocida no impide agregar la lana). Pero las demás opciones de `ValidateOptions` (muestra, hebras flotantes) no tienen sentido para una lana suelta:
+
+```ts
+export function validateYarn(input: unknown, path?: string, opts?: Pick<ValidateOptions, "fibers" | "paletteIds">): Issue[];
+```
+
+Es compatible: quien pase un `ValidateOptions` completo sigue compilando.
+
+### E12. `maxFloatStitches` como tope que se aplica siempre
+
+**Decisión: aprobar.** Es la fórmula de la sección 4, `min(floor(maxFloatCm × puntos en 10 cm / 10), tope)`, con el 5 parametrizado. El sentido anterior ("umbral solo cuando no hay muestra") hacía que el mismo número significara cosas distintas según el documento tuviera o no `gauge`, y permitía que una muestra gruesa subiera el umbral por encima de 5, lo que la sección 4 prohíbe ("el valor nunca crece con el grosor").
+
+- **Impacto en la web**: ninguno. `apps/web` no pasa `maxFloatStitches` ni `maxFloatCm`, y el estudio de la fase 2 no los expone (usa los valores por defecto). Una opción futura de "umbral personal" se diseña como tope, con este sentido.
+- **Ajuste**: hoy se acepta cualquier número `≥ 0`, incluidos 0 y valores no enteros (con 0, toda hebra flotante avisa; con 4,5, `data.max` sale con decimales). Debe aceptar solo **enteros ≥ 1**; si no, se usa el 5 por defecto.
+
+### E13. `dimensionsCm` devuelve `ChartDimensions`
+
+**Decisión: confirmado, coincide con el contrato de T2c** (sección 2 y caso 20): `{ widthCm, heightCm, widthIsCircumference }`, con nombre de tipo exportado.
+
+- En el círculo, el ancho sale del máximo de `rowStitchCount`; en plano y tubo, de `width × repeat.x` aunque haya máscara, como dice la sección 1.
+- `yoke` devuelve `widthIsCircumference: true`. Es coherente con dibujarlo como tubo en la fase 2. Queda marcado "validar con `experto-tejido`" en el código; se revisa cuando exista la geometría de canesú.
+- Un documento `CHART_EMPTY` (ahora guardable, E10) da `widthCm = 0` en el círculo. La interfaz muestra "—" en vez de "0 cm" cuando `stitchTotal` es 0.
+
+### E14. Ajustes aprobados al implementar T2d (2026-11-06)
+
+Aprobados por el orquestador a partir de los pedidos de `experto-tejido` y `qa-tester`:
+
+1. **Un solo aviso por fila vacía.** `CHART_EMPTY_ROW` deja de emitirse. `CHART_ROW_EMPTY_FULL` (error de tejido, uno solo con la lista de filas) trae `data: { count, rows, motifRows }`, con hasta 50 filas del gráfico completo y del motivo. Reemplaza el punto 2 de E10 en lo que respecta a `CHART_EMPTY_ROW`.
+2. **`paletteId` que no es texto es error estructural** (`SHAPE` en `yarns[i].color.paletteId`), se pasen o no `paletteIds`. Antes validaba y producía un mensaje con "[object Object]" (QA F4). Cumple el invariante de E10: las opciones no cambian los errores.
+3. **Vueltas fuera de rango.** `number` y `through` se validan antes de recorrer los rangos (QA F1 y F3): menor que 1 da `ROUND_NUMBERING`; mayor que `LIMITS.maxRounds`, o rangos que suman más, da `LIMIT`. `LIMITS` vive en `src/limits.ts` (se reexporta desde `validate.ts`; la API no cambia).
+4. **Mensajes con la lana.** `CHART_FLOAT_LONG` nombra la lana por su letra según el orden del documento y su color (no por el id interno ni por la nota privada, que no debe aparecer en patrones compartidos).
+
+### E15. Textos libres con tipo y tope (QA F5, 2026-11-06)
+
+Aprobado por el orquestador. Regla de oro 3: una salida de IA con campos de texto mal tipados ya no pasa el validador.
+
+1. `parts[i].name`, `parts[i].finish`, `rounds[j].note`, `yarns[i].note`, `notes[]`, `assembly[]`, `origin.model` y `origin.promptVersion` se revisan por tipo (`SHAPE` con la ruta exacta), con cualquier `origin`.
+2. Topes en `src/limits.ts` (puntos de código, como el título): `maxIdLength` 64 (id del patrón, de las partes, `fiber`, `paletteId`; los ids del catálogo miden hasta 20), nombre de parte 80, nota de vuelta, cierre y nota de lana 500, cada nota y paso de armado 2000, hasta 50 elementos por lista, campos de `origin` 100. Exceder da `LIMIT`.
+3. Código nuevo `PART_NAME` (estructural): una parte con nombre en blanco o con salto de línea no se guarda. La interfaz (T9) no debe permitir dejarlo vacío.
+4. `formatPart` escribe nombre y cierre en una sola línea (un salto de línea pasa a espacio), para que el texto no se reinterprete como otra vuelta al volver a leerlo.
+5. Solo `title` tiene restricción en la base (`char_length` 1..120). Los demás topes viven dentro de `document` (jsonb) y los impone el validador en el servidor al guardar (T4); no hace falta replicarlos en columnas.
+
+### Cambios que aplica `motor-patrones` (T2d)
+
+| # | Archivo | Cambio |
+|---|---|---|
+| C10 | `validate.ts` | `DRAFT_ERROR_CODES`, `isDraftError` y `ValidationResult.savable` (E10). `valid` y `parsePattern` no cambian |
+| C10b | `validate.ts` | `CHART_SHAPING_IMPOSSIBLE` pasa a advertencia, con el mensaje nuevo de E10 (alternativas: cerrar, dejar en espera, 4 o más juntos, pasar la hebra). `CHART_ROW_EMPTY_FULL` pasa a error. Quitar el comentario "validar con experto-tejido" de la regla que salta las vueltas sin puntos: queda confirmado (ya hay error por la vuelta vacía) |
+| C10c | pruebas | Ajustar las que esperan `valid: false` por 80 → 8 (por ejemplo, `validate-colorwork.test.ts`, caso 8) y las que esperan `CHART_ROW_EMPTY_FULL` como advertencia. Propiedad del caso 8: advertencia `IMPOSSIBLE` si y solo si restantes < ceil(n/3) |
+| C11 | `validate.ts` | `validateYarn(input, path?, opts?: Pick<ValidateOptions, "fibers" \| "paletteIds">)` (E11) |
+| C12 | `validate.ts` | `maxFloatStitches` solo se acepta si es entero ≥ 1; si no, 5 (E12). Prueba con 0, −1, 4,5 y `NaN` |
+| C13 | pruebas | Propiedad: desde un documento `valid`, cualquier secuencia de `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn` y `reorderYarns` deja un documento `savable` (reemplaza a "nunca `CHART_CELL_VALUE`") |
+| C14 | pruebas | Propiedad: para todo documento `savable`, los derivados de `chart.ts` no lanzan, `rowStitchCounts` suma `stitchTotal` y `shaping` es consistente. Incluye `CHART_EMPTY`, vueltas sin puntos y cuñas con `CHART_SHAPING_IMPOSSIBLE` |
+| C15 | pruebas | Propiedad: los errores de `validatePattern(p, opts)` son los mismos que los de `validatePattern(p)` para opciones aleatorias (invariante de E10) |
+| C16 | `README.md` | Ver la lista de diferencias del README abajo |
+
+**Diferencias del README de `pattern-core` con la API final** (las aplica `motor-patrones`; el README es parte del paquete):
+
+1. "Qué valida": `validatePattern` devuelve `{ valid, savable, issues }`. Explicar las dos clases de error, `DRAFT_ERROR_CODES` e `isDraftError`, y qué exige cada flujo (guardar: `savable`; tejer, publicar, exportar e IA: `valid`).
+2. En "Qué valida": marcar `CHART_EMPTY` y `CHART_ROW_EMPTY_FULL` como "errores de tejido (no impiden guardar el borrador)"; mover `CHART_SHAPING_IMPOSSIBLE` de errores a advertencias, con su regla ("no se alcanza solo disminuyendo") y sacar `CHART_ROW_EMPTY_FULL` de la lista de advertencias.
+3. "Gráfico sin puntos y autoguardado" (hoy dice que `CHART_SHAPING_IMPOSSIBLE` es error y "tiene el mismo tratamiento"): reemplazar el párrafo de E3 (respaldo local y "no lo envía") por la regla de E10. Las filas sin puntos ya no son "advertencias que no impiden guardar": son error de tejido, que tampoco impide guardar. Mencionar que `paintCells`, `resizeMotif` y `setRepeat` pueden producir la advertencia `CHART_SHAPING_IMPOSSIBLE` (en `setRepeat`, por el borde entre repeticiones verticales).
+4. "Cuándo puede lanzar": los derivados suponen un documento **`savable`** (sin errores estructurales), no necesariamente `valid`.
+5. `ValidateOptions`: `maxFloatStitches` es un tope entero ≥ 1 que se aplica siempre, con o sin muestra. Agregar el invariante: ninguna opción cambia los errores.
+6. `validateYarn`: firma con `opts?: Pick<ValidateOptions, "fibers" | "paletteIds">`; solo agrega advertencias.
+7. Pruebas: actualizar la descripción de `validate-colorwork.test.ts` y `property-colorwork.test.ts` con C13 a C15.
+8. Menor: la tabla de módulos no lista `ParseResult`, `ParsePartOptions`, `Dialect`, `StitchDef`, `ExpandedStitch`, `RoundCount`, `ConcreteRound` ni `PartSummary`, que se exportan. Agregarlos o aclarar que la tabla muestra solo lo principal.
+
+El resto del README coincide con el código: firmas de `edit.ts` con `yarnCount`, `ANCHORS`, `EDIT_LIMITS` derivado de `LIMITS`, `MigrationResult` discriminado, `rowShapingColumns`, `ChartDimensions`, `CHART_MOTIF_TOO_LARGE` y la tabla de validaciones de T2b.

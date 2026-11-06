@@ -37,7 +37,7 @@ const motif = (c: Chart) => Array.from({ length: c.height }, (_v, y) => c.cells.
 describe("paintCells", () => {
   it("pintar una celda del gráfico completo pinta todas sus repeticiones", () => {
     const p = frozen(smallChart());
-    const out = paintCells(p.chart, [{ x: 9, y: 3 }], 1); // motivo (1, 0)
+    const out = paintCells(p.chart, [{ x: 9, y: 3 }], 1, 3); // motivo (1, 0)
     assert.equal(out.cells[1], 1);
     for (let rx = 0; rx < 5; rx++) for (let ry = 0; ry < 2; ry++) assert.equal(cellAt(out, rx * 4 + 1, ry * 3), 1);
     assert.equal(p.chart.cells[1], 0);
@@ -45,31 +45,31 @@ describe("paintCells", () => {
 
   it("un trazo largo crea un solo arreglo nuevo y conserva el resto del gráfico", () => {
     const { chart } = frozen(smallChart());
-    const out = paintCells(chart, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }], 1);
+    const out = paintCells(chart, [{ x: 0, y: 0 }, { x: 1, y: 0 }, { x: 2, y: 0 }, { x: 4, y: 0 }], 1, 3);
     assert.deepEqual(motif(out)[0], [1, 1, 1, 0]);
     assert.equal(out.repeat, chart.repeat);
   });
 
   it("ignora coordenadas fuera de rango y devuelve el mismo objeto si nada cambia", () => {
     const { chart } = frozen(smallChart());
-    assert.equal(paintCells(chart, [{ x: -1, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 6 }, { x: 1.5, y: 0 }], 1), chart);
-    assert.equal(paintCells(chart, [{ x: 0, y: 0 }], 0), chart);
-    assert.equal(paintCells(chart, [], 1), chart);
+    assert.equal(paintCells(chart, [{ x: -1, y: 0 }, { x: 20, y: 0 }, { x: 0, y: 6 }, { x: 1.5, y: 0 }], 1, 3), chart);
+    assert.equal(paintCells(chart, [{ x: 0, y: 0 }], 0, 3), chart);
+    assert.equal(paintCells(chart, [], 1, 3), chart);
   });
 
   it("rechaza valores de celda inválidos", () => {
     const { chart } = frozen(smallChart());
-    for (const v of [-2, 0.5, Number.NaN]) assert.equal(paintCells(chart, [{ x: 0, y: 0 }], v), chart);
+    for (const v of [-2, 0.5, Number.NaN]) assert.equal(paintCells(chart, [{ x: 0, y: 0 }], v, 3), chart);
   });
 
   it("la herramienta sin punto escribe NO_STITCH", () => {
     const { chart } = frozen(smallChart());
-    assert.equal(paintCells(chart, [{ x: 3, y: 0 }], NO_STITCH).cells[3], NO_STITCH);
+    assert.equal(paintCells(chart, [{ x: 3, y: 0 }], NO_STITCH, 3).cells[3], NO_STITCH);
   });
 
   it("no lanza con un gráfico dañado", () => {
     const bad = { ...smallChart().chart, cells: [0] };
-    assert.equal(paintCells(bad, [{ x: 0, y: 0 }], 1), bad);
+    assert.equal(paintCells(bad, [{ x: 0, y: 0 }], 1, 3), bad);
   });
 });
 
@@ -87,7 +87,7 @@ describe("fillRegion", () => {
 
   it("rellena por contigüidad con 4 vecinos, sin diagonales", () => {
     const c = frozen(base());
-    const out = fillRegion(c, { x: 0, y: 0 }, 1);
+    const out = fillRegion(c, { x: 0, y: 0 }, 1, 3);
     // La región de A que empieza en (0,0) es (0,0), (1,0), (0,1). (3,*) y la fila 2 no se tocan.
     assert.deepEqual(motif(out), [[1, 1, 1, 0], [1, 1, 1, 0], [1, 0, 0, 0]]);
   });
@@ -95,26 +95,26 @@ describe("fillRegion", () => {
   it("no envuelve los bordes del motivo", () => {
     // A en (0,0) y (3,0) son vecinas solo si se envuelve; no deben unirse.
     const c = frozen({ ...base(), cells: [0, 1, 1, 0, 1, 1, 1, 1, 1, 1, 1, 1] });
-    const out = fillRegion(c, { x: 0, y: 0 }, _);
+    const out = fillRegion(c, { x: 0, y: 0 }, _, 3);
     assert.deepEqual(motif(out)[0], [_, 1, 1, 0]);
   });
 
   it("acepta un inicio en otra repetición del gráfico completo", () => {
     const c = frozen(base());
-    assert.deepEqual(fillRegion(c, { x: 8, y: 3 }, 1), fillRegion(c, { x: 0, y: 0 }, 1));
+    assert.deepEqual(fillRegion(c, { x: 8, y: 3 }, 1, 3), fillRegion(c, { x: 0, y: 0 }, 1, 3));
   });
 
   it("rellena regiones sin punto y devuelve el mismo objeto si no hay cambio", () => {
     const c = frozen({ ...base(), cells: [_, _, 0, 0, _, 0, 0, 0, 0, 0, 0, 0] });
-    assert.deepEqual(motif(fillRegion(c, { x: 0, y: 0 }, 0)), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
-    assert.equal(fillRegion(c, { x: 2, y: 0 }, 0), c);
-    assert.equal(fillRegion(c, { x: 99, y: 0 }, 1), c);
-    assert.equal(fillRegion(c, { x: 0, y: 0 }, -5), c);
+    assert.deepEqual(motif(fillRegion(c, { x: 0, y: 0 }, 0, 3)), [[0, 0, 0, 0], [0, 0, 0, 0], [0, 0, 0, 0]]);
+    assert.equal(fillRegion(c, { x: 2, y: 0 }, 0, 3), c);
+    assert.equal(fillRegion(c, { x: 99, y: 0 }, 1, 3), c);
+    assert.equal(fillRegion(c, { x: 0, y: 0 }, -5, 3), c);
   });
 
   it("rellena un motivo de 200 × 200 sin desbordar la pila", () => {
     const c: Chart = { ...base(), width: 200, height: 200, cells: new Array<number>(40_000).fill(0) };
-    const out = fillRegion(c, { x: 100, y: 100 }, 1);
+    const out = fillRegion(c, { x: 100, y: 100 }, 1, 3);
     assert.ok(out.cells.every((v) => v === 1));
   });
 });
@@ -132,24 +132,24 @@ describe("resizeMotif", () => {
   });
 
   it("agranda con anclaje abajo a la izquierda", () => {
-    const out = resizeMotif(frozen(c3()), 5, 3, "bottom_left", _);
+    const out = resizeMotif(frozen(c3()), 5, 3, "bottom_left", _, 3);
     assert.deepEqual(motif(out), [[0, 1, 0, _, _], [1, 1, 0, _, _], [_, _, _, _, _]]);
     assert.deepEqual(out.repeat, { x: 2, y: 2 });
   });
 
   it("agranda con anclaje abajo a la derecha y abajo al centro", () => {
-    assert.deepEqual(motif(resizeMotif(c3(), 5, 2, "bottom_right", 2)), [[2, 2, 0, 1, 0], [2, 2, 1, 1, 0]]);
-    assert.deepEqual(motif(resizeMotif(c3(), 5, 2, "bottom_center", 2)), [[2, 0, 1, 0, 2], [2, 1, 1, 0, 2]]);
+    assert.deepEqual(motif(resizeMotif(c3(), 5, 2, "bottom_right", 2, 3)), [[2, 2, 0, 1, 0], [2, 2, 1, 1, 0]]);
+    assert.deepEqual(motif(resizeMotif(c3(), 5, 2, "bottom_center", 2, 3)), [[2, 0, 1, 0, 2], [2, 1, 1, 0, 2]]);
   });
 
   it("achica recortando según el anclaje", () => {
-    assert.deepEqual(motif(resizeMotif(c3(), 2, 1, "bottom_left", 0)), [[0, 1]]);
-    assert.deepEqual(motif(resizeMotif(c3(), 2, 1, "bottom_right", 0)), [[1, 0]]);
-    assert.deepEqual(motif(resizeMotif(c3(), 1, 2, "center", 0)), [[1], [1]]);
+    assert.deepEqual(motif(resizeMotif(c3(), 2, 1, "bottom_left", 0, 3)), [[0, 1]]);
+    assert.deepEqual(motif(resizeMotif(c3(), 2, 1, "bottom_right", 0, 3)), [[1, 0]]);
+    assert.deepEqual(motif(resizeMotif(c3(), 1, 2, "center", 0, 3)), [[1], [1]]);
   });
 
   it("al centro reparte en los dos ejes", () => {
-    assert.deepEqual(motif(resizeMotif(c3(), 5, 4, "center", _)), [
+    assert.deepEqual(motif(resizeMotif(c3(), 5, 4, "center", _, 3)), [
       [_, _, _, _, _],
       [_, 0, 1, 0, _],
       [_, 1, 1, 0, _],
@@ -159,14 +159,14 @@ describe("resizeMotif", () => {
 
   it("respeta el límite de 200 × 200 y rechaza parámetros inválidos", () => {
     const c = frozen(c3());
-    assert.equal(resizeMotif(c, EDIT_LIMITS.maxMotifWidth + 1, 2, "bottom_left", 0), c);
-    assert.equal(resizeMotif(c, 3, EDIT_LIMITS.maxMotifHeight + 1, "bottom_left", 0), c);
-    assert.equal(resizeMotif(c, 0, 2, "bottom_left", 0), c);
-    assert.equal(resizeMotif(c, 2.5, 2, "bottom_left", 0), c);
-    assert.equal(resizeMotif(c, 4, 2, "top_left" as never, 0), c);
-    assert.equal(resizeMotif(c, 4, 2, "bottom_left", -2), c);
-    assert.equal(resizeMotif(c, 3, 2, "center", 0), c);
-    assert.equal(resizeMotif(c, 200, 200, "center", 0).cells.length, 40_000);
+    assert.equal(resizeMotif(c, EDIT_LIMITS.maxMotifWidth + 1, 2, "bottom_left", 0, 3), c);
+    assert.equal(resizeMotif(c, 3, EDIT_LIMITS.maxMotifHeight + 1, "bottom_left", 0, 3), c);
+    assert.equal(resizeMotif(c, 0, 2, "bottom_left", 0, 3), c);
+    assert.equal(resizeMotif(c, 2.5, 2, "bottom_left", 0, 3), c);
+    assert.equal(resizeMotif(c, 4, 2, "top_left" as never, 0, 3), c);
+    assert.equal(resizeMotif(c, 4, 2, "bottom_left", -2, 3), c);
+    assert.equal(resizeMotif(c, 3, 2, "center", 0, 3), c);
+    assert.equal(resizeMotif(c, 200, 200, "center", 0, 3).cells.length, 40_000);
   });
 });
 

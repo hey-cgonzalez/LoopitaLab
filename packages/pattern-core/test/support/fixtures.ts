@@ -59,7 +59,7 @@ export function ballPattern(): WrittenPattern {
 }
 
 /**
- * Motivo de 4 × 3 con dos lanas, en redondo:
+ * Banda de 4 × 3 con dos lanas, en redondo y vista de tubo (sin avisos del validador):
  *   fila 0: A A A A
  *   fila 1: A B A B
  *   fila 2: B B B B
@@ -74,6 +74,6 @@ export function smallChart(): ChartPattern {
     yarns: [structuredClone(yarnA), structuredClone(yarnB)],
     gauge: { stitchesPer10cm: 24, rowsPer10cm: 28 },
     origin: { kind: "manual" },
-    chart: { width: 4, height: 3, cells: [0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1], repeat: { x: 5, y: 2 }, workedIn: "rounds", renderAs: "circle", direction: "bottom_up" },
+    chart: { width: 4, height: 3, cells: [0, 0, 0, 0, 0, 1, 0, 1, 1, 1, 1, 1], repeat: { x: 5, y: 2 }, workedIn: "rounds", renderAs: "tube", direction: "bottom_up" },
   };
 }

@@ -11,7 +11,7 @@ Casos de prueba de las reglas de tejido del estudio de colorwork, para `qa-teste
 - `R` es `repeat.x`. "Total" es `rowStitchCount` de la vuelta completa.
 - `A`, `B` son lanas y `.` es `NO_STITCH`. Las filas del motivo se escriben desde la fila 0 (la primera que se teje).
 - "Nada" significa que no aparece el código evaluado en ese caso. Otros códigos pueden aparecer si el caso lo indica.
-- **Umbral de hebras flotantes**: `min(floor(2,5 × puntos en 10 cm / 10), 5)` puntos.
+- **Umbral de hebras flotantes**: `max(1, min(floor(2,5 × puntos en 10 cm / 10), 5))` puntos.
 - **Muestra supuesta**: la tabla del final.
 
 ## Lectura y orientación
@@ -30,7 +30,7 @@ Casos de prueba de las reglas de tejido del estudio de colorwork, para `qa-teste
 |---|---|---|
 | 6 | Motivo 5 × 3, `R = 8`: `AAAAA` / `AAAA.` / `AA...` | `rowStitchCounts` = [40, 32, 16]. `change` = [0, −8, −16]. `perRepeat` = [0, −1, −2]. La suma (88) es igual a `stitchTotal` |
 | 7 | CA-F3: `R = 8`, cuña que baja de 10 a 1 punto por repetición, 1 por vuelta | Totales de 80 a 8 (80, 72, …, 8). `shaping` es coherente con `rowStitchCount` en cada vuelta. Sin `IMPOSSIBLE`, `TOO_FAST` ni `STEEP` |
-| 8 | Totales consecutivos, solo códigos `CHART_SHAPING_IMPOSSIBLE` y `CHART_SHAPING_TOO_FAST` | 80 → 8: `IMPOSSIBLE` (error; 8 < ceil(80/3) = 27). 80 → 40: ninguno de los dos (40 = ceil(80/2)). 80 → 30: `TOO_FAST` (advertencia; 27 ≤ 30 < 40). Propiedad: error si y solo si restantes < ceil(n/3); advertencia si y solo si ceil(n/3) ≤ restantes < ceil(n/2). Con `R = 8`, el caso 80 → 40 es −5 por repetición y también da `CHART_SHAPING_STEEP`: es correcto, son reglas distintas |
+| 8 | Totales consecutivos, solo códigos `CHART_SHAPING_IMPOSSIBLE` y `CHART_SHAPING_TOO_FAST` | 80 → 8: `IMPOSSIBLE` (**advertencia** desde la [enmienda E10 del ADR 0003](adr/0003-colorwork-en-esquema-v1.md#e10-errores-estructurales-y-errores-de-tejido); 8 < ceil(80/3) = 27). El documento sigue siendo `valid`. Mensaje: "En la vuelta 2 se pasa de 80 a 8 puntos: disminuyendo de a 2 o 3 juntos quedan como mínimo 27. Para llegar a 8 hay que cerrar puntos, dejarlos en espera, tejer 4 o más juntos o pasar la hebra por todos." 80 → 40: ninguno de los dos (40 = ceil(80/2)). 80 → 30: `TOO_FAST` (advertencia; 27 ≤ 30 < 40). Propiedad: advertencia `IMPOSSIBLE` si y solo si restantes < ceil(n/3); `TOO_FAST` si y solo si ceil(n/3) ≤ restantes < ceil(n/2); una transición dispara una sola de las dos y ninguna es error. Una vuelta sin puntos no se mide (ya es el error de tejido `CHART_ROW_EMPTY_FULL`). Con `R = 8`, el caso 80 → 40 es −5 por repetición y también da `CHART_SHAPING_STEEP`: es correcto, son reglas distintas |
 | 9 | `perRepeat` en una vuelta | −3: `CHART_SHAPING_STEEP`. −2: nada |
 | 10 | Cierre en `bottom_up`, total de la última vuelta | 8: nada. 16: nada (info solo si es **mayor** que 16). 20: info. 30: advertencia (mayor que 24). Depende del total, no de `R` (propiedad: mismo total con `R` distinto da lo mismo) |
 | 11 | Repeticiones y ancho de cuña en un círculo | `R = 3` o `R = 14`: `CHART_CIRCLE_REPEATS` (info). `R` = 6, 8 o 12: nada. Si el máximo de puntos por cuña es menor que 4: `CHART_WEDGE_TOO_NARROW`. Validar con tejedora |

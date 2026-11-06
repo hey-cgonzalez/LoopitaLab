@@ -20,7 +20,7 @@ describe("patrón escrito", () => {
     assert.equal(r.valid, false);
     const i = r.issues.find((x) => x.code === "ROUND_COUNT_MISMATCH");
     assert.ok(i);
-    assert.match(i.message, /vuelta 3: el patrón dice \(20\) pero las instrucciones dan 18/);
+    assert.match(i.message, /^Bolita, vuelta 3: el patrón declara 20 puntos, pero las instrucciones dan 18\.$/);
   });
 
   it("detecta instrucciones que no consumen lo que dejó la vuelta anterior", () => {
@@ -137,7 +137,8 @@ describe("gráfico", () => {
     p.chart.cells[5] = 7;
     const i = validatePattern(p).issues.find((x) => x.code === "CHART_CELL_VALUE");
     assert.ok(i);
-    assert.match(i.message, /fila 2, punto 2/);
+    // En redondo el mensaje dice "vuelta" (glosario pendiente); de ida y vuelta, "fila".
+    assert.match(i.message, /vuelta 2, casilla 2/);
     const q = smallChart();
     q.chart.cells.pop();
     assert.ok(codes(validatePattern(q).issues).includes("CHART_CELLS_LENGTH"));
@@ -145,12 +146,14 @@ describe("gráfico", () => {
 
   it("avisa hebras flotantes largas según la muestra", () => {
     const p = smallChart();
-    // 24 pts/10 cm → máximo 6 puntos (2,5 cm). Una fila A + 9 B en redondo deja A suelta 9 puntos.
+    // 24 pts/10 cm → floor(6) pero con tope de 5 puntos. Una vuelta A + 9 B en redondo deja A suelta 9 puntos.
     p.chart = { ...p.chart, width: 10, height: 1, cells: [0, 1, 1, 1, 1, 1, 1, 1, 1, 1], repeat: { x: 1, y: 1 } };
     const i = validatePattern(p).issues.find((x) => x.code === "CHART_FLOAT_LONG");
     assert.ok(i);
     assert.equal(i.data?.length, 9);
-    assert.equal(i.data?.max, 6);
+    assert.equal(i.data?.max, 5);
+    assert.match(i.message, /enganchar/);
+    assert.doesNotMatch(i.message, /atrap/);
     // En crochet tapestry no aplica.
     const q = structuredClone(p);
     q.technique = "crochet";
@@ -165,7 +168,9 @@ describe("gráfico", () => {
     p.chart.cells = [0, 1, 2, 3, NO_STITCH, NO_STITCH, NO_STITCH, NO_STITCH, 1, 1, 1, 1];
     const c = codes(validatePattern(p).issues);
     assert.ok(c.includes("CHART_COLORS_PER_ROW"));
-    assert.ok(c.includes("CHART_EMPTY_ROW"));
+    // Una fila sin puntos es error de tejido (E10), con un solo aviso por fila (T2d).
+    assert.ok(c.includes("CHART_ROW_EMPTY_FULL"));
+    assert.ok(!c.includes("CHART_EMPTY_ROW"));
   });
 });
 

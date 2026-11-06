@@ -66,6 +66,12 @@ export function lookupLoop(term: string): Exclude<Loop, "both"> | undefined {
   return loopIndex.get(normalizeTerm(term));
 }
 
+/*
+ * Las búsquedas por texto de la usuaria pasan por los `Map` de arriba, nunca por `in` ni
+ * por índice sobre los objetos: así "toString", "constructor" o "__proto__" no se
+ * confunden con un punto o una hebra. Para revisar un código ya leído, `Object.hasOwn`.
+ */
+
 export function stitchAbbrev(code: StitchCode, dialect: Dialect): string {
   return STITCHES[code][dialect];
 }

@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NO_STITCH, validatePattern } from "@loopitalab/pattern-core";
 import { ballPattern, smallChart } from "../../../packages/pattern-core/test/support/fixtures.ts";
 
 const rpc = vi.fn();
@@ -48,6 +49,17 @@ describe("isUuid", () => {
   it.each([null, undefined, 42, {}, ["aaaaaaaa-0000-0000-0000-000000000002"]])("rechaza lo que no es texto: %j", (v) =>
     expect(isUuid(v)).toBe(false),
   );
+});
+
+describe("checkSharedRow pasa primero por migratePattern (ADR 0006)", () => {
+  it("una versión de esquema desconocida se rechaza como invalid_document", () => {
+    const r = checkSharedRow(row({ ...smallChart(), schemaVersion: 99 }));
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.reason).toBe("invalid_document");
+      expect(r.issues.some((i) => i.code === "SCHEMA_VERSION")).toBe(true);
+    }
+  });
 });
 
 describe("checkSharedRow", () => {
@@ -100,6 +112,48 @@ describe("checkSharedRow", () => {
     const doc = smallChart();
     doc.chart.cells = doc.chart.cells.slice(0, 5);
     expect(checkSharedRow(row(doc)).ok).toBe(false);
+  });
+
+  // ADR 0006 E10: un borrador ajeno con errores de tejido (savable, no valid) se guarda,
+  // pero no se puede tejer, exportar ni abrir como patrón utilizable.
+  it.each([
+    ["gráfico sin puntos (CHART_EMPTY)", "CHART_EMPTY", (c: ReturnType<typeof smallChart>) => c.chart.cells.fill(NO_STITCH)],
+    ["una vuelta sin puntos (CHART_ROW_EMPTY_FULL)", "CHART_ROW_EMPTY_FULL", (c: ReturnType<typeof smallChart>) => c.chart.cells.fill(NO_STITCH, 4, 8)],
+  ])("un borrador savable pero no valid queda inutilizable: %s", (_name, code, mutate) => {
+    const doc = smallChart();
+    mutate(doc);
+    const v = validatePattern(doc);
+    expect([v.valid, v.savable]).toEqual([false, true]);
+    const r = checkSharedRow(row(doc));
+    expect(r).toMatchObject({ id: ID, ok: false, reason: "invalid_document" });
+    if (r.ok) return;
+    expect(r.issues.map((i) => i.code)).toContain(code);
+    expect(r).not.toHaveProperty("pattern");
+    expect(r).not.toHaveProperty("meta");
+  });
+
+  it("CHART_SHAPING_IMPOSSIBLE es advertencia (E10): el patrón sigue utilizable y el aviso se devuelve", () => {
+    const doc = smallChart();
+    // 80 → 8 puntos en una vuelta (R = 8): ni de a 3 juntos se llega.
+    doc.chart = { width: 10, height: 2, cells: [...Array(10).fill(0), 0, ...Array(9).fill(NO_STITCH)], repeat: { x: 8, y: 1 }, workedIn: "rounds", renderAs: "circle", direction: "bottom_up" };
+    const r = checkSharedRow(row(doc));
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(r.warnings.find((i) => i.code === "CHART_SHAPING_IMPOSSIBLE")?.severity).toBe("warning");
+    expect(r.warnings.some((i) => i.severity === "error")).toBe(false);
+  });
+
+  it("getSharedPattern y listPublicPatterns tampoco entregan un borrador con errores de tejido", async () => {
+    const draft = smallChart();
+    draft.chart.cells.fill(NO_STITCH);
+    rpc.mockResolvedValueOnce({ data: [row(draft)], error: null });
+    expect(await getSharedPattern(ID)).toMatchObject({ ok: false, reason: "invalid_document" });
+    rpc.mockResolvedValueOnce({ data: [row(smallChart()), row(draft, { id: "b" })], error: null });
+    const list = await listPublicPatterns();
+    expect(list.ok && list.items.map((i) => [i.id, i.ok])).toEqual([
+      [ID, true],
+      ["b", false],
+    ]);
   });
 
   it.each([

@@ -83,8 +83,13 @@ describe("requireUser: lectura de mirror_knitting", () => {
   it("columna inexistente y la relectura también falla: no lanza y profile queda en null", async () => {
     state.full = { data: null, error: MISSING_COLUMN };
     state.base = { data: null, error: TIMEOUT };
+    const spy = vi.spyOn(console, "error").mockImplementation(() => undefined);
     const { profile } = await requireUser("/cuenta");
     expect(profile).toBeNull();
+    // Se registra solo el código del error, sin mensaje ni datos personales.
+    expect(spy).toHaveBeenCalledWith(expect.stringContaining("releer"), "57014");
+    for (const call of spy.mock.calls) expect(JSON.stringify(call)).not.toMatch(/ana|example\.test|statement timeout/);
+    spy.mockRestore();
   });
 
   // QA F1 (corregido): solo "columna inexistente" (42703 / PGRST204) relee sin la columna.

@@ -1,7 +1,7 @@
 /**
  * Derivados del gráfico (ADR 0003, sección 2, y ADR 0005) y casos de dominio de
- * docs/casos-dominio-colorwork.md que les corresponden: 1 a 7, 20 (parte de medidas
- * que no depende de T2c) y 24.
+ * docs/casos-dominio-colorwork.md que les corresponden: 1 a 7, el caso 8 positivo, 20
+ * (medidas sin máscara; el caso completo está en validate-colorwork.test.ts) y 24.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -149,9 +149,29 @@ describe("conteos y disminuciones", () => {
       assert.equal(s.change, y === 0 ? 0 : rowStitchCount(chart, y) - rowStitchCount(chart, y - 1));
       assert.equal(s.perRepeat, y === 0 ? 0 : -1);
     });
-    // Las reglas de forma son de T2b; aquí se fija que este caso nunca las dispare.
-    const codes = validatePattern(withChart(chart)).issues.map((i) => i.code);
-    for (const code of ["CHART_SHAPING_IMPOSSIBLE", "CHART_SHAPING_TOO_FAST", "CHART_SHAPING_STEEP"]) assert.ok(!codes.includes(code), code);
+    // Con las reglas de forma de T2b activas, la cuña de CA-F3 no las dispara: −1 por
+    // repetición y por vuelta, y 16 → 8 deja justo la mitad (8 = ceil(16 / 2)).
+    const r = validatePattern(withChart(chart));
+    const codes = r.issues.map((i) => i.code);
+    for (const code of ["CHART_SHAPING_IMPOSSIBLE", "CHART_SHAPING_TOO_FAST", "CHART_SHAPING_STEEP", "CHART_SHAPING_UNEXPECTED", "CHART_CIRCLE_NOT_CLOSED"]) {
+      assert.ok(!codes.includes(code), code);
+    }
+    assert.equal(r.valid, true);
+    // Solo queda la lana B sin usar (información).
+    assert.deepEqual(r.issues.filter((i) => i.severity !== "info"), []);
+  });
+
+  it("caso 8 positivo: la misma cuña con un salto de 80 a 8 dispara la advertencia CHART_SHAPING_IMPOSSIBLE (E10)", () => {
+    // Fila 0: 10 por repetición; fila 1: 1 por repetición (R = 8): 80 → 8, y 8 < ceil(80 / 3) = 27.
+    const jump = chartOf([Array.from({ length: 10 }, () => A), Array.from({ length: 10 }, (_v, x) => (x < 1 ? A : _))], { repeat: { x: 8, y: 1 }, renderAs: "circle" });
+    assert.deepEqual(rowStitchCounts(jump), [80, 8]);
+    const r = validatePattern(withChart(jump));
+    const impossible = r.issues.filter((i) => i.code === "CHART_SHAPING_IMPOSSIBLE");
+    assert.equal(impossible.length, 1);
+    // Desde E10 es advertencia: se teje cerrando puntos, dejándolos en espera o pasando la hebra.
+    assert.equal(impossible[0]!.severity, "warning");
+    assert.equal(r.valid, true);
+    assert.equal(r.savable, true);
   });
 
   it("rowStitchCount repite la fila del motivo y fuera del gráfico vale 0", () => {
@@ -181,7 +201,7 @@ describe("medidas", () => {
     assert.ok(Math.abs(d.widthCm - 50) < 1e-9);
     assert.ok(Math.abs(d.heightCm - (20 / 28) * 10) < 1e-9);
     assert.equal(Math.round(d.heightCm * 100) / 100, 7.14);
-    // `widthIsCircumference` y la circunferencia del círculo desde el máximo de rowStitchCount son de T2c.
+    assert.equal(d.widthIsCircumference, false);
   });
 });
 

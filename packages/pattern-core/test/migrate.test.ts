@@ -40,7 +40,7 @@ describe("migratePattern", () => {
     }
     const none = migratePattern({});
     assert.equal(none.from, null);
-    assert.equal(none.to, 0);
+    assert.equal(none.to, null);
     assert.match(none.issues[0]?.message ?? "", /no declara su versión/);
   });
 });

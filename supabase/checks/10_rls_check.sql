@@ -2,6 +2,11 @@
 -- Corre en una transacción que se revierte: no deja datos.
 --   psql "$DATABASE_URL" -v ON_ERROR_STOP=1 -f supabase/checks/10_rls_check.sql
 -- Cada caso imprime "ok - …"; el primer fallo detiene el script con error.
+--
+-- IMPORTANTE: debe correrse como `postgres` (el rol que crea las tablas y funciones en Supabase).
+-- Los privilegios por defecto son por rol creador: corrido con otro rol, la verificación de
+-- "objetos futuros" no probaría lo que ocurre en producción. NO cubre objetos creados por
+-- supabase_admin (extensiones y componentes internos de Supabase), que no son del esquema de la app.
 
 \set ON_ERROR_STOP on
 begin;
@@ -911,6 +916,100 @@ do $$ begin
   assert not exists (select 1 from public.projects), 'el proyecto de Bea se va con su cuenta';
   raise notice 'ok - sin filas huérfanas';
 end $$;
+
+-- O7: ni anon ni authenticated pueden vaciar, referenciar ni poner triggers en tablas de
+-- public (TRUNCATE no pasa por RLS); service_role tampoco puede vaciarlas. Incluye una
+-- tabla creada después de las migraciones (privilegios por defecto).
+create table public.__tabla_futura_o7 (id int);
+do $$
+declare r record;
+begin
+  for r in
+    select c.oid::regclass as t, g.role, g.priv
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+    cross join (values ('anon','TRUNCATE'),('anon','REFERENCES'),('anon','TRIGGER'),
+                       ('authenticated','TRUNCATE'),('authenticated','REFERENCES'),('authenticated','TRIGGER'),
+                       ('service_role','TRUNCATE')) as g(role, priv)
+    where c.relkind in ('r','p')
+  loop
+    assert not has_table_privilege(r.role, r.t, r.priv), format('%s tiene %s en %s', r.role, r.priv, r.t);
+  end loop;
+  assert (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relkind in ('r','p')) >= 12, 'se revisaron las tablas de public';
+  raise notice 'ok - sin TRUNCATE/REFERENCES/TRIGGER para anon y authenticated (ni TRUNCATE para service_role)';
+end $$;
+drop table public.__tabla_futura_o7;
+
+-- Funciones de public ejecutables por anon o authenticated: SOLO las de la lista permitida.
+-- Una función nueva hereda EXECUTE de PUBLIC (valor global de PostgreSQL que no se revoca, ver
+-- 20261106030000_sin_truncate.sql): si su migración olvida el `revoke`, este check falla.
+-- Las funciones de trigger no cuentan: no se pueden invocar por /rpc.
+-- Para exponer una función nueva: grant explícito en su migración y agregarla aquí.
+do $$
+declare
+  permitidas constant text[] := array[
+    'composition_is_valid(jsonb)',           -- pura, la usa una restricción de user_yarns
+    'get_shared_pattern(uuid)',              -- compartir por enlace (anon y authenticated)
+    'list_public_patterns(integer,integer)', -- listado público (anon y authenticated)
+    'pattern_is_reportable(uuid)',           -- authenticated
+    'pattern_is_usable(uuid)',               -- authenticated
+    'snapshot_pattern(uuid,text)'            -- authenticated
+  ];
+  f record;
+  n integer := 0;
+begin
+  for f in
+    select p.oid, replace(p.oid::regprocedure::text, 'public.', '') as firma
+    from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+    where s.nspname = 'public' and p.prorettype <> 'trigger'::regtype
+  loop
+    n := n + 1;
+    if (has_function_privilege('anon', f.oid, 'execute') or has_function_privilege('authenticated', f.oid, 'execute'))
+       and not (f.firma = any (permitidas)) then
+      raise exception 'FALLO: % es ejecutable por anon o authenticated y no está en la lista permitida', f.firma;
+    end if;
+  end loop;
+  assert n >= 6, 'se revisaron las funciones de public';
+  assert has_function_privilege('anon', 'public.get_shared_pattern(uuid)', 'execute'), 'get_shared_pattern sigue pública';
+  assert not has_function_privilege('anon', 'public.snapshot_pattern(uuid, text)', 'execute'), 'snapshot_pattern no es para anon';
+  assert has_function_privilege('authenticated', 'public.snapshot_pattern(uuid, text)', 'execute'), 'snapshot_pattern sigue disponible';
+  raise notice 'ok - solo las funciones de la lista permitida son ejecutables por anon o authenticated';
+end $$;
+
+-- Y el check detecta una función nueva sin revoke (prueba de la red de seguridad).
+create function public.__funcion_futura() returns int language sql as 'select 1';
+do $$ begin
+  assert has_function_privilege('service_role', 'public.__funcion_futura()', 'execute'), 'service_role conserva EXECUTE por defecto';
+  -- Hereda de PUBLIC: así se comporta en Supabase real; por eso existe la lista permitida.
+  assert has_function_privilege('anon', 'public.__funcion_futura()', 'execute')
+      or not has_function_privilege('public', 'public.__funcion_futura()', 'execute'), 'una función nueva sin revoke es ejecutable vía PUBLIC';
+  raise notice 'ok - una función nueva sin revoke quedaría expuesta: la lista permitida la detecta';
+end $$;
+drop function public.__funcion_futura();
+
+-- Secuencias: anon y authenticated no tienen USAGE, SELECT ni UPDATE sobre ninguna secuencia de
+-- public (hoy solo existe la de rate_events.id, identity, que escribe el servidor). Si una tabla
+-- futura con INSERT de la usuaria necesita una secuencia (serial), añadir aquí la excepción documentada.
+create sequence public.__secuencia_futura;
+do $$
+declare r record;
+begin
+  for r in
+    select c.oid::regclass as s, g.role, g.priv
+    from pg_class c
+    join pg_namespace n on n.oid = c.relnamespace and n.nspname = 'public'
+    cross join (values ('anon','USAGE'),('anon','SELECT'),('anon','UPDATE'),
+                       ('authenticated','USAGE'),('authenticated','SELECT'),('authenticated','UPDATE')) as g(role, priv)
+    where c.relkind = 'S'
+  loop
+    assert not has_sequence_privilege(r.role, r.s, r.priv), format('%s tiene %s en la secuencia %s', r.role, r.priv, r.s);
+  end loop;
+  assert (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
+          where n.nspname = 'public' and c.relkind = 'S') >= 2, 'se revisaron las secuencias de public';
+  raise notice 'ok - sin privilegios de secuencia para anon ni authenticated';
+end $$;
+drop sequence public.__secuencia_futura;
 
 rollback;
 \echo 'RLS: todas las verificaciones pasaron'

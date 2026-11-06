@@ -39,6 +39,7 @@ export async function requireUser(nextPath: string) {
         .select("display_name, terminology, units, dominant_hand")
         .eq("id", user.id)
         .maybeSingle<Omit<Profile, "mirror_knitting">>();
+      if (base.error) console.error("perfil: no se pudo releer sin mirror_knitting", base.error.code ?? "sin código");
       profile = base.data ? { ...base.data, mirror_knitting: false } : null;
     } else {
       console.error("perfil: no se pudo leer", full.error.code ?? "sin código");

@@ -66,15 +66,27 @@ export function weightLabel(cat: number): string {
   return `${w.nombre} (${w.ingles.slice(0, 2).join(" / ")})`;
 }
 
-/** Proporción filas / puntos supuesta. El CYC solo publica puntos; las filas son un supuesto visible. */
-export const ROWS_PER_STITCH_RATIO = 1.35;
+/**
+ * Proporción filas / puntos supuesta por tipo de punto. El CYC solo publica puntos; las filas son un supuesto visible.
+ * - `stockinette` 1,35: solo punto jersey a palillo (caso 19, rango 1,2 a 1,5).
+ * - `crochet-pb` 1,2 y `crochet-pa` 0,6: SUPUESTOS, validar con tejedora (T1b). El punto alto es mucho más alto que
+ *   el bajo, por eso la proporción es menor.
+ */
+export const ROWS_PER_STITCH_BY_ASSUMPTION = {
+  stockinette: 1.35,
+  "crochet-pb": 1.2,
+  "crochet-pa": 0.6,
+} as const;
+
+/** Compatibilidad: proporción del punto jersey a palillo. */
+export const ROWS_PER_STITCH_RATIO = ROWS_PER_STITCH_BY_ASSUMPTION.stockinette;
 
 export type GaugeAssumption = "stockinette" | "crochet-pb" | "crochet-pa";
 
 export interface SuggestedGauge {
   /** Puntos en 10 cm: punto medio del rango CYC, o el tope cuando el CYC da solo "X o menos". */
   stitchesPer10cm: number;
-  /** Filas en 10 cm: `round(puntos × 1,35)`. Es un supuesto, no un dato del CYC. */
+  /** Filas en 10 cm: `round(puntos × proporción de ROWS_PER_STITCH_BY_ASSUMPTION[assumption])`. Es un supuesto, no un dato del CYC; en crochet, validar con tejedora. */
   rowsPer10cm: number;
   /** Punto con el que se supone la muestra: jersey (palillo), o pb / pa (crochet). */
   assumption: GaugeAssumption;
@@ -92,7 +104,7 @@ export function suggestedGauge(cat: number, technique: "knit" | "crochet"): Sugg
   const assumption: GaugeAssumption = isKnit ? "stockinette" : w.muestraCrochetPunto === "pa" ? "crochet-pa" : "crochet-pb";
   return {
     stitchesPer10cm,
-    rowsPer10cm: Math.round(stitchesPer10cm * ROWS_PER_STITCH_RATIO),
+    rowsPer10cm: Math.round(stitchesPer10cm * ROWS_PER_STITCH_BY_ASSUMPTION[assumption]),
     assumption,
     lowConfidence: lo === 0,
   };

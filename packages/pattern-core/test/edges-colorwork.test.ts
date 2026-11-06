@@ -8,6 +8,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ANCHORS,
   EDIT_LIMITS,
   LIMITS,
   NO_STITCH,
@@ -41,7 +42,6 @@ import {
 import { yarnA, yarnB, yarnC } from "./support/fixtures.ts";
 import { forAll, rng } from "./support/property.ts";
 
-const ANCHORS: readonly Anchor[] = ["bottom_left", "bottom_center", "bottom_right", "center"];
 const BAD_NUMBERS: readonly unknown[] = [NaN, Infinity, -Infinity, 1.5, -0.5, "2", null, undefined, 2n];
 
 function chart(over: Partial<Chart> = {}): Chart {
@@ -105,13 +105,13 @@ describe("bordes: motivo 1 × 1", () => {
   });
 
   it("editar un 1 × 1: pintar, rellenar, achicar a 1 × 1 y crecer desde 1 × 1", () => {
-    assert.deepEqual(paintCells(one, [{ x: 0, y: 0 }], 2).cells, [2]);
-    assert.deepEqual(fillRegion(one, { x: 0, y: 0 }, 2).cells, [2]);
-    assert.equal(resizeMotif(one, 1, 1, "center", 0), one);
+    assert.deepEqual(paintCells(one, [{ x: 0, y: 0 }], 2, 3).cells, [2]);
+    assert.deepEqual(fillRegion(one, { x: 0, y: 0 }, 2, 3).cells, [2]);
+    assert.equal(resizeMotif(one, 1, 1, "center", 0, 3), one);
     for (const anchor of ANCHORS) {
-      const big = resizeMotif(one, 3, 3, anchor, NO_STITCH);
+      const big = resizeMotif(one, 3, 3, anchor, NO_STITCH, 3);
       assert.equal(big.cells.filter((v) => v === 0).length, 1, anchor);
-      assert.deepEqual(resizeMotif(big, 1, 1, anchor, NO_STITCH), one, anchor);
+      assert.deepEqual(resizeMotif(big, 1, 1, anchor, NO_STITCH, 3), one, anchor);
     }
   });
 
@@ -142,10 +142,10 @@ describe("bordes: motivo 200 × 200 y repeticiones máximas", () => {
 
   it("resizeMotif llega a 200 × 200 y no pasa de ahí", () => {
     const c = chart();
-    const big = resizeMotif(c, W, H, "bottom_left", 0);
+    const big = resizeMotif(c, W, H, "bottom_left", 0, 3);
     assert.equal(big.cells.length, W * H);
-    assert.equal(resizeMotif(big, W + 1, H, "bottom_left", 0), big);
-    assert.equal(resizeMotif(big, W, H + 1, "bottom_left", 0), big);
+    assert.equal(resizeMotif(big, W + 1, H, "bottom_left", 0, 3), big);
+    assert.equal(resizeMotif(big, W, H + 1, "bottom_left", 0, 3), big);
   });
 
   it("200 × 200 con repeat máximo: conteos exactos y en tiempo razonable", () => {
@@ -171,10 +171,10 @@ describe("bordes: motivo 200 × 200 y repeticiones máximas", () => {
 
   it("pintar en la última repetición del gráfico completo máximo escribe el motivo", () => {
     const c = chart({ width: W, height: H, cells: new Array<number>(W * H).fill(0), repeat: { x: R, y: R } });
-    const out = paintCells(c, [{ x: W * R - 1, y: H * R - 1 }], 1);
+    const out = paintCells(c, [{ x: W * R - 1, y: H * R - 1 }], 1, 3);
     assert.equal(out.cells[W * H - 1], 1);
     assert.equal(cellAt(out, W - 1, H - 1), 1);
-    assert.equal(paintCells(c, [{ x: W * R, y: 0 }], 1), c);
+    assert.equal(paintCells(c, [{ x: W * R, y: 0 }], 1, 3), c);
   });
 });
 
@@ -195,7 +195,7 @@ describe("bordes: máscara completa (todo NO_STITCH)", () => {
   });
 
   it("rellenar la región sin punto con una lana recupera todo el motivo", () => {
-    const out = fillRegion(masked, { x: 4, y: 3 }, 2);
+    const out = fillRegion(masked, { x: 4, y: 3 }, 2, 3);
     assert.deepEqual(out.cells, [2, 2, 2, 2, 2, 2]);
     assert.deepEqual(errorCodes(pattern(out)), []);
   });
@@ -258,8 +258,8 @@ describe("bordes: índices negativos o fuera de rango", () => {
 
   it("paintCells y fillRegion ignoran coordenadas fuera del gráfico completo", () => {
     const outside = [{ x: -1, y: 0 }, { x: 0, y: -1 }, { x: FW, y: 0 }, { x: 0, y: FH }];
-    assert.equal(paintCells(c, outside, 2), c);
-    for (const ref of outside) assert.equal(fillRegion(c, ref, 2), c);
+    assert.equal(paintCells(c, outside, 2, 3), c);
+    for (const ref of outside) assert.equal(fillRegion(c, ref, 2, 3), c);
   });
 
   it("removeYarn y reorderYarns rechazan índices fuera de rango", () => {
@@ -277,35 +277,38 @@ describe("bordes: parámetros NaN, Infinity y no enteros", () => {
     for (const bad of BAD_NUMBERS) {
       const b = bad as number;
       const label = String(bad);
-      assert.equal(paintCells(c, [{ x: b, y: 0 }], 1), c, `paintCells x=${label}`);
-      assert.equal(paintCells(c, [{ x: 0, y: b }], 1), c, `paintCells y=${label}`);
-      assert.equal(paintCells(c, [{ x: 0, y: 0 }], b), c, `paintCells value=${label}`);
-      assert.equal(fillRegion(c, { x: b, y: 0 }, 1), c, `fillRegion x=${label}`);
-      assert.equal(fillRegion(c, { x: 0, y: 0 }, b), c, `fillRegion value=${label}`);
-      assert.equal(resizeMotif(c, b, 2, "center", 0), c, `resizeMotif w=${label}`);
-      assert.equal(resizeMotif(c, 4, b, "center", 0), c, `resizeMotif h=${label}`);
-      assert.equal(resizeMotif(c, 4, 4, "center", b), c, `resizeMotif fill=${label}`);
+      assert.equal(paintCells(c, [{ x: b, y: 0 }], 1, 3), c, `paintCells x=${label}`);
+      assert.equal(paintCells(c, [{ x: 0, y: b }], 1, 3), c, `paintCells y=${label}`);
+      assert.equal(paintCells(c, [{ x: 0, y: 0 }], b, 3), c, `paintCells value=${label}`);
+      assert.equal(fillRegion(c, { x: b, y: 0 }, 1, 3), c, `fillRegion x=${label}`);
+      assert.equal(fillRegion(c, { x: 0, y: 0 }, b, 3), c, `fillRegion value=${label}`);
+      assert.equal(resizeMotif(c, b, 2, "center", 0, 3), c, `resizeMotif w=${label}`);
+      assert.equal(resizeMotif(c, 4, b, "center", 0, 3), c, `resizeMotif h=${label}`);
+      assert.equal(resizeMotif(c, 4, 4, "center", b, 3), c, `resizeMotif fill=${label}`);
       assert.equal(setRepeat(c, b, 1), c, `setRepeat x=${label}`);
       assert.equal(setRepeat(c, 1, b), c, `setRepeat y=${label}`);
       assert.equal(removeYarn(p, b, 0), p, `removeYarn index=${label}`);
       assert.equal(removeYarn(p, 1, b), p, `removeYarn replaceWith=${label}`);
       assert.equal(reorderYarns(p, [b, 1, 0]), p, `reorderYarns ${label}`);
+      assert.equal(paintCells(c, [{ x: 0, y: 0 }], 1, b), c, `paintCells yarnCount=${label}`);
+      assert.equal(fillRegion(c, { x: 0, y: 0 }, 2, b), c, `fillRegion yarnCount=${label}`);
+      assert.equal(resizeMotif(c, 4, 4, "center", 0, b), c, `resizeMotif yarnCount=${label}`);
     }
   });
 
   it("valores de celda menores que NO_STITCH se rechazan", () => {
-    assert.equal(paintCells(c, [{ x: 0, y: 0 }], NO_STITCH - 1), c);
-    assert.equal(fillRegion(c, { x: 0, y: 0 }, -2), c);
-    assert.equal(resizeMotif(c, 4, 4, "center", -2), c);
+    assert.equal(paintCells(c, [{ x: 0, y: 0 }], NO_STITCH - 1, 3), c);
+    assert.equal(fillRegion(c, { x: 0, y: 0 }, -2, 3), c);
+    assert.equal(resizeMotif(c, 4, 4, "center", -2, 3), c);
   });
 
   it("anclaje desconocido, referencias nulas y entradas que no son arreglos no lanzan", () => {
-    assert.equal(resizeMotif(c, 4, 4, "top" as Anchor, 0), c);
-    assert.equal(paintCells(c, "x" as never, 1), c);
-    assert.equal(fillRegion(c, null as never, 1), c);
+    assert.equal(resizeMotif(c, 4, 4, "top" as Anchor, 0, 3), c);
+    assert.equal(paintCells(c, "x" as never, 1, 3), c);
+    assert.equal(fillRegion(c, null as never, 1, 3), c);
     assert.equal(reorderYarns(p, null as never), p);
     // Una referencia nula se salta y las demás se pintan.
-    assert.equal(paintCells(c, [null as never, { x: 1, y: 0 }], 2).cells[1], 2);
+    assert.equal(paintCells(c, [null as never, { x: 1, y: 0 }], 2, 3).cells[1], 2);
   });
 
   it("gráficos dañados (repeat 0, NaN, cells de otro largo) se devuelven sin tocar", () => {
@@ -317,9 +320,9 @@ describe("bordes: parámetros NaN, Infinity y no enteros", () => {
       chart({ width: Infinity }),
     ];
     for (const b of broken) {
-      assert.equal(paintCells(b, [{ x: 0, y: 0 }], 2), b);
-      assert.equal(fillRegion(b, { x: 0, y: 0 }, 2), b);
-      assert.equal(resizeMotif(b, 4, 4, "center", 0), b);
+      assert.equal(paintCells(b, [{ x: 0, y: 0 }], 2, 3), b);
+      assert.equal(fillRegion(b, { x: 0, y: 0 }, 2, 3), b);
+      assert.equal(resizeMotif(b, 4, 4, "center", 0, 3), b);
       assert.equal(setRepeat(b, 3, 3), b);
     }
   });
@@ -382,10 +385,10 @@ describe("bordes: documentos congelados en profundidad", () => {
     const p = deepFreeze(pattern(chart({ cells: [0, 1, 2, 1, 0, NO_STITCH] })));
     const snapshot = structuredClone(p);
     const outs: unknown[] = [
-      paintCells(p.chart, [{ x: 5, y: 3 }], 2),
-      fillRegion(p.chart, { x: 0, y: 0 }, 2),
-      resizeMotif(p.chart, 5, 4, "center", NO_STITCH),
-      resizeMotif(p.chart, 1, 1, "bottom_right", 0),
+      paintCells(p.chart, [{ x: 5, y: 3 }], 2, 3),
+      fillRegion(p.chart, { x: 0, y: 0 }, 2, 3),
+      resizeMotif(p.chart, 5, 4, "center", NO_STITCH, 3),
+      resizeMotif(p.chart, 1, 1, "bottom_right", 0, 3),
       setRepeat(p.chart, 9, 9),
       addYarn(p, { ...structuredClone(yarnA), id: "Z" }),
       removeYarn(p, 1, 2),
@@ -397,7 +400,7 @@ describe("bordes: documentos congelados en profundidad", () => {
 
   it("la salida no comparte el arreglo cells con la entrada cuando cambia", () => {
     const p = deepFreeze(pattern());
-    const painted = paintCells(p.chart, [{ x: 0, y: 0 }], 2);
+    const painted = paintCells(p.chart, [{ x: 0, y: 0 }], 2, 3);
     assert.notEqual(painted.cells, p.chart.cells);
     assert.equal(Object.isFrozen(painted.cells), false);
     const removed = removeYarn(p, 0, 1);
@@ -422,9 +425,9 @@ describe("bordes: migratePattern", () => {
       assert.equal(m.ok, false, String(v));
       assert.deepEqual(m.issues.map((i) => i.code), ["SCHEMA_VERSION"]);
     }
-    // NaN e Infinity no son versiones: se informan como "no declara versión".
+    // NaN e Infinity no son versiones: se informan como "no declara versión" (from y to null).
     assert.equal(migratePattern({ schemaVersion: NaN }).from, null);
-    assert.equal(migratePattern({ schemaVersion: Infinity }).to, 0);
+    assert.equal(migratePattern({ schemaVersion: Infinity }).to, null);
   });
 
   it("nunca lanza con cualquier valor que pueda salir de JSON.parse", () => {

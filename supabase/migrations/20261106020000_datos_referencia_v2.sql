@@ -9,13 +9,13 @@
 -- Decisión: fuentesAlias (fuente de cada alias) vive solo en el paquete; la base solo necesita alias text[].
 
 insert into public.yarn_weights (cat, nombre, ingles, alias, muestra_palillo_min, muestra_palillo_max, agujas_mm_min, agujas_mm_max, muestra_crochet_min, muestra_crochet_max, muestra_crochet_punto, crochet_mm_min, crochet_mm_max) values
-  (0, 'Ultra Fino', array['Lace']::text[], array['Encaje', 'Hilo de crochet n.º 10', 'Ultra Fino']::text[], 33, 40, 1.5, 2.25, 32, 42, 'pa', 1.4, 2.25),
+  (0, 'Ultra Fino', array['Lace']::text[], array['Encaje', 'Hilo de crochet n.º 10']::text[], 33, 40, 1.5, 2.25, 32, 42, 'pa', 1.4, 2.25),
   (1, 'Super Fino', array['Fingering', 'Sock']::text[], array['Super Fino (Fingering)']::text[], 27, 32, 2.25, 3.25, 21, 32, 'pb', 2.25, 3.5),
   (2, 'Fino', array['Sport']::text[], array['Fino (Light DK)', 'Sport - Fino']::text[], 23, 26, 3.25, 3.75, 16, 20, 'pb', 3.5, 4.5),
   (3, 'Ligero', array['DK', 'Light Worsted']::text[], array['Ligero (DK)']::text[], 21, 24, 3.75, 4.5, 12, 17, 'pb', 4.5, 5.5),
   (4, 'Medio', array['Worsted', 'Aran', 'Afghan']::text[], array['Medio (Aran / Worsted)', 'Mediano']::text[], 16, 20, 4.5, 5.5, 11, 14, 'pb', 5.5, 6.5),
   (5, 'Abultado', array['Bulky', 'Chunky']::text[], array['Abultado (Chunky)', 'Grueso']::text[], 12, 15, 5.5, 8, 8, 11, 'pb', 6.5, 9),
-  (6, 'Súper Abultado', array['Super Bulky']::text[], array['Super Abultado', 'Super Grueso']::text[], 7, 11, 8, 12.75, 7, 9, 'pb', 9, 15),
+  (6, 'Súper Abultado', array['Super Bulky']::text[], array['Super Grueso']::text[], 7, 11, 8, 12.75, 7, 9, 'pb', 9, 15),
   (7, 'Jumbo', array['Jumbo']::text[], array[]::text[], 0, 6, 12.75, null, 0, 6, 'pb', 15, null)
 on conflict (cat) do update set
   nombre = excluded.nombre, ingles = excluded.ingles, alias = excluded.alias,
@@ -45,8 +45,13 @@ on conflict (id) do update set
   definicion = excluded.definicion, halo = excluded.halo, brillo = excluded.brillo, afieltra = excluded.afieltra,
   notas = excluded.notas, usos = excluded.usos;
 
--- "orden" se libera antes de reasignarlo para no chocar con la restricción unique.
-update public.palette_colors set orden = -orden;
+-- "orden" es unique y smallint (máx. 32767), así que se libera antes de reasignarlo con el upsert:
+--   1) los colores que ya no están en la paleta (no se borran: user_yarns los puede referenciar) pasan a
+--      20000+ y quedan ahí; 2) los demás se desplazan +10000 y el upsert los devuelve a 1..N.
+-- Es idempotente: solo se mueven filas con orden < 10000, y los dos rangos de destino no se pisan entre sí
+-- ni con 1..N, así que reaplicar (o aplicar con restos de una versión anterior) nunca choca con unique.
+update public.palette_colors set orden = orden + 20000 where orden < 10000 and id not in ('blanco', 'crudo', 'gris-perla', 'gris-medio', 'grafito', 'negro', 'arena', 'camel', 'caramelo', 'canela', 'cafe', 'chocolate', 'vainilla', 'amarillo', 'damasco', 'mostaza', 'naranjo', 'ladrillo', 'rosa-palido', 'rosado', 'palo-rosa', 'coral', 'rojo', 'burdeo', 'lavanda', 'lila', 'malva', 'violeta', 'morado', 'berenjena', 'celeste', 'azul-cielo', 'azul-mezclilla', 'azul-rey', 'indigo', 'azul-marino', 'verde-menta', 'verde-manzana', 'verde-pasto', 'verde-oliva', 'verde-musgo', 'verde-botella', 'hielo', 'verde-agua', 'turquesa', 'jade', 'petroleo', 'azul-petroleo');
+update public.palette_colors set orden = orden + 10000 where orden < 10000;
 insert into public.palette_colors (id, nombre, hex, familia, tono, orden) values
   ('blanco', 'Blanco', '#F7F6F2', 'Neutros', 1, 1),
   ('crudo', 'Crudo', '#E9DDBE', 'Neutros', 2, 2),

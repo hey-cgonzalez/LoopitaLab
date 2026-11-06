@@ -1,3 +1,4 @@
+import { LIMITS } from "./limits.ts";
 import { STITCHES } from "./stitches.ts";
 import type { Item, Loop, Part, Round, StitchCode } from "./types.ts";
 
@@ -53,6 +54,8 @@ function countItems(items: Item[], startYarn: string): RoundCount {
     if (item.type === "color") {
       total.endYarn = item.yarn;
     } else if (item.type === "stitch") {
+      // Object.hasOwn: un código fuera de la tabla (documento sin validar) no cuenta, en vez de dar NaN.
+      if (!Object.hasOwn(STITCHES, item.stitch)) continue;
       const def = STITCHES[item.stitch];
       total.consumed += def.consumes * item.count;
       const p = def.produces * item.count;
@@ -100,13 +103,18 @@ export interface ConcreteRound {
 /**
  * Despliega las vueltas de una parte (rangos incluidos) con su lana inicial y su conteo.
  * La lana pasa de una vuelta a la siguiente: si una vuelta termina en B, la siguiente empieza en B.
+ * Termina siempre en tiempo acotado: una vuelta cuyo `number` o `through` no es un entero
+ * seguro se omite y nunca se despliegan más de `LIMITS.maxRounds` vueltas (el validador
+ * rechaza esos documentos, así que con uno válido no cambia nada).
  */
 export function concreteRounds(part: Part): ConcreteRound[] {
   const out: ConcreteRound[] = [];
   let yarn = part.startYarn;
   part.rounds.forEach((round, sourceIndex) => {
-    const last = round.through ?? round.number;
-    for (let n = round.number; n <= last; n++) {
+    const first = round.number;
+    const last = round.through ?? first;
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)) return;
+    for (let n = first; n <= last && out.length < LIMITS.maxRounds; n++) {
       const count = countRound(round, yarn);
       out.push({ number: n, sourceIndex, round, startYarn: yarn, count });
       yarn = count.endYarn;

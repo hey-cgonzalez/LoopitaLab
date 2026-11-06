@@ -6,8 +6,8 @@
     "Las tiendas no siempre coinciden: una tienda llama 'Fino (Light DK)' a la categoría 2 y otra 'Sport - Fino'. Otra tienda usa 'Mediano', 'Grueso' y 'Super Grueso' para las categorías 4, 5 y 6."
   ],
   "categorias": [
-    { "cat": 0, "nombre": "Ultra Fino", "ingles": ["Lace"], "alias": ["Encaje", "Hilo de crochet n.º 10", "Ultra Fino"],
-      "fuentesAlias": { "Ultra Fino": "modista.cl" },
+    { "cat": 0, "nombre": "Ultra Fino", "ingles": ["Lace"], "alias": ["Encaje", "Hilo de crochet n.º 10"],
+      "fuentesAlias": {},
       "muestraPalillo": [33, 40], "agujasMm": [1.5, 2.25], "muestraCrochet": [32, 42], "muestraCrochetPunto": "pa", "crochetMm": [1.4, 2.25] },
     { "cat": 1, "nombre": "Super Fino", "ingles": ["Fingering", "Sock"], "alias": ["Super Fino (Fingering)"],
       "fuentesAlias": {},
@@ -24,8 +24,8 @@
     { "cat": 5, "nombre": "Abultado", "ingles": ["Bulky", "Chunky"], "alias": ["Abultado (Chunky)", "Grueso"],
       "fuentesAlias": { "Grueso": "modista.cl" },
       "muestraPalillo": [12, 15], "agujasMm": [5.5, 8.0], "muestraCrochet": [8, 11], "muestraCrochetPunto": "pb", "crochetMm": [6.5, 9.0] },
-    { "cat": 6, "nombre": "Súper Abultado", "ingles": ["Super Bulky"], "alias": ["Super Abultado", "Super Grueso"],
-      "fuentesAlias": { "Super Abultado": "revesderecho.com", "Super Grueso": "modista.cl" },
+    { "cat": 6, "nombre": "Súper Abultado", "ingles": ["Super Bulky"], "alias": ["Super Grueso"],
+      "fuentesAlias": { "Super Grueso": "modista.cl" },
       "muestraPalillo": [7, 11], "agujasMm": [8.0, 12.75], "muestraCrochet": [7, 9], "muestraCrochetPunto": "pb", "crochetMm": [9.0, 15.0] },
     { "cat": 7, "nombre": "Jumbo", "ingles": ["Jumbo"], "alias": [],
       "fuentesAlias": {},

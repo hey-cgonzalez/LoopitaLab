@@ -32,8 +32,28 @@ const HEADER = `-- GENERADO por scripts/gen-reference-sql.ts desde packages/yarn
 const read = (p: string) => JSON.parse(readFileSync(join(root, "packages/yarn-catalog/data", p), "utf8"));
 
 const q = (v: string | null) => (v === null ? "null" : `'${v.replace(/'/g, "''")}'`);
-const arr = (v: string[]) => `array[${v.map(q).join(", ")}]::text[]`;
-const num = (v: number | null) => (v === null ? "null" : String(v));
+const arr = (v: unknown[]) => `array[${v.map(str).join(", ")}]::text[]`;
+/** Número finito (o null). Lanza si un JSON trae un string u otro tipo donde va un número. */
+const num = (v: unknown): string => {
+  if (v === null) return "null";
+  if (typeof v !== "number" || !Number.isFinite(v)) throw new Error(`Se esperaba un número finito y llegó ${JSON.stringify(v)}`);
+  return String(v);
+};
+/** Entero finito (no null). */
+const int = (v: unknown): string => {
+  if (typeof v !== "number" || !Number.isInteger(v)) throw new Error(`Se esperaba un entero y llegó ${JSON.stringify(v)}`);
+  return String(v);
+};
+/** Booleano SQL. */
+const bool = (v: unknown): string => {
+  if (typeof v !== "boolean") throw new Error(`Se esperaba un booleano y llegó ${JSON.stringify(v)}`);
+  return String(v);
+};
+/** Texto (los valores no-string lanzan en vez de interpolarse). */
+const str = (v: unknown): string => {
+  if (typeof v !== "string") throw new Error(`Se esperaba un texto y llegó ${JSON.stringify(v)}`);
+  return q(v);
+};
 
 export function generateReferenceSql(): string {
   const grosores = read("grosores.json");
@@ -43,20 +63,20 @@ export function generateReferenceSql(): string {
   const weights = grosores.categorias
     .map(
       (w: any) =>
-        `  (${w.cat}, ${q(w.nombre)}, ${arr(w.ingles)}, ${arr(w.alias)}, ${w.muestraPalillo[0]}, ${w.muestraPalillo[1]}, ${num(w.agujasMm[0])}, ${num(w.agujasMm[1])}, ${w.muestraCrochet[0]}, ${w.muestraCrochet[1]}, ${q(w.muestraCrochetPunto)}, ${num(w.crochetMm[0])}, ${num(w.crochetMm[1])})`,
+        `  (${int(w.cat)}, ${str(w.nombre)}, ${arr(w.ingles)}, ${arr(w.alias)}, ${num(w.muestraPalillo[0])}, ${num(w.muestraPalillo[1])}, ${num(w.agujasMm[0])}, ${num(w.agujasMm[1])}, ${num(w.muestraCrochet[0])}, ${num(w.muestraCrochet[1])}, ${str(w.muestraCrochetPunto)}, ${num(w.crochetMm[0])}, ${num(w.crochetMm[1])})`,
     )
     .join(",\n");
 
   const fibers = fibras.fibras
     .map(
       (f: any) =>
-        `  (${q(f.id)}, ${q(f.nombre)}, ${q(f.origen)}, ${q(f.elasticidad)}, ${q(f.calidez)}, ${q(f.definicion)}, ${q(f.halo)}, ${q(f.brillo)}, ${f.afieltra}, ${q(f.notas)}, ${arr(f.usos)})`,
+        `  (${str(f.id)}, ${str(f.nombre)}, ${str(f.origen)}, ${str(f.elasticidad)}, ${str(f.calidez)}, ${str(f.definicion)}, ${str(f.halo)}, ${str(f.brillo)}, ${bool(f.afieltra)}, ${str(f.notas)}, ${arr(f.usos)})`,
     )
     .join(",\n");
 
   let orden = 0;
   const colors = paleta.familias
-    .flatMap((fam: any) => fam.colores.map((c: any) => `  (${q(c.id)}, ${q(c.nombre)}, ${q(c.hex)}, ${q(fam.nombre)}, ${c.tono}, ${++orden})`))
+    .flatMap((fam: any) => fam.colores.map((c: any) => `  (${str(c.id)}, ${str(c.nombre)}, ${str(c.hex)}, ${str(fam.nombre)}, ${int(c.tono)}, ${++orden})`))
     .join(",\n");
 
   return `${HEADER}
@@ -76,8 +96,13 @@ on conflict (id) do update set
   definicion = excluded.definicion, halo = excluded.halo, brillo = excluded.brillo, afieltra = excluded.afieltra,
   notas = excluded.notas, usos = excluded.usos;
 
--- "orden" se libera antes de reasignarlo para no chocar con la restricción unique.
-update public.palette_colors set orden = -orden;
+-- "orden" es unique y smallint (máx. 32767), así que se libera antes de reasignarlo con el upsert:
+--   1) los colores que ya no están en la paleta (no se borran: user_yarns los puede referenciar) pasan a
+--      20000+ y quedan ahí; 2) los demás se desplazan +10000 y el upsert los devuelve a 1..N.
+-- Es idempotente: solo se mueven filas con orden < 10000, y los dos rangos de destino no se pisan entre sí
+-- ni con 1..N, así que reaplicar (o aplicar con restos de una versión anterior) nunca choca con unique.
+update public.palette_colors set orden = orden + 20000 where orden < 10000 and id not in (${paleta.familias.flatMap((fam: any) => fam.colores.map((c: any) => str(c.id))).join(", ")});
+update public.palette_colors set orden = orden + 10000 where orden < 10000;
 insert into public.palette_colors (id, nombre, hex, familia, tono, orden) values
 ${colors}
 on conflict (id) do update set

@@ -85,7 +85,7 @@ Solo cuando `renderAs` es `circle`, salvo que se indique otra cosa. "Anterior" y
 
 | Código | Severidad | Regla |
 |---|---|---|
-| `CHART_SHAPING_IMPOSSIBLE` | error | **Todas las formas.** En una vuelta quedan menos de `ceil(anterior / 3)` puntos: ni disminuyendo de a 3 juntos se llega. Ejemplo: 80 → 8 |
+| `CHART_SHAPING_IMPOSSIBLE` | advertencia (era error; ver la enmienda de 2026-11-06) | **Todas las formas.** En una vuelta quedan menos de `ceil(anterior / 3)` puntos: no se alcanza solo disminuyendo de a 2 o 3 juntos; hay que cerrar puntos, dejarlos en espera, tejer 4 o más juntos o pasar la hebra por todos. Ejemplo: 80 → 8 |
 | `CHART_SHAPING_TOO_FAST` | advertencia | **Todas las formas.** Disminución: quedan menos de `ceil(anterior / 2)` puntos (80 → 30 avisa, 80 → 40 no). Aumento: quedan más de `anterior × 2`. El umbral de aumento evita falsos avisos al inicio de un `top_down` (8 → 16 no avisa) |
 | `CHART_SHAPING_STEEP` | advertencia | Más de 2 puntos menos (o más) por repetición en una vuelta: −3 por repetición avisa, −2 no |
 | `CHART_SHAPING_UNEXPECTED` | advertencia | Aumentos en un círculo `bottom_up`, o disminuciones en un `top_down`. Queda como advertencia porque un aumento después de un elástico es legítimo |
@@ -133,3 +133,13 @@ El estado sigue aceptado. La decisión (disminuciones derivadas de la máscara) 
   - `CHART_CIRCLE_REPEAT_Y` solo avisa si hay máscara.
 - **`ringDistortion`**: los umbrales 0,6 y 1,6 quedan marcados como heurística sin fuente. Se agrega el dato del disco plano como referencia para la ayuda.
 - **Terminología**: "pts" en vez de "p", porque "p" es *purl*. Nombres de disminución según el glosario pendiente.
+
+## Enmienda (2026-11-06): `CHART_SHAPING_IMPOSSIBLE` pasa a advertencia
+
+Decidida en la [enmienda E10 del ADR 0003](0003-colorwork-en-esquema-v1.md#e10-errores-estructurales-y-errores-de-tejido), con el criterio de `experto-tejido`:
+
+- Pasar de 80 a 8 puntos en una vuelta sí se puede tejer: cerrando o rematando puntos (sisas), dejándolos en espera (pulgar de un mitón), tejiendo 4 o más juntos o pasando la hebra por todos (cierre de coronilla). Un tercio solo es el piso si se disminuye de a 2 o 3 juntos.
+- El código no cambia. El mensaje dice "no se alcanza solo disminuyendo" y nombra las alternativas.
+- El error queda para lo que no se teje: una vuelta sin puntos (`CHART_ROW_EMPTY_FULL`, que pasa a error de tejido) y el gráfico vacío (`CHART_EMPTY`). Los errores de tejido no impiden guardar el borrador, pero sí tejer y publicar ([ADR 0006](0006-guardado-de-disenos.md#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido)).
+- `CHART_SHAPING_TOO_FAST` no cambia. Cada transición dispara a lo más una de las dos reglas.
+- Caso 8 de [casos de dominio](../casos-dominio-colorwork.md): 80 → 8 pasa a advertencia `IMPOSSIBLE` (lo actualiza quien mantiene ese documento).

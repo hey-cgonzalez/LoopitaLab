@@ -9,17 +9,25 @@
  *   objeto (misma referencia). Así el historial para deshacer puede descartar no-ops.
  * - Cada operación crea a lo más un arreglo `cells` nuevo, aunque pinte muchas celdas.
  *
- * Las operaciones sobre `Chart` no conocen la cantidad de lanas: quien llama debe pasar
- * un índice de lana existente (o `NO_STITCH`). El validador lo revisa al guardar.
+ * Las operaciones que escriben casillas (`paintCells`, `fillRegion`, `resizeMotif`) reciben
+ * `yarnCount`, la cantidad de lanas del patrón (ADR 0003, E2). Un valor es válido si es
+ * `NO_STITCH` o un entero de `0` a `yarnCount − 1`; si no, o si `yarnCount` no es un entero
+ * de 1 o más, devuelven el mismo objeto. Así nunca escriben un índice de lana inexistente.
+ *
+ * La interfaz no usa el resultado para mostrar errores (E9): los evita antes de llamar,
+ * con `EDIT_LIMITS`, `ANCHORS` y un selector de lana que solo ofrece índices existentes.
  */
 import { fullSize, motifCoord } from "./chart.ts";
 import { NO_STITCH, SCHEMA_VERSION, type Chart, type ChartPattern, type Gauge, type Yarn } from "./types.ts";
-import { LIMITS, validatePattern } from "./validate.ts";
+import { LIMITS, validateYarn } from "./validate.ts";
 
-/** Límites de edición. El motivo hasta 200 × 200 protege el ciclo instantáneo y el tamaño del documento (roadmap, R2). */
+/**
+ * Límites de edición, derivados de `LIMITS` (ADR 0003, E7). El motivo hasta 200 × 200
+ * protege el ciclo instantáneo y el tamaño del documento (roadmap, R2).
+ */
 export const EDIT_LIMITS = {
-  maxMotifWidth: 200,
-  maxMotifHeight: 200,
+  maxMotifWidth: LIMITS.maxMotifSide,
+  maxMotifHeight: LIMITS.maxMotifSide,
   maxRepeat: LIMITS.maxRepeat,
   maxYarns: LIMITS.maxYarns,
 } as const;
@@ -32,8 +40,9 @@ export interface CellRef {
 
 const isInt = (v: unknown): v is number => typeof v === "number" && Number.isInteger(v);
 
-/** Un valor de celda aceptable: índice de lana (≥ 0) o `NO_STITCH`. */
-const isCellValue = (v: unknown): v is number => isInt(v) && v >= NO_STITCH;
+/** Un valor de casilla aceptable: `NO_STITCH` o un índice de lana de `0` a `yarnCount − 1`. */
+const isCellValue = (v: unknown, yarnCount: unknown): v is number =>
+  isInt(yarnCount) && yarnCount >= 1 && isInt(v) && v >= NO_STITCH && v < yarnCount;
 
 /** Revisión estructural mínima, para no lanzar con entradas dañadas. */
 function isWellFormed(chart: Chart): boolean {
@@ -64,8 +73,8 @@ function isChartPattern(p: ChartPattern): boolean {
  * Cada celda escribe la del motivo `(x mod width, y mod height)`: editar una
  * repetición edita todas. Un trazo completo es una sola operación.
  */
-export function paintCells(chart: Chart, refs: readonly CellRef[], value: number): Chart {
-  if (!isWellFormed(chart) || !isCellValue(value) || !Array.isArray(refs)) return chart;
+export function paintCells(chart: Chart, refs: readonly CellRef[], value: number, yarnCount: number): Chart {
+  if (!isWellFormed(chart) || !isCellValue(value, yarnCount) || !Array.isArray(refs)) return chart;
   const { width, height } = fullSize(chart);
   let cells: number[] | null = null;
   for (const ref of refs) {
@@ -84,8 +93,8 @@ export function paintCells(chart: Chart, refs: readonly CellRef[], value: number
  * `start` está en coordenadas del gráfico completo y se lleva al motivo. Rellena la
  * región del mismo valor que la celda inicial (también una región `NO_STITCH`).
  */
-export function fillRegion(chart: Chart, start: CellRef, value: number): Chart {
-  if (!isWellFormed(chart) || !isCellValue(value) || !start || !isInt(start.x) || !isInt(start.y)) return chart;
+export function fillRegion(chart: Chart, start: CellRef, value: number, yarnCount: number): Chart {
+  if (!isWellFormed(chart) || !isCellValue(value, yarnCount) || !start || !isInt(start.x) || !isInt(start.y)) return chart;
   const full = fullSize(chart);
   if (start.x < 0 || start.y < 0 || start.x >= full.width || start.y >= full.height) return chart;
   const { width: w, height: h } = chart;
@@ -131,15 +140,16 @@ function anchorOffset(anchor: Anchor, oldW: number, oldH: number, newW: number, 
   }
 }
 
-const ANCHORS: readonly Anchor[] = ["bottom_left", "bottom_center", "bottom_right", "center"];
+/** Anclajes válidos de `resizeMotif`, en el orden en que la interfaz puede ofrecerlos (ADR 0003, E5). */
+export const ANCHORS: readonly Anchor[] = Object.freeze(["bottom_left", "bottom_center", "bottom_right", "center"] as const);
 
 /**
  * Cambia el tamaño del motivo (de 1 a 200 por lado). Las celdas que quedan dentro se
  * conservan según el anclaje; las nuevas toman `fill` (índice de lana o `NO_STITCH`)
  * y las que quedan fuera se recortan. Las repeticiones no cambian.
  */
-export function resizeMotif(chart: Chart, width: number, height: number, anchor: Anchor, fill: number): Chart {
-  if (!isWellFormed(chart) || !isCellValue(fill) || !ANCHORS.includes(anchor)) return chart;
+export function resizeMotif(chart: Chart, width: number, height: number, anchor: Anchor, fill: number, yarnCount: number): Chart {
+  if (!isWellFormed(chart) || !isCellValue(fill, yarnCount) || !ANCHORS.includes(anchor)) return chart;
   if (!isInt(width) || !isInt(height) || width < 1 || height < 1) return chart;
   if (width > EDIT_LIMITS.maxMotifWidth || height > EDIT_LIMITS.maxMotifHeight) return chart;
   if (width === chart.width && height === chart.height) return chart;
@@ -165,22 +175,16 @@ export function setRepeat(chart: Chart, x: number, y: number): Chart {
   return { ...chart, repeat: { x, y } };
 }
 
-/**
- * La lana es válida por sí misma: se revisa con el mismo validador, sobre un
- * documento mínimo, para no duplicar las reglas.
- */
-function yarnIsValid(yarn: Yarn): boolean {
-  const probe = {
-    schemaVersion: SCHEMA_VERSION,
-    id: "probe",
-    title: "probe",
-    technique: "knit",
-    kind: "chart",
-    origin: { kind: "manual" },
-    yarns: [yarn],
-    chart: { width: 1, height: 1, cells: [0], repeat: { x: 1, y: 1 }, workedIn: "rounds", renderAs: "flat", direction: "bottom_up" },
-  };
-  return validatePattern(probe).valid;
+/** Una lana es aceptable si `validateYarn` no devuelve errores (ADR 0003, E9). */
+const yarnIsValid = (yarn: Yarn) => !validateYarn(yarn).some((i) => i.severity === "error");
+
+/** Copia profunda que no lanza: si `structuredClone` falla (por ejemplo, con funciones), copia un nivel. */
+function cloneYarn(yarn: Yarn): Yarn {
+  try {
+    return structuredClone(yarn);
+  } catch {
+    return { ...yarn };
+  }
 }
 
 /** Agrega una lana al final. No acepta lanas inválidas, identificadores repetidos ni pasar de `LIMITS.maxYarns`. */
@@ -189,13 +193,16 @@ export function addYarn(pattern: ChartPattern, yarn: Yarn): ChartPattern {
   if (pattern.yarns.length >= EDIT_LIMITS.maxYarns) return pattern;
   if (pattern.yarns.some((y) => y.id === yarn.id)) return pattern;
   if (!yarnIsValid(yarn)) return pattern;
-  return { ...pattern, yarns: [...pattern.yarns, structuredClone(yarn)] };
+  return { ...pattern, yarns: [...pattern.yarns, cloneYarn(yarn)] };
 }
 
 /**
  * Quita la lana `index`; sus celdas pasan a `replaceWith` y se remapean los índices.
- * `replaceWith` es el índice **actual** (antes de quitar) de otra lana del diseño.
- * No se puede quitar la única lana.
+ * `replaceWith` es el índice **actual** (antes de quitar) de otra lana del diseño; no
+ * acepta `NO_STITCH` (ADR 0003, E4). No se puede quitar la única lana.
+ *
+ * Las lanas que quedan son **los mismos objetos** de la entrada (no se copian): el modelo
+ * es inmutable por convención y compartirlas permite comparar por referencia.
  */
 export function removeYarn(pattern: ChartPattern, index: number, replaceWith: number): ChartPattern {
   if (!isChartPattern(pattern)) return pattern;
@@ -215,7 +222,7 @@ export function removeYarn(pattern: ChartPattern, index: number, replaceWith: nu
 /**
  * Reordena las lanas: `order[i]` es el índice anterior de la lana que queda en la
  * posición i. Debe ser una permutación de `0 … n − 1`. Las celdas se remapean, así que
- * el dibujo no cambia.
+ * el dibujo no cambia. Como `removeYarn`, comparte los objetos de lana con la entrada.
  */
 export function reorderYarns(pattern: ChartPattern, order: readonly number[]): ChartPattern {
   if (!isChartPattern(pattern) || !Array.isArray(order)) return pattern;
@@ -251,33 +258,38 @@ export interface NewChartInput {
 }
 
 /**
- * Documento nuevo de colorwork a palillo, con todas las celdas en la lana de fondo
+ * Documento nuevo de colorwork a palillo, con todas las casillas en la lana de fondo
  * (la primera) y origen manual. No inventa la muestra: solo la incluye si viene.
  *
- * Nunca lanza. Si el ancho o el alto no son enteros de 1 a 200, el documento sale sin
- * celdas y `validatePattern` informa el problema (no hay un objeto anterior que devolver).
+ * Nunca lanza, tampoco con `null` u otra entrada que no sea un objeto. Si el ancho o el
+ * alto no son enteros de 1 a 200, el documento sale sin casillas y `validatePattern`
+ * informa el motivo real (`CHART_SIZE` o `CHART_MOTIF_TOO_LARGE`); no hay un objeto
+ * anterior que devolver (ADR 0003, E6).
  */
 export function newChartPattern(input: NewChartInput): ChartPattern {
-  const { width, height } = input;
+  const i: Partial<NewChartInput> = typeof input === "object" && input !== null ? input : {};
+  const width = i.width as number;
+  const height = i.height as number;
   const sizeOk = isInt(width) && isInt(height) && width >= 1 && height >= 1 && width <= EDIT_LIMITS.maxMotifWidth && height <= EDIT_LIMITS.maxMotifHeight;
+  const repeat = typeof i.repeat === "object" && i.repeat !== null ? i.repeat : ({} as Partial<Chart["repeat"]>);
   const pattern: ChartPattern = {
     schemaVersion: SCHEMA_VERSION,
-    id: input.id,
-    title: input.title,
+    id: i.id as string,
+    title: i.title as string,
     technique: "knit",
     kind: "chart",
-    yarns: Array.isArray(input.yarns) ? input.yarns.map((y) => structuredClone(y)) : [],
+    yarns: Array.isArray(i.yarns) ? i.yarns.map((y) => (typeof y === "object" && y !== null ? cloneYarn(y) : y)) : [],
     origin: { kind: "manual" },
     chart: {
       width,
       height,
       cells: sizeOk ? new Array<number>(width * height).fill(0) : [],
-      repeat: { x: input.repeat?.x, y: input.repeat?.y },
-      workedIn: input.workedIn,
-      renderAs: input.renderAs,
-      direction: input.direction,
+      repeat: { x: repeat.x as number, y: repeat.y as number },
+      workedIn: i.workedIn as Chart["workedIn"],
+      renderAs: i.renderAs as Chart["renderAs"],
+      direction: i.direction as Chart["direction"],
     },
   };
-  if (input.gauge !== undefined) pattern.gauge = { ...input.gauge };
+  if (i.gauge !== undefined) pattern.gauge = typeof i.gauge === "object" && i.gauge !== null ? { ...i.gauge } : i.gauge;
   return pattern;
 }

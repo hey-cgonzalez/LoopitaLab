@@ -7,6 +7,7 @@
  *
  * ```ts
  * const m = migratePattern(json);
+ * if (!m.ok) return m.issues; // versión desconocida: error SCHEMA_VERSION
  * const r = validatePattern(m.document);
  * ```
  *
@@ -15,21 +16,16 @@
  */
 import { SCHEMA_VERSION, type Issue } from "./types.ts";
 
-export interface MigrationResult {
-  /** Documento en la versión actual, o el original sin tocar si no se pudo migrar. */
-  document: unknown;
-  /** Versión declarada por la entrada; `null` si no declara una versión numérica. */
-  from: number | null;
-  /**
-   * Versión del documento devuelto. Si se pudo migrar es `SCHEMA_VERSION`; si no, es
-   * igual a `from`, o 0 si la entrada no declara versión.
-   */
-  to: number;
-  /** true si `document` quedó en `SCHEMA_VERSION`. */
-  ok: boolean;
-  /** Vacío si `ok`; si no, un error `SCHEMA_VERSION` en español. */
-  issues: Issue[];
-}
+/**
+ * Resultado de `migratePattern`, discriminado por `ok` (ADR 0003, enmienda E1). Quien
+ * llama decide por `ok`, nunca por `to`.
+ * - `ok: true`: `document` está en `SCHEMA_VERSION`, `to === SCHEMA_VERSION` e `issues` va vacío.
+ * - `ok: false`: `document` es la entrada sin tocar, `to === from` (la versión que traía, o
+ *   `null` si no declara una versión numérica) e `issues` trae un error `SCHEMA_VERSION`.
+ */
+export type MigrationResult =
+  | { ok: true; document: unknown; from: number; to: number; issues: Issue[] }
+  | { ok: false; document: unknown; from: number | null; to: number | null; issues: Issue[] };
 
 /**
  * Pasos de migración: `STEPS[n]` lleva un documento de la versión `n` a la `n + 1`.
@@ -38,27 +34,40 @@ export interface MigrationResult {
 const STEPS: Readonly<Record<number, (doc: Record<string, unknown>) => Record<string, unknown>>> = {};
 
 /**
- * Lleva un documento a la versión actual del esquema. Es pura y nunca lanza.
+ * Lleva un documento a la versión actual del esquema. Es pura y nunca lanza, tampoco
+ * con `null`, valores primitivos, arreglos ni objetos con getters que lanzan.
  * - `schemaVersion: 1`: identidad (devuelve el mismo objeto).
  * - Versión desconocida (futura, no entera o ausente): devuelve el documento sin
  *   tocar con un error `SCHEMA_VERSION`; `validatePattern` también lo informa.
  * Es idempotente: migrar un resultado migrado no lo cambia.
  */
 export function migratePattern(input: unknown): MigrationResult {
-  const isRec = typeof input === "object" && input !== null && !Array.isArray(input);
-  const raw = isRec ? (input as Record<string, unknown>).schemaVersion : undefined;
+  // Una entrada de JSON.parse nunca lanza aquí. El try/catch acotado cubre objetos
+  // armados a mano con getters o Proxy que lanzan al leer `schemaVersion`.
+  let raw: unknown;
+  let isRec = false;
+  try {
+    isRec = typeof input === "object" && input !== null && !Array.isArray(input);
+    raw = isRec ? (input as Record<string, unknown>).schemaVersion : undefined;
+  } catch {
+    return unknown(input, null);
+  }
   const from = typeof raw === "number" && Number.isFinite(raw) ? raw : null;
 
-  if (from === SCHEMA_VERSION) return { document: input, from, to: SCHEMA_VERSION, ok: true, issues: [] };
+  if (from === SCHEMA_VERSION) return { ok: true, document: input, from, to: SCHEMA_VERSION, issues: [] };
 
   if (isRec && from !== null && Number.isInteger(from) && from >= 1 && from < SCHEMA_VERSION) {
     let doc = input as Record<string, unknown>;
-    for (let v = from; v < SCHEMA_VERSION; v++) {
-      const step = STEPS[v];
-      if (!step) return unknown(input, from);
-      doc = step(doc);
+    try {
+      for (let v = from; v < SCHEMA_VERSION; v++) {
+        const step = STEPS[v];
+        if (!step) return unknown(input, from);
+        doc = step(doc);
+      }
+    } catch {
+      return unknown(input, from);
     }
-    return { document: doc, from, to: SCHEMA_VERSION, ok: true, issues: [] };
+    return { ok: true, document: doc, from, to: SCHEMA_VERSION, issues: [] };
   }
   return unknown(input, from);
 }
@@ -69,10 +78,10 @@ function unknown(input: unknown, from: number | null): MigrationResult {
       ? `El documento no declara su versión de esquema; esta versión de LoopitaLab lee la ${SCHEMA_VERSION}.`
       : `El documento usa la versión de esquema ${from}, que esta versión de LoopitaLab no conoce (lee la ${SCHEMA_VERSION}).`;
   return {
+    ok: false,
     document: input,
     from,
-    to: from ?? 0,
-    ok: false,
+    to: from,
     issues: [{ code: "SCHEMA_VERSION", severity: "error", path: "schemaVersion", message, data: { found: from, supported: SCHEMA_VERSION } }],
   };
 }

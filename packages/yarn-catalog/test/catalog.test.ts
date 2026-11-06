@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FIBERS, PALETTE, WEIGHTS, deltaE2000, hexToLab, nearestPaletteColor, suggestedGauge, weightLabel } from "../src/index.ts";
+import { FIBERS, PALETTE, ROWS_PER_STITCH_RATIO, WEIGHTS, deltaE2000, hexToLab, nearestPaletteColor, suggestedGauge, weightLabel } from "../src/index.ts";
 
 describe("datos de referencia", () => {
   it("tiene las 8 categorías de grosor en orden", () => {
@@ -34,7 +34,7 @@ describe("datos de referencia", () => {
     });
   });
 
-  it("caso 19: filas / puntos entre 1,2 y 1,5 en toda categoría", () => {
+  it("caso 19: filas / puntos entre 1,2 y 1,5 en toda categoría (solo palillo)", () => {
     for (const w of WEIGHTS) {
       const g = suggestedGauge(w.cat, "knit")!;
       const ratio = g.rowsPer10cm / g.stitchesPer10cm;
@@ -51,11 +51,24 @@ describe("datos de referencia", () => {
   it("crochet devuelve la misma forma y declara el punto supuesto", () => {
     assert.deepEqual(suggestedGauge(0, "crochet"), {
       stitchesPer10cm: 37,
-      rowsPer10cm: 50,
+      rowsPer10cm: 22,
       assumption: "crochet-pa",
       lowConfidence: false,
     });
     assert.equal(suggestedGauge(4, "crochet")?.assumption, "crochet-pb");
+    assert.equal(ROWS_PER_STITCH_RATIO, 1.35);
+  });
+
+  it("crochet: puntos y filas supuestas (pb 1,2; pa 0,6; validar con tejedora)", () => {
+    const expected: [number, number, number][] = [
+      [0, 37, 22], [1, 27, 32], [2, 18, 22], [3, 15, 18], [4, 13, 16], [5, 10, 12], [6, 8, 10], [7, 6, 7],
+    ];
+    for (const [cat, stitches, rows] of expected) {
+      const g = suggestedGauge(cat, "crochet")!;
+      assert.equal(g.stitchesPer10cm, stitches, `categoría ${cat} puntos`);
+      assert.equal(g.rowsPer10cm, rows, `categoría ${cat} filas`);
+      assert.equal(g.assumption, cat === 0 ? "crochet-pa" : "crochet-pb");
+    }
   });
 });
 
