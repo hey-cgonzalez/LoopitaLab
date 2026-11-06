@@ -32,10 +32,11 @@ alter table public.patterns drop constraint patterns_document_consistent;
 alter table public.patterns add constraint patterns_document_consistent check (
   jsonb_typeof(document) = 'object'
   and jsonb_typeof(document -> 'yarns') = 'array'
-  and document ->> 'kind' = kind
-  and document ->> 'technique' = technique
-  and (document ->> 'schemaVersion')::smallint = schema_version
-  and document -> 'origin' ->> 'kind' = origin
+  -- coalesce (T15, B-3): una clave ausente da NULL y un CHECK con NULL pasa; así no pasa.
+  and coalesce(document ->> 'kind' = kind, false)
+  and coalesce(document ->> 'technique' = technique, false)
+  and coalesce((document ->> 'schemaVersion')::smallint = schema_version, false)
+  and coalesce(document -> 'origin' ->> 'kind' = origin, false)
   -- El título debe ser texto (B2): jsonb_typeof evita que un número o un objeto se compare por su
   -- representación en texto. coalesce: un documento sin título (NULL) no pasa por omisión.
   and jsonb_typeof(document -> 'title') = 'string'

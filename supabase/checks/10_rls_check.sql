@@ -1208,5 +1208,24 @@ begin
 end $$;
 drop sequence public.__secuencia_futura;
 
+-- Claves ausentes en el documento (T15 B-3): kind, technique, schemaVersion u origin faltantes no
+-- pasan el CHECK por comparar con NULL. Se prueba como superusuario (sin RLS de por medio).
+reset role;
+insert into auth.users (id, email) values ('55555555-5555-5555-5555-555555555555', 'eli@example.test');
+do $$
+declare
+  base jsonb := '{"schemaVersion":1,"kind":"chart","technique":"knit","title":"T","origin":{"kind":"manual"},"yarns":[]}';
+  k text;
+begin
+  foreach k in array array['kind', 'technique', 'schemaVersion', 'origin'] loop
+    begin
+      insert into public.patterns (owner_id, title, technique, kind, schema_version, origin, document)
+      values ('55555555-5555-5555-5555-555555555555', 'T', 'knit', 'chart', 1, 'manual', base - k);
+      raise exception 'FALLO: un documento sin % no debe pasar la restricción', k;
+    exception when check_violation then null; end;
+  end loop;
+  raise notice 'ok - un documento sin kind, technique, schemaVersion u origin no pasa el CHECK';
+end $$;
+
 rollback;
 \echo 'RLS: todas las verificaciones pasaron'
