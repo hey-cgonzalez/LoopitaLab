@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SignOutForm } from "./SignOutForm";
 
 /** Barra superior de las páginas con sesión. */
 export function AppHeader({ name }: { name: string }) {
@@ -21,11 +22,7 @@ export function AppHeader({ name }: { name: string }) {
         </nav>
         <div className="ml-auto flex items-center gap-4">
           <span className="text-tinta-suave">{name}</span>
-          <form action="/auth/salir" method="post">
-            <button type="submit" className="rounded-full border-2 border-marino px-4 py-1.5 font-bold hover:bg-marino hover:text-white">
-              Cerrar sesión
-            </button>
-          </form>
+          <SignOutForm />
         </div>
       </div>
     </header>

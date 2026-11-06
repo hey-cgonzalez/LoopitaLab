@@ -355,3 +355,35 @@ describe("texto del estado de guardado", () => {
     expect(describeStatus({ kind: "offline", attempt: 1, retryAt: 5000, reason: "network" }, 0).detail).toContain("5 s");
   });
 });
+
+describe("pendientes de T8 (T9)", () => {
+  it("maxWait: ediciones continuas se guardan a los 10 s aunque el debounce se reinicie", async () => {
+    const save = vi.fn(async () => ok(T1));
+    const { store } = setup(save);
+    for (let i = 0; i < 12; i++) {
+      paint(store, i % 4, (i % 2) + 0);
+      store.dispatch({ type: "paint", refs: [{ x: i % 4, y: 1 }], value: i % 2 });
+      await vi.advanceTimersByTimeAsync(1000); // siempre menos que el debounce de 1,5 s
+    }
+    expect(save.mock.calls.length).toBeGreaterThanOrEqual(1);
+  });
+  it("holdBackup: editar y guardar no pisa ni borra el respaldo ofrecido", async () => {
+    const save = vi.fn(async () => ok(T1));
+    const { store, storage, autosave } = setup(save);
+    storage.data.set(backupKey(ID), JSON.stringify({ v: 1, baseUpdatedAt: T0, savedAt: 1, document: { marca: "respaldo" } }));
+    autosave.holdBackup(true);
+    paint(store, 1);
+    await vi.advanceTimersByTimeAsync(AUTOSAVE_DEBOUNCE_MS + 10);
+    expect(save).toHaveBeenCalled();
+    expect(JSON.parse(storage.data.get(backupKey(ID))!).document).toEqual({ marca: "respaldo" });
+    autosave.holdBackup(false);
+  });
+  it("clearAllBackups borra solo los respaldos de diseños", async () => {
+    const { clearAllBackups } = await import("@/lib/studio/autosave.ts");
+    const data = new Map<string, string>([["loopitalab:diseno:a", "1"], ["loopitalab:diseno:b", "2"], ["otra", "3"]]);
+    const storage = { get length() { return data.size; }, key: (i: number) => [...data.keys()][i] ?? null, getItem: (k: string) => data.get(k) ?? null, setItem: (k: string, v: string) => void data.set(k, v), removeItem: (k: string) => void data.delete(k) };
+    expect(clearAllBackups(storage)).toBe(2);
+    expect([...data.keys()]).toEqual(["otra"]);
+    expect(clearAllBackups(null)).toBe(0);
+  });
+});

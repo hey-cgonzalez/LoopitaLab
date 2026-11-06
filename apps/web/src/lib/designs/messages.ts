@@ -5,6 +5,12 @@
  * mensaje de Postgres ni de PostgREST: puede traer nombres de tablas o de restricciones.
  */
 
+import { maxVersionsText, quotaFullText, STUDIO_TEXTS } from "../studio-texts.ts";
+
+/** Topes que muestran los mensajes; los aplica el servidor (supabase/migrations), aquí solo se citan. */
+export const PATTERNS_QUOTA_LIMIT = 500;
+export const MAX_VERSIONS_LIMIT = 200;
+
 export type DesignErrorCode =
   | "UNAUTHENTICATED"
   | "INVALID_REQUEST"
@@ -23,11 +29,12 @@ export const DESIGN_MESSAGES: Record<DesignErrorCode, string> = {
   INVALID_REQUEST: "No pudimos leer el diseño que enviaste. Recarga la página e intenta de nuevo.",
   TOO_LARGE: "El diseño es demasiado grande para guardarlo. Reduce el tamaño del motivo o las notas.",
   NOT_SAVABLE: "El diseño tiene errores que impiden guardarlo. Corrígelos e intenta de nuevo.",
-  CONFLICT: "Este diseño se guardó desde otra pestaña o dispositivo. Recarga para ver esa versión o sobrescríbela con la tuya.",
+  CONFLICT: STUDIO_TEXTS.guardado.conflicto,
   NOT_FOUND: "No encontramos ese diseño. Puede que lo hayas borrado desde otro dispositivo.",
-  MAX_VERSIONS: "Este diseño llegó al máximo de 200 versiones guardadas. Borra el diseño o guarda una copia.",
-  QUOTA: "Llegaste al máximo de 500 diseños guardados. Borra alguno que ya no uses para crear uno nuevo.",
-  AI_DUPLICATE_UNSUPPORTED: "Por ahora no se pueden duplicar diseños generados con IA. Edita el original o empieza uno nuevo.",
+  // Los textos repetidos en el estudio viven en studio-texts.ts (una sola fuente).
+  MAX_VERSIONS: maxVersionsText(MAX_VERSIONS_LIMIT),
+  QUOTA: quotaFullText(PATTERNS_QUOTA_LIMIT),
+  AI_DUPLICATE_UNSUPPORTED: `${STUDIO_TEXTS.misDisenos.duplicarNoIa} Edita el original o empieza uno nuevo.`,
   REJECTED_BY_DATABASE: "No pudimos guardar el diseño porque tiene un carácter que no se puede guardar (por ejemplo, un carácter invisible pegado desde otro programa) o no cumple las reglas de almacenamiento. Revisa el título y las notas, quita lo que hayas pegado y vuelve a intentar.",
   DATABASE: "No pudimos completar la operación. Revisa tu conexión e intenta de nuevo en unos minutos.",
 };

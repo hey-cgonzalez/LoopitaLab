@@ -1,6 +1,8 @@
 import { validatePattern, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import type { DesignErrorCode } from "@/lib/designs/messages.ts";
 import type { SaveDesignResult } from "@/lib/designs/types.ts";
+import { paintGate } from "./paint-gate.ts";
+import { perfSpan } from "./perf.ts";
 import type { DocumentStore } from "./store.ts";
 
 /*
@@ -15,6 +17,11 @@ import type { DocumentStore } from "./store.ts";
  */
 
 export const AUTOSAVE_DEBOUNCE_MS = 1500;
+/**
+ * Espera máxima desde el primer cambio sin guardar. Con ediciones continuas el debounce se reiniciaría en cada
+ * trazo y nunca guardaría; a los 10 s se guarda igual (pendiente de T8).
+ */
+export const AUTOSAVE_MAX_WAIT_MS = 10_000;
 export const RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 8_000, 16_000, 30_000];
 
 export type SaveStatus =
@@ -47,8 +54,14 @@ export interface AutosaveDeps {
   validate?: (doc: ChartPattern) => { savable: boolean; issues: Issue[] };
   storage?: BackupStorage | null;
   debounceMs?: number;
+  maxWaitMs?: number;
   retryDelaysMs?: readonly number[];
   now?: () => number;
+  /**
+   * Corre el envío (que valida) cuando no hay una edición esperando su frame (CA-P7). Por defecto, la compuerta del
+   * estudio (`paintGate`), que lo ejecuta de inmediato si no hay edición en vuelo.
+   */
+  afterPaint?: (fn: () => void) => void;
 }
 
 export interface LocalBackup {
@@ -59,7 +72,33 @@ export interface LocalBackup {
   document: unknown;
 }
 
-export const backupKey = (id: string) => `loopitalab:diseno:${id}`;
+export const BACKUP_PREFIX = "loopitalab:diseno:";
+export const backupKey = (id: string) => `${BACKUP_PREFIX}${id}`;
+
+/** Almacenamiento con enumeración, como `localStorage`. */
+export interface EnumerableStorage extends BackupStorage {
+  readonly length: number;
+  key(index: number): string | null;
+}
+
+/**
+ * Borra todos los respaldos locales de diseños (al cerrar sesión: en un equipo compartido no deben quedar
+ * diseños de otra persona). Devuelve cuántos borró. Nunca lanza.
+ */
+export function clearAllBackups(storage: EnumerableStorage | null | undefined): number {
+  if (!storage) return 0;
+  try {
+    const keys: string[] = [];
+    for (let i = 0; i < storage.length; i++) {
+      const k = storage.key(i);
+      if (k && k.startsWith(BACKUP_PREFIX)) keys.push(k);
+    }
+    for (const k of keys) storage.removeItem(k);
+    return keys.length;
+  } catch {
+    return 0;
+  }
+}
 
 /** Lee el respaldo local sin lanzar. El llamador debe migrar y validar `document` antes de usarlo. */
 export function readBackup(storage: BackupStorage | null | undefined, id: string): LocalBackup | null {
@@ -86,7 +125,11 @@ export function clearBackup(storage: BackupStorage | null | undefined, id: strin
 type Listener = () => void;
 
 export class Autosave {
-  #deps: Required<Pick<AutosaveDeps, "debounceMs" | "retryDelaysMs" | "now">> & AutosaveDeps;
+  #deps: Required<Pick<AutosaveDeps, "debounceMs" | "maxWaitMs" | "retryDelaysMs" | "now">> & AutosaveDeps;
+  /** Desde cuándo hay cambios sin enviar (para `maxWaitMs`); null si no hay. */
+  #pendingSince: number | null = null;
+  /** Mientras la usuaria no decide sobre un respaldo ofrecido, no se escribe ni se borra el respaldo (T8, c). */
+  #backupHeld = false;
   #store: DocumentStore;
   #status: SaveStatus;
   #updatedAt: string;
@@ -101,7 +144,7 @@ export class Autosave {
 
   constructor(store: DocumentStore, deps: AutosaveDeps) {
     this.#store = store;
-    this.#deps = { debounceMs: AUTOSAVE_DEBOUNCE_MS, retryDelaysMs: RETRY_DELAYS_MS, now: Date.now, ...deps };
+    this.#deps = { debounceMs: AUTOSAVE_DEBOUNCE_MS, maxWaitMs: AUTOSAVE_MAX_WAIT_MS, retryDelaysMs: RETRY_DELAYS_MS, now: Date.now, ...deps };
     this.#updatedAt = deps.initialUpdatedAt;
     this.#savedDoc = store.doc;
     this.#status = { kind: "saved", draft: false, at: this.#deps.now() };
@@ -169,6 +212,14 @@ export class Autosave {
     await this.#flush();
   }
 
+  /**
+   * Congela el respaldo local: no se escribe ni se borra. Se usa mientras el banner de recuperación espera una decisión,
+   * para que editar no pise el respaldo ofrecido ni un guardado lo borre sin aviso.
+   */
+  holdBackup(held: boolean): void {
+    this.#backupHeld = held;
+  }
+
   /** Quita el respaldo local (al recargar la versión del servidor o al aceptar la recuperación). */
   discardBackup(): void {
     clearBackup(this.#deps.storage, this.#deps.patternId);
@@ -194,6 +245,7 @@ export class Autosave {
     if (!this.hasUnsaved) {
       // Deshacer hasta el punto ya guardado.
       this.#clearTimer();
+      this.#pendingSince = null;
       if (this.#status.kind === "pending") this.#set({ kind: "saved", draft: false, at: this.#deps.now() });
       return;
     }
@@ -206,10 +258,14 @@ export class Autosave {
     this.#clearTimer();
     // Se conserva "sin conexión" (más informativo); durante un envío en curso se conserva "guardando".
     if (this.#status.kind === "saved" || this.#status.kind === "blocked" || this.#status.kind === "failed") this.#set({ kind: "pending" });
+    const now = this.#deps.now();
+    this.#pendingSince ??= now;
+    // Debounce, pero sin pasar de `maxWaitMs` desde el primer cambio sin guardar.
+    const delay = Math.max(0, Math.min(this.#deps.debounceMs, this.#pendingSince + this.#deps.maxWaitMs - now));
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      void this.#flush();
-    }, this.#deps.debounceMs);
+      (this.#deps.afterPaint ?? paintGate.run.bind(paintGate))(() => void this.#flush());
+    }, delay);
   }
 
   #flush(): Promise<void> {
@@ -224,10 +280,14 @@ export class Autosave {
   async #send(): Promise<void> {
     if (this.#disposed) return;
     const doc = this.#store.doc;
-    if (doc === this.#savedDoc) return;
+    if (doc === this.#savedDoc) {
+      this.#pendingSince = null;
+      return;
+    }
+    this.#pendingSince = null; // lo que se edite durante el envío empieza una espera nueva
 
     // Validación diferida: corre ahora, no entre la edición y el dibujo (CA-P7).
-    const result = (this.#deps.validate ?? validatePattern)(doc);
+    const result = perfSpan("validate:autosave", () => (this.#deps.validate ?? validatePattern)(doc));
     this.#writeBackup(doc);
     if (!result.savable) {
       this.#set({ kind: "blocked", issues: result.issues.filter((i) => i.severity === "error") });
@@ -259,7 +319,7 @@ export class Autosave {
         }, this.#deps.debounceMs);
         return;
       }
-      clearBackup(this.#deps.storage, this.#deps.patternId);
+      if (!this.#backupHeld) clearBackup(this.#deps.storage, this.#deps.patternId);
       this.#set({ kind: "saved", draft: outcome.draft, at: this.#deps.now() });
       return;
     }
@@ -288,13 +348,13 @@ export class Autosave {
     this.#clearTimer();
     this.#timer = setTimeout(() => {
       this.#timer = null;
-      void this.#flush();
+      (this.#deps.afterPaint ?? paintGate.run.bind(paintGate))(() => void this.#flush());
     }, delay);
   }
 
   #writeBackup(doc: ChartPattern): void {
     const storage = this.#deps.storage;
-    if (!storage) return;
+    if (!storage || this.#backupHeld) return;
     const backup: LocalBackup = { v: 1, baseUpdatedAt: this.#updatedAt, savedAt: this.#deps.now(), document: doc };
     try {
       storage.setItem(backupKey(this.#deps.patternId), JSON.stringify(backup));

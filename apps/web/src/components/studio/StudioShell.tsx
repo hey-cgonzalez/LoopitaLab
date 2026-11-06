@@ -1,37 +1,174 @@
 "use client";
 
-import type { ChartPattern, Issue } from "@loopitalab/pattern-core";
+import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import Link from "next/link";
-import { useId, useState } from "react";
+import { memo, useCallback, useDeferredValue, useEffect, useId, useState, type ReactNode } from "react";
 import { savePatternVersion } from "@/app/disenos/actions";
+import { DEFAULT_CELL_PX, type GridView } from "@/lib/studio/editor-grid.ts";
+import {
+  selectCanRedo,
+  selectCanUndo,
+  selectEdited,
+  selectFullDisabled,
+  selectHasRepeats,
+  selectIsAi,
+  selectTechnique,
+  selectYarns,
+} from "@/lib/studio/select.ts";
+import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { Tool } from "@/lib/studio/tools.ts";
+import { STUDIO_TEXTS, yarnTitle } from "@/lib/studio-texts.ts";
+import { ChartEditor } from "./ChartEditor";
+import { EditorToolbar } from "./EditorToolbar";
+import { PerfPanel } from "./PerfPanel";
+import { PreviewPane } from "./PreviewPane";
 import { SaveIndicator } from "./SaveIndicator";
+import { PrototypeNotice } from "./StudioNotices";
+import { StudioSidebar } from "./StudioSidebar";
+import { useSidebarDoc, useStoreSelector } from "./useStoreSelector";
 import { useStudioSession } from "./useStudioSession";
+import { YarnPanel } from "./YarnPanel";
+
+const T = STUDIO_TEXTS;
 
 interface Props {
   document: ChartPattern;
   updatedAt: string;
-  /** Errores de tejido con que se abrió el diseño (borrador). T9 los muestra en el panel de validación. */
+  /** Errores de tejido con que se abrió el diseño (borrador). El panel de revisión los recalcula en vivo. */
   draftIssues: Issue[];
+  /** Preferencia `mirror_knitting` del perfil: solo cambia la numeración y las flechas de lectura. */
+  mirror?: boolean;
+  /** Sin sesión ni guardado: para la página de desarrollo `/dev/estudio`. */
+  detached?: boolean;
+  /** Recolector `edit-to-paint` (T10). Solo lo activa `/dev/estudio?perf=1`; nunca en producción. */
+  perf?: boolean;
 }
 
+type Tab = "editor" | "preview" | "settings";
+
 const timeFmt = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" });
+const TABS: { id: Tab; label: string }[] = [
+  { id: "editor", label: T.pestanas.editor },
+  { id: "preview", label: T.pestanas.vista },
+  { id: "settings", label: T.pestanas.ajustes },
+];
+
+const MemoSidebar = memo(StudioSidebar);
+
+/** Tras una pincelada, el panel espera esta pausa antes de recalcular medidas y revisión. */
+const SIDEBAR_CELLS_SETTLE_MS = 150;
 
 /**
- * Esqueleto del estudio de colorwork (T8). Monta el almacén, el autoguardado y el estado del guardado.
- * Las zonas con `data-zone` son los puntos de montaje que T9 llena (herramientas, lanas, editor, vista previa, panel).
+ * Panel lateral fuera del camino caliente (T10). Las pinceladas le llegan cuando la edición se detiene
+ * (`useSidebarDoc`); el resto de los cambios, de inmediato pero diferidos (`useDeferredValue`): se renderiza en
+ * segundo plano, después de que el cambio se pintó, y React puede interrumpirlo. La revisión sigue con su antirrebote.
  */
-export function StudioShell({ document: initial, updatedAt, draftIssues }: Props) {
-  const session = useStudioSession({ document: initial, updatedAt, openedAsDraft: draftIssues.length > 0 });
-  const { store, autosave, state, status, recovery } = session;
-  const doc = state.doc;
+function SidebarSlot({ store, design }: { store: DocumentStore; design: ReactNode }) {
+  const doc = useSidebarDoc(store, SIDEBAR_CELLS_SETTLE_MS);
+  const deferred = useDeferredValue(doc);
+  return <MemoSidebar store={store} doc={deferred} design={design} />;
+}
+
+/** ¿El foco está en un campo de texto? Ahí deshacer y rehacer son del campo, no del dibujo. */
+function inTextField(target: EventTarget | null): boolean {
+  const el = target as HTMLElement | null;
+  if (!el || !el.tagName) return false;
+  return el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.tagName === "SELECT" || el.isContentEditable;
+}
+
+/**
+ * Estudio de colorwork (T8 + T9). Monta el almacén y el autoguardado y distribuye las zonas:
+ * escritorio con panel lateral, editor y vista previa lado a lado; tableta y móvil con pestañas.
+ * El estado del editor (herramienta, lana activa, zoom) es de interfaz; el patrón vive solo en el almacén.
+ *
+ * Camino caliente (T10): el shell no se suscribe al documento entero. Lee con selectores solo lo que muestra
+ * (lanas, deshacer, repeticiones), así una pincelada no lo vuelve a renderizar; el editor lee el gráfico, la vista
+ * previa se conecta directo al almacén y el panel lateral recibe el documento diferido.
+ */
+export function StudioShell({ document: initial, updatedAt, draftIssues, mirror = false, detached = false, perf = false }: Props) {
+  const session = useStudioSession({ document: initial, updatedAt, openedAsDraft: draftIssues.length > 0, detached });
+  const { store, autosave, status, recovery } = session;
+  const yarns = useStoreSelector(store, selectYarns);
+  const canUndo = useStoreSelector(store, selectCanUndo);
+  const canRedo = useStoreSelector(store, selectCanRedo);
+  const edited = useStoreSelector(store, selectEdited);
+  const isAi = useStoreSelector(store, selectIsAi);
+  const technique = useStoreSelector(store, selectTechnique);
+  const fullDisabled = useStoreSelector(store, selectFullDisabled);
+  const hasRepeats = useStoreSelector(store, selectHasRepeats);
 
   const titleId = useId();
-  const [titleText, setTitleText] = useState(doc.title);
+  const [titleText, setTitleText] = useState(initial.title);
   const [titleProblems, setTitleProblems] = useState<string[]>([]);
   const [versionLabel, setVersionLabel] = useState("");
   const [versionMsg, setVersionMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [versionBusy, setVersionBusy] = useState(false);
   const [overwriting, setOverwriting] = useState(false);
+
+  const [tab, setTab] = useState<Tab>("editor");
+  const [tool, setTool] = useState<Tool>("pencil");
+  const [activeId, setActiveId] = useState(() => initial.yarns[0]?.id ?? "A");
+  const [view, setView] = useState<GridView>("motif");
+  const [cellPx, setCellPx] = useState<number | null>(null);
+  const [effectivePx, setEffectivePx] = useState(DEFAULT_CELL_PX);
+  const [announce, setAnnounce] = useState("");
+
+  const activeYarn = Math.max(0, yarns.findIndex((y) => y.id === activeId));
+  const activeHex = yarns[activeYarn]?.color.hex ?? "#FFFFFF";
+
+  // Deshacer y rehacer en toda la página (Ctrl/Cmd+Z, Ctrl/Cmd+Mayús+Z, Ctrl+Y), salvo dentro de un campo de texto.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.ctrlKey || e.metaKey) || e.altKey || e.defaultPrevented || inTextField(e.target)) return;
+      const k = e.key.toLowerCase();
+      if (k === "z") {
+        e.preventDefault();
+        if (e.shiftKey) store.redo();
+        else store.undo();
+      } else if (k === "y" && !e.shiftKey) {
+        e.preventDefault();
+        store.redo();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [store]);
+
+  const toolLabels: Record<Tool, string> = { pencil: T.herramientas.lapiz, fill: T.herramientas.relleno, eyedropper: T.herramientas.cuentagotas, nostitch: T.herramientas.sinPunto };
+  const changeTool = useCallback(
+    (next: Tool) => {
+      setTool(next);
+      setAnnounce(`${T.accesibilidad.anuncioHerramienta}: ${toolLabels[next]}`);
+    },
+    [], // eslint-disable-line react-hooks/exhaustive-deps
+  );
+  const changeYarn = useCallback(
+    (index: number) => {
+      const y = store.doc.yarns[index];
+      if (!y) return;
+      setActiveId(y.id);
+      setTool((t) => (t === "nostitch" || t === "eyedropper" ? "pencil" : t));
+      setAnnounce(`${T.accesibilidad.anuncioLana}: ${yarnTitle(yarnLetter(index))}`);
+    },
+    [store],
+  );
+  const onPick = useCallback(
+    (yarn: number) => {
+      if (yarn === NO_STITCH) changeTool("nostitch");
+      else {
+        changeYarn(yarn);
+        setTool("pencil");
+      }
+    },
+    [changeTool, changeYarn],
+  );
+  const onZoom = useCallback(
+    (d: "in" | "out" | "fit") => {
+      if (d === "fit") return setCellPx(null);
+      setCellPx(d === "in" ? Math.max(effectivePx + 1, Math.round(effectivePx * 1.25)) : Math.min(effectivePx - 1, Math.round(effectivePx / 1.25)));
+    },
+    [effectivePx],
+  );
 
   function onTitle(raw: string) {
     setTitleText(raw);
@@ -49,7 +186,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
         setVersionMsg({ tone: "error", text: "Antes de guardar una versión hay que guardar los cambios, y todavía no se pudo. Revisa el estado del guardado." });
         return;
       }
-      const r = await savePatternVersion(doc.id, versionLabel);
+      const r = await savePatternVersion(store.doc.id, versionLabel);
       setVersionMsg(r.ok ? { tone: "ok", text: `Versión ${r.version} guardada.` } : { tone: "error", text: r.error });
       if (r.ok) setVersionLabel("");
     } catch {
@@ -74,7 +211,35 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
     }
   }
 
-  const isAi = doc.origin.kind !== "manual";
+  const show = (t: Tab) => (tab === t ? "block" : "hidden lg:block");
+
+  const design = (
+    <>
+      {isAi ? (
+        <p className="text-sm">
+          <span className="rounded-full border-2 border-marino px-3 py-0.5 font-bold" data-testid="ai-label-sidebar">
+            {T.misDisenos.etiquetaIa}
+          </span>
+        </p>
+      ) : null}
+      <p className="text-sm text-tinta-suave">
+        {technique === "knit" ? T.subtitulo.palillo : T.subtitulo.crochet}
+      </p>
+      <div className="grid gap-2">
+        <label htmlFor={`${titleId}-version`} className="font-bold">
+          Nombre de la versión (opcional)
+        </label>
+        <input id={`${titleId}-version`} value={versionLabel} maxLength={80} onChange={(e) => setVersionLabel(e.target.value)} className="rounded-xl border-2 border-linea bg-superficie px-3 py-2" />
+        <button type="button" onClick={onSaveVersion} disabled={versionBusy || detached} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo disabled:opacity-60">
+          {versionBusy ? "Guardando versión…" : T.guardado.guardarVersion}
+        </button>
+        <p role="status" className={versionMsg?.tone === "error" ? "text-sm font-bold text-error" : "text-sm text-exito"}>
+          {versionMsg?.text}
+        </p>
+        <p className="text-sm text-tinta-suave">{T.panel.guardarVersionAyuda}</p>
+      </div>
+    </>
+  );
 
   return (
     <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
@@ -103,17 +268,9 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
           </div>
           {isAi ? (
             <span className="rounded-full border-2 border-marino px-3 py-1 text-sm font-bold" data-testid="ai-label">
-              Generado con IA
+              {T.misDisenos.etiquetaIa}
             </span>
           ) : null}
-          <div className="flex items-center gap-2">
-            <button type="button" onClick={() => store.undo()} disabled={!state.canUndo} className="rounded-full border-2 border-marino px-4 py-2 font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40">
-              Deshacer
-            </button>
-            <button type="button" onClick={() => store.redo()} disabled={!state.canRedo} className="rounded-full border-2 border-marino px-4 py-2 font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40">
-              Rehacer
-            </button>
-          </div>
           <SaveIndicator status={status} />
         </div>
       </div>
@@ -124,6 +281,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
             <p className="min-w-0 flex-1">
               Encontramos cambios sin guardar de {timeFmt.format(new Date(recovery.savedAt))}, de la última vez que abriste este diseño en este equipo.
               {recovery.serverIsNewer ? " Ojo: el diseño se guardó después desde otro lugar; si los recuperas, reemplazan esa versión." : ""}
+              {edited ? ` ${T.respaldo.recuperacionEditando}` : ""}
             </p>
             <button type="button" onClick={session.acceptRecovery} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo">
               Recuperar cambios
@@ -138,9 +296,7 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
       {status.kind === "conflict" ? (
         <section role="alert" aria-label="Conflicto al guardar" className="border-b-2 border-error bg-superficie px-4 py-3">
           <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-4">
-            <p className="min-w-0 flex-1">
-              Este diseño se guardó desde otra pestaña o dispositivo mientras lo editabas. No guardamos nada encima: elige qué versión conservar.
-            </p>
+            <p className="min-w-0 flex-1">{T.guardado.conflicto}</p>
             <button type="button" onClick={reloadFromServer} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo">
               Recargar la versión guardada
             </button>
@@ -163,75 +319,73 @@ export function StudioShell({ document: initial, updatedAt, draftIssues }: Props
         </section>
       ) : null}
 
-      {draftIssues.length > 0 && status.kind === "saved" && status.draft ? (
-        <p className="border-b-2 border-linea bg-superficie px-4 py-2 text-sm">
-          <span className="mx-auto block max-w-[1600px]">Borrador con errores de tejido: {draftIssues[0]?.message}</span>
-        </p>
-      ) : null}
-
-      {/* Zonas que llena T9. */}
-      <div className="mx-auto grid w-full max-w-[1600px] flex-1 gap-4 p-4 lg:grid-cols-[16rem_minmax(0,1fr)_minmax(0,1fr)]" data-testid="studio-skeleton">
-        <aside aria-label="Panel lateral" data-zone="sidebar" className="rounded-2xl border-2 border-dashed border-linea p-4 lg:row-span-3">
-          <h2 className="font-display text-lg font-bold">Panel lateral</h2>
-          <p className="text-sm text-tinta-suave">Diseño, cuadrícula, muestra y validación llegan con el editor.</p>
-          <dl className="mt-3 text-sm">
-            <dt className="font-bold">Motivo</dt>
-            <dd>
-              {doc.chart.width} × {doc.chart.height}, repetido {doc.chart.repeat.x} × {doc.chart.repeat.y}
-            </dd>
-            <dt className="mt-2 font-bold">Muestra</dt>
-            <dd>{doc.gauge ? `${doc.gauge.stitchesPer10cm} puntos y ${doc.gauge.rowsPer10cm} filas en 10 cm` : "Sin muestra: las medidas son un supuesto."}</dd>
-          </dl>
-          <div className="mt-4 grid gap-2 border-t-2 border-linea pt-4">
-            <label htmlFor={`${titleId}-version`} className="font-bold">
-              Nombre de la versión (opcional)
-            </label>
-            <input
-              id={`${titleId}-version`}
-              value={versionLabel}
-              maxLength={80}
-              onChange={(e) => setVersionLabel(e.target.value)}
-              className="rounded-xl border-2 border-linea bg-superficie px-3 py-2"
-            />
-            <button type="button" onClick={onSaveVersion} disabled={versionBusy} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo disabled:opacity-60">
-              {versionBusy ? "Guardando versión…" : "Guardar versión"}
-            </button>
-            <p role="status" className={versionMsg?.tone === "error" ? "text-sm font-bold text-error" : "text-sm text-exito"}>
-              {versionMsg?.text}
-            </p>
-            <p className="text-sm text-tinta-suave">Una versión es una copia del diseño tal como está guardado, a la que puedes volver. El autoguardado no crea versiones.</p>
-          </div>
-        </aside>
-        <section aria-label="Herramientas" data-zone="toolbar" className="rounded-2xl border-2 border-dashed border-linea p-4 lg:col-span-2">
-          <h2 className="font-display text-lg font-bold">Herramientas</h2>
-          <p className="text-sm text-tinta-suave">Pincel, relleno, selección y zoom.</p>
-        </section>
-        <section aria-label="Lanas" data-zone="yarns" className="rounded-2xl border-2 border-dashed border-linea p-4 lg:col-span-2">
-          <h2 className="font-display text-lg font-bold">Lanas</h2>
-          <ul className="mt-2 flex flex-wrap gap-3">
-            {doc.yarns.map((y) => (
-              <li key={y.id} className="flex items-center gap-2 text-sm">
-                <span aria-hidden="true" className="inline-block size-5 rounded border-2 border-marino" style={{ backgroundColor: y.color.hex }} />
-                Lana {y.id}
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section aria-label="Editor del gráfico" data-zone="editor" className="min-h-64 rounded-2xl border-2 border-dashed border-linea p-4">
-          <h2 className="font-display text-lg font-bold">Gráfico</h2>
-          <p className="text-sm text-tinta-suave">Aquí va el editor de celdas.</p>
-        </section>
-        <section aria-label="Vista previa" data-zone="preview" className="min-h-64 rounded-2xl border-2 border-dashed border-linea p-4">
-          <h2 className="font-display text-lg font-bold">Vista previa</h2>
-          <p className="text-sm text-tinta-suave">Aquí va la vista previa de los puntos.</p>
-        </section>
+      <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex gap-2 border-b-2 border-linea bg-superficie px-4 py-2 lg:hidden">
+        {TABS.map((t) => (
+          <button
+            key={t.id}
+            type="button"
+            role="tab"
+            id={`tab-${t.id}`}
+            aria-selected={tab === t.id}
+            aria-controls={`panel-${t.id}`}
+            onClick={() => setTab(t.id)}
+            className={`flex-1 rounded-full border-2 border-marino px-4 py-2 font-bold ${tab === t.id ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
-      <p data-zone="prototype-notice" className="sticky bottom-0 border-t-2 border-mostaza bg-superficie px-4 py-2 text-sm">
-        <span className="mx-auto block max-w-[1600px]">
-          <strong>Prototipo digital.</strong> El dibujo es una aproximación: teje una muestra para comprobar tu tensión y las proporciones.
-        </span>
-      </p>
+      <div className="mx-auto grid w-full max-w-[1600px] flex-1 content-start gap-4 p-4 lg:grid-cols-[19rem_minmax(0,1.15fr)_minmax(0,1fr)]" data-testid="studio-layout">
+        <div id="panel-settings" role="tabpanel" aria-labelledby="tab-settings" className={`${show("settings")} lg:row-span-2`}>
+          <SidebarSlot store={store} design={design} />
+        </div>
+        <div id="panel-editor" role="tabpanel" aria-labelledby="tab-editor" className={`${show("editor")} grid content-start gap-4`}>
+          <EditorToolbar
+            tool={tool}
+            onTool={changeTool}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            onUndo={() => store.undo()}
+            onRedo={() => store.redo()}
+            zoomPercent={Math.round((effectivePx / DEFAULT_CELL_PX) * 100)}
+            onZoom={onZoom}
+            view={view}
+            fullDisabled={fullDisabled}
+            hasRepeats={hasRepeats}
+            onView={setView}
+            activeYarn={activeYarn}
+            activeHex={activeHex}
+          />
+          <YarnPanel store={store} yarns={yarns} activeId={activeId} onActiveChange={setActiveId} />
+          <section aria-label="Editor del gráfico" data-zone="editor" className="rounded-2xl border-2 border-linea bg-superficie p-4">
+            <h2 className="mb-2 font-display text-lg font-bold">{T.editor.titulo}</h2>
+            <ChartEditor
+              store={store}
+              tool={tool}
+              activeYarn={activeYarn}
+              view={view}
+              cellPx={cellPx}
+              mirror={mirror}
+              onToolChange={changeTool}
+              onYarnChange={changeYarn}
+              onPick={onPick}
+              onZoom={onZoom}
+              onEffectivePx={setEffectivePx}
+            />
+          </section>
+        </div>
+        <div id="panel-preview" role="tabpanel" aria-labelledby="tab-preview" className={`${show("preview")} lg:self-start`}>
+          <PreviewPane store={store} />
+        </div>
+      </div>
+
+      <div role="status" aria-live="polite" className="sr-only" data-testid="studio-announcement">
+        {announce}
+      </div>
+
+      <PrototypeNotice />
+      {perf ? <PerfPanel /> : null}
     </div>
   );
 }

@@ -37,7 +37,7 @@ export type EditAction =
   | { type: "updateYarn"; index: number; yarn: Yarn }
   | { type: "removeYarn"; index: number; replaceWith: number }
   | { type: "reorderYarns"; order: readonly number[] }
-  | { type: "setShape"; renderAs: "flat" | "tube" | "circle" }
+  | { type: "setShape"; renderAs: Chart["renderAs"] }
   | { type: "setWorkedIn"; workedIn: Chart["workedIn"] }
   | { type: "setDirection"; direction: Chart["direction"] }
   /** `null` quita la muestra: el documento queda sin `gauge` (CA-F4). */
@@ -193,7 +193,7 @@ export class DocumentStore {
         return { ...doc, yarns: doc.yarns.map((y, i) => (i === a.index ? structuredClone(a.yarn) : y)) };
       }
       case "setShape":
-        if (a.renderAs !== "flat" && a.renderAs !== "tube" && a.renderAs !== "circle") return doc;
+        if (a.renderAs !== "flat" && a.renderAs !== "tube" && a.renderAs !== "circle" && a.renderAs !== "yoke") return doc;
         return a.renderAs === doc.chart.renderAs ? doc : chartOp({ ...doc.chart, renderAs: a.renderAs });
       case "setWorkedIn":
         if (a.workedIn !== "rounds" && a.workedIn !== "rows") return doc;

@@ -30,7 +30,7 @@ function Notice({ name, title, children }: { name: string; title: string; childr
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { supabase, user, name } = await requireUser(`/disenos/${id}`);
+  const { supabase, user, name, profile } = await requireUser(`/disenos/${id}`);
 
   // Lectura en el servidor con RLS; el filtro por dueña es defensa en profundidad.
   const { data, error } = await supabase
@@ -90,7 +90,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
   return (
     <>
       <AppHeader name={name} />
-      <StudioShell document={doc} updatedAt={data.updated_at} draftIssues={errors} />
+      <StudioShell document={doc} updatedAt={data.updated_at} draftIssues={errors} mirror={profile?.mirror_knitting ?? false} />
     </>
   );
 }

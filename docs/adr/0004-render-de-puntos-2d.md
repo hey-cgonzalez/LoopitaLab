@@ -278,7 +278,28 @@ Medición de `render-puntos` (Chromium sin interfaz, CPU limitada ×4, escenario
 
 Ningún escenario supera 100 ms ni baja de 30 fps: **el criterio para pasar a WebGL2 no se activó** y Canvas 2D sigue siendo el único backend. El margen del círculo es corto (12 ms): T10 vuelve a medir con el estudio real (almacén, React, paneles), y si el p95 pasa de 100 ms se activa el criterio con una nueva enmienda.
 
-**Pendiente: CA-P6**, la medición manual en el equipo de referencia (4 núcleos, 8 GB, GPU integrada, Chrome estable). Se adjunta al PR de cierre de la fase 2; sin ella la fase no se cierra.
+#### Estudio real (T10, 2026-11-06)
+
+Medición de `render-puntos` sobre `next build` + `next start` (`/dev/estudio?perf=1`), Chrome 156 sin interfaz en macOS, con eventos de entrada reales por CDP (clics, teclas, arrastre, rueda y texto en los campos) y el recolector `edit-to-paint` del estudio (desde `event.timeStamp` hasta que el editor y la vista previa dibujaron y el frame se pintó). Motivo de 20 × 20 con repeticiones de 10 × 10 (40.000 puntos) en plano, tubo y círculo; además la copa en cuña de 8 repeticiones. p50 / p95 en ms; con CPU ×4, el peor valor de dos corridas (crudos en el PR):
+
+| Forma | CPU | CA-P1 pintar (n = 46 a 62) | CA-P2 trazo (90 casillas) | CA-P3 repeticiones (n = 40) | CA-P4 zoom / desplazamiento |
+|---|---|---|---|---|---|
+| Plano | ×1 | 9,8 / 18,6 | 17,9 / 19,9; 60 fps | 18,3 / 26,9 | 60 / 60 fps |
+| Tubo | ×1 | 12,5 / 20,0 | 18,9 / 21,7; 60 fps | 17,9 / 24,8 | 60 / 60 fps |
+| Círculo (40.000) | ×1 | 20,8 / 29,1 | 26,3 / 28,8; 60 fps | 16,4 / 27,1 | 60 / 60 fps |
+| Copa (8 rep.) | ×1 | 12,8 / 19,9 | 19,8 / 22,4; 60 fps | 9,0 / 23,1 | 60 / 60 fps |
+| Plano | ×4 | 16,9 / 21,4 | 18,0 / 21,3 (máx. 21,9); 60 fps | 39,8 / 72,9 | 60 / 60 fps |
+| Tubo | ×4 | 15,8 / 23,0 | 20,3 / 22,6 (máx. 24,9); 60 fps | 45,4 / 86,7 | 60 / 60 fps |
+| Círculo (40.000) | ×4 | 53,3 / 63,4 | 70,1 / 78,7 (máx. 81,8); 36,9 fps | 52,5 / 91,2 | 46,5 / 59,1 fps |
+| Copa (8 rep.) | ×4 | 16,1 / 23,6 | 23,4 / 29,7 (máx. 31,4); 60 fps | 19,4 / 29,6 | 60 / 60 fps |
+
+- **CA-P1 a CA-P4 se cumplen** en las tres formas. El peor p95 es 91,2 ms (círculo de 40.000 puntos, repeticiones, CPU ×4); hubo picos aislados de 106 a 108 ms al pintar en ese círculo (máximo, no p95). **El criterio de WebGL2 no se activa**; el margen del círculo sigue corto (9 ms).
+- **Verificación cruzada** con la Event Timing API (p95 de `duration`, redondeada a 8 ms): 24 a 32 ms al pintar en plano, tubo y copa y 64 ms en el círculo de 40.000 con CPU ×4; ≤ 40 ms con CPU ×1. Concuerda con el recolector.
+- **Antes de T10** (el shell volvía a renderizar todo el estudio en cada pincelada): pintar en el plano con CPU ×4 daba p95 de 648 ms. El cambio de arquitectura del camino caliente es lo que permite cumplir: la vista previa se conecta directo al almacén (`PreviewEngine.connect`, sin pasar por React); cada componente lee del almacén solo lo que muestra (`useStoreSelector`); el panel lateral recibe las pinceladas cuando la edición se detiene y el resto diferido; la geometría nueva se calcula una vez por frame, justo antes de dibujar.
+- **CA-P7**: el autoguardado ya no puede validar entre una edición y su frame (compuerta `paintGate`; 0 casos en todas las corridas). El trace de Chrome con CPU ×1 (559 ediciones, 253 validaciones) muestra 3 validaciones de la revisión del panel lateral (0,1 a 0,2 ms) que empezaron dentro de una ventana de edición; con CPU ×4, 1 a 4 por escenario. Vienen del antirrebote de 300 ms de `ValidationList` (`StudioSidebar.tsx`), que puede vencer justo después de una entrada. **Pendiente**: que ese temporizador corra dentro de `paintGate.run` (un cambio de una línea en el panel).
+- Contrato usado: solo el estable (E5) más `RendererOptions.schedule` de `createCanvasRenderer` (E2), para agrupar el recálculo por frame y avisar el fin de cada frame.
+
+**Pendiente: CA-P6**, la medición manual en el equipo de referencia (4 núcleos, 8 GB, GPU integrada, Chrome estable), con el procedimiento del [README del paquete](../../packages/stitch-render/README.md) ("Medición en el estudio (T10) y equipo de referencia (CA-P6)"). Se adjunta al PR de cierre de la fase 2; sin ella la fase no se cierra.
 
 ### E8. Lo que `stitch-render` no hace
 

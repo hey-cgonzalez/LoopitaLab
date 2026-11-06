@@ -3,8 +3,8 @@
 import { migratePattern, validatePattern, type ChartPattern } from "@loopitalab/pattern-core";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { savePattern } from "@/app/disenos/actions";
-import { Autosave, readBackup, type BackupStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
-import { DocumentStore, type StoreState } from "@/lib/studio/store.ts";
+import { Autosave, readBackup, type AutosaveDeps, type BackupStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
+import { DocumentStore } from "@/lib/studio/store.ts";
 
 export interface Recovery {
   document: ChartPattern;
@@ -16,7 +16,6 @@ export interface Recovery {
 export interface StudioSession {
   store: DocumentStore;
   autosave: Autosave;
-  state: StoreState;
   status: SaveStatus;
   recovery: Recovery | null;
   acceptRecovery(): void;
@@ -35,15 +34,17 @@ function localStorageOrNull(): BackupStorage | null {
  * Monta el almacén del documento y el autoguardado de un diseño y los conecta con la página
  * (reconexión, cierre de pestaña, respaldo local). T9 usa `store` para las herramientas y la vista previa.
  */
-export function useStudioSession(opts: { document: ChartPattern; updatedAt: string; openedAsDraft: boolean }): StudioSession {
+export function useStudioSession(opts: { document: ChartPattern; updatedAt: string; openedAsDraft: boolean; detached?: boolean }): StudioSession {
   const [{ store, autosave }] = useState(() => {
     const store = new DocumentStore(opts.document);
-    const autosave = new Autosave(store, { patternId: opts.document.id, initialUpdatedAt: opts.updatedAt, save: savePattern, storage: localStorageOrNull() });
+    // `detached`: página de desarrollo sin sesión. No llama al servidor ni escribe en el almacenamiento local.
+    const save: AutosaveDeps["save"] = opts.detached ? async () => ({ ok: true, updatedAt: opts.updatedAt, draft: false }) : savePattern;
+    const autosave = new Autosave(store, { patternId: opts.document.id, initialUpdatedAt: opts.updatedAt, save, storage: opts.detached ? null : localStorageOrNull() });
     autosave.markOpenedAsDraft(opts.openedAsDraft);
     return { store, autosave };
   });
 
-  const state = useSyncExternalStore(store.subscribe, store.getState, store.getState);
+  // Sin suscripción al documento entero: cada componente lee su parte con `useStoreSelector` (T10).
   const status = useSyncExternalStore(autosave.subscribe, autosave.getStatus, autosave.getStatus);
   const [recovery, setRecovery] = useState<Recovery | null>(null);
 
@@ -69,6 +70,8 @@ export function useStudioSession(opts: { document: ChartPattern; updatedAt: stri
       const m = migratePattern(backup.document);
       const doc = m.ok ? (m.document as ChartPattern) : null;
       if (doc && doc.kind === "chart" && doc.id === opts.document.id && validatePattern(doc).savable && JSON.stringify(doc) !== JSON.stringify(opts.document)) {
+        // Hasta que la usuaria decida, editar no pisa el respaldo ofrecido ni un guardado lo borra (T8, c).
+        autosave.holdBackup(true);
         setRecovery({ document: doc, savedAt: backup.savedAt, serverIsNewer: backup.baseUpdatedAt !== opts.updatedAt });
       } else {
         autosave.discardBackup();
@@ -81,22 +84,25 @@ export function useStudioSession(opts: { document: ChartPattern; updatedAt: stri
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("visibilitychange", onVisibility);
       autosave.stop();
+      autosave.holdBackup(false);
     };
     // Los datos iniciales solo se leen al montar: el almacén es la fuente de verdad desde entonces.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autosave, store]);
 
   const acceptRecovery = useCallback(() => {
-    setRecovery((r) => {
-      if (r) store.replace(r.document); // un paso de deshacer; el autoguardado lo envía
-      return null;
-    });
-  }, [store]);
+    // Sin efectos dentro de un actualizador de estado: en StrictMode se ejecutaría dos veces.
+    if (!recovery) return;
+    autosave.holdBackup(false);
+    store.replace(recovery.document); // un paso de deshacer; el autoguardado lo envía
+    setRecovery(null);
+  }, [store, autosave, recovery]);
 
   const dismissRecovery = useCallback(() => {
+    autosave.holdBackup(false);
     autosave.discardBackup();
     setRecovery(null);
   }, [autosave]);
 
-  return { store, autosave, state, status, recovery, acceptRecovery, dismissRecovery };
+  return { store, autosave, status, recovery, acceptRecovery, dismissRecovery };
 }

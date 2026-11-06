@@ -1,3 +1,4 @@
+import { STUDIO_TEXTS } from "../studio-texts.ts";
 import type { SaveStatus } from "./autosave.ts";
 
 /** Texto del indicador de guardado (propio del estudio; el resto de textos del estudio vive en studio-texts.ts). */
@@ -13,16 +14,16 @@ export function describeStatus(s: SaveStatus, now: number = Date.now()): StatusV
   switch (s.kind) {
     case "saved":
       return s.draft
-        ? { label: "Guardado como borrador", tone: "warn", detail: "El diseño tiene errores que impiden tejerlo, pero tus cambios están guardados." }
-        : { label: "Guardado", tone: "ok" };
+        ? { label: "Guardado como borrador", tone: "warn", detail: STUDIO_TEXTS.guardado.borrador }
+        : { label: STUDIO_TEXTS.guardado.guardado, tone: "ok" };
     case "pending":
       return { label: "Cambios sin guardar", tone: "info", detail: "Se guardan solos en unos segundos." };
     case "saving":
-      return { label: "Guardando…", tone: "info" };
+      return { label: STUDIO_TEXTS.guardado.guardando, tone: "info" };
     case "offline": {
       const seconds = Math.max(0, Math.ceil((s.retryAt - now) / 1000));
       return {
-        label: s.reason === "network" ? "Sin conexión" : "No se pudo guardar",
+        label: s.reason === "network" ? STUDIO_TEXTS.guardado.sinConexionEtiqueta : "No se pudo guardar",
         tone: "warn",
         detail: `Tus cambios están a salvo en este equipo. Reintentando en ${seconds} s.`,
       };
@@ -31,7 +32,7 @@ export function describeStatus(s: SaveStatus, now: number = Date.now()): StatusV
       return {
         label: "Conflicto al guardar",
         tone: "error",
-        detail: "Este diseño se guardó desde otra pestaña o dispositivo. Elige qué versión conservar.",
+        detail: STUDIO_TEXTS.guardado.conflicto,
       };
     case "blocked": {
       const first = s.issues[0]?.message;

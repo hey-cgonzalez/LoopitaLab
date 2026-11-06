@@ -74,3 +74,42 @@ SEED=12345 node --test "test/**/*.test.ts"
 ```
 
 `test/perf.test.ts` es la guardia CA-P5: `layoutGeometry` de 40.000 puntos en las tres formas, con la referencia registrada en el archivo; falla si la supera 3 veces, o 6 veces si la variable `CI` está definida (`STITCH_RENDER_PERF_FACTOR` cambia el factor).
+
+## Medición en el estudio (T10) y equipo de referencia (CA-P6)
+
+El estudio real mide `edit-to-paint` con el recolector de `apps/web/src/lib/studio/perf.ts`: desde `event.timeStamp` de la entrada (puntero, teclado o campo) hasta que la vista previa **y** el editor dibujaron y el frame se pintó (la tarea siguiente o el próximo `requestAnimationFrame`, lo primero que llegue). Solo se activa en `/dev/estudio?perf=1`; en producción los ganchos son una comparación con `null`. Además de `window.__loopitaPerf` (`summary()`, `reset()`, `startFrames()`, `stopFrames()`), deja `performance.measure` con los nombres `loopita:edit-to-paint:<tipo>` y `loopita:validate:<origen>`, que se ven en la pestaña Performance de DevTools. `summary().validations.insideEditWindow` cuenta las validaciones que empezaron entre una edición y su frame (CA-P7: debe ser 0).
+
+### Procedimiento (CA-P6, en el equipo de referencia)
+
+Equipo: 4 núcleos, 8 GB de RAM, GPU integrada, Chrome estable, sin otras aplicaciones abiertas y con el cargador conectado.
+
+1. Construir y levantar en modo producción con las páginas internas:
+   ```sh
+   pnpm --filter @loopitalab/web build
+   cd apps/web && LOOPITA_DEV_PAGES=1 pnpm start -p 3310
+   ```
+2. Abrir Chrome con depuración remota y un perfil temporal (no el personal):
+   ```sh
+   "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" --remote-debugging-port=9341 --user-data-dir="$(mktemp -d)" --no-first-run \
+     --disable-backgrounding-occluded-windows --disable-renderer-backgrounding --disable-background-timer-throttling about:blank
+   ```
+   En Windows o Linux, el ejecutable de Chrome con las mismas opciones. **Sin** `--headless`: en el equipo de referencia se mide con ventana y GPU reales. Las tres opciones `--disable-*` evitan que Chrome suspenda los frames si la ventana queda tapada (sin ellas la medición se cuelga); no tocar la ventana mientras corre. El script avisa si la página dejó de estar visible.
+3. Correr la medición automática (Node 24, sin dependencias; usa eventos de entrada reales de CDP):
+   ```sh
+   node apps/web/scripts/medir-estudio.mjs 9341 http://127.0.0.1:3310 /tmp/loopita-ca-p6 1 ref
+   ```
+   El cuarto argumento es la limitación de CPU de DevTools: en el equipo de referencia va `1` (el equipo ya es el lento). El sexto (`1`) graba además un trace de Chrome y el séptimo (`1`), capturas de las cuatro vistas. `SCEN=plano,tubo` limita los escenarios.
+4. Escenarios, por cada forma (plano, tubo y círculo con 40.000 puntos; además la copa en cuña de 8 repeticiones):
+   - CA-P1: 50 clics en casillas al azar del editor más 20 pinceladas con teclado (flechas + Intro);
+   - CA-P2: un trazo continuo de 90 casillas (un movimiento cada 16 ms) con el contador de frames;
+   - CA-P3: 20 cambios de repeticiones 5 × 5 ↔ 10 × 10 escribiendo en los campos;
+   - CA-P4: 60 pasos de rueda (zoom) y 60 de arrastre (desplazamiento) sobre la vista previa.
+5. Verificación a mano (opcional, sin CDP): abrir `http://127.0.0.1:3310/dev/estudio?forma=tubo&reps=10&perf=1`, pintar y mirar el panel "edit-to-paint (ms)" abajo a la derecha.
+
+### Qué adjuntar al PR de cierre de la fase 2
+
+- `t10-ref.json` (resumen por forma) y la salida de consola del paso 3;
+- modelo de CPU, RAM, GPU (`chrome://gpu`, "GL_RENDERER"), sistema operativo y versión de Chrome;
+- el trace (`trace-ref.json`) y la salida de `node apps/web/scripts/medir-estudio.mjs --revisar-trace trace-ref.json` (CA-P7);
+- las capturas `estudio-*.png`;
+- la tabla de p50/p95 por forma con el criterio: p95 < 100 ms en CA-P1 y CA-P3; cada actualización < 100 ms y ≥ 30 fps en CA-P2; ≥ 30 fps en CA-P4. Si algún p95 pasa de 100 ms o un fps baja de 30, se activa el criterio de WebGL2 (ADR 0004, E7) con una enmienda.

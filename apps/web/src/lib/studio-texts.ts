@@ -169,9 +169,8 @@ export const STUDIO_TEXTS = {
       "Montaje inicial de 8 a 12 puntos para empezar un círculo a palillo (en crochet, anillo mágico de 6 a 12 puntos).", // validar con tejedora
     enganchar:
       "Una hebra flotante es una hebra larga que queda suelta en el lado revés. Conviene enganchar la hebra para fijarla y que no quede floja.", // validar con tejedora
-    // TODO(verificar): atajos de teclado de cada herramienta (hoy no hay una lista definida).
     atajosTeclado:
-      "Usa las flechas para moverte entre casillas y la barra espaciadora para pintar la casilla con la lana elegida.",
+      "Usa las flechas para moverte entre casillas y Enter o la barra espaciadora para aplicar la herramienta en la casilla. La lista completa de atajos está en «Atajos de teclado».",
   },
 
   /** Limitaciones de la vista previa (ADR 0004, E8). Se muestran junto a la vista. */
@@ -205,7 +204,8 @@ export const STUDIO_TEXTS = {
     guardando: "Guardando…",
     borrador:
       "Guardado como borrador: tiene errores de tejido. Se guardó, pero no se puede tejer ni publicar todavía.",
-    // TODO(verificar): si el reintento al volver la conexión es automático (ADR 0006 solo define el respaldo local).
+    sinConexionEtiqueta: "Sin conexión",
+    // El reintento es automático (con espera creciente y al volver la conexión, ADR 0006 E10).
     sinConexion:
       "Sin conexión. Tu último cambio queda en este dispositivo y se guardará cuando vuelva la conexión.",
     conflicto:
@@ -260,8 +260,147 @@ export const STUDIO_TEXTS = {
     descripcionMotivo: "Descripción del motivo para lectores de pantalla",
     zoom: "Zoom",
     instrucciones:
-      "Flechas: moverte entre casillas. Espacio: pintar la casilla con la lana elegida.",
+      "Flechas: moverte entre casillas. Enter o Espacio: aplicar la herramienta en la casilla. L, R, C y S eligen la herramienta; 1 a 9 eligen la lana.",
+    anuncioHerramienta: "Herramienta",
+    anuncioLana: "Lana activa",
+    anuncioPintada: "pintada",
+    anuncioRellenada: "rellenada",
+    anuncioCuentagotas: "Lana tomada de la casilla",
     vistaPreviaEtiqueta: "Vista previa del tejido",
+  },
+  /**
+   * Atajos de teclado del editor (CA-A1). Las teclas de una sola letra solo funcionan con el foco en la cuadrícula
+   * (WCAG 2.1.4), para no chocar con la escritura en los campos. Deshacer y rehacer funcionan en toda la página,
+   * salvo dentro de un campo de texto, que tiene su propio deshacer.
+   */
+  atajos: {
+    titulo: "Atajos de teclado",
+    nota: "Las teclas de una letra funcionan con el foco en la cuadrícula.",
+    lista: [
+      { teclas: "Flechas", accion: "Mover la casilla enfocada" },
+      { teclas: "Inicio / Fin", accion: "Ir a la primera o a la última casilla de la fila" },
+      { teclas: "Re Pág / Av Pág", accion: "Subir o bajar 5 filas" },
+      { teclas: "Enter o Espacio", accion: "Aplicar la herramienta en la casilla enfocada" },
+      { teclas: "L", accion: "Lápiz" },
+      { teclas: "R", accion: "Relleno" },
+      { teclas: "C", accion: "Cuentagotas" },
+      { teclas: "S", accion: "Sin punto" },
+      { teclas: "1 a 9", accion: "Elegir la lana A a I" },
+      { teclas: "[ y ]", accion: "Lana anterior y siguiente" },
+      { teclas: "+ y −", accion: "Acercar y alejar" },
+      { teclas: "0", accion: "Ajustar a la pantalla" },
+      { teclas: "Ctrl o Cmd + Z", accion: "Deshacer" },
+      { teclas: "Ctrl o Cmd + Mayús + Z", accion: "Rehacer (también Ctrl + Y)" },
+    ],
+  },
+
+  /** Editor de motivo (cuadrícula). */
+  editor: {
+    titulo: "Gráfico",
+    leyendaSinPunto: "Rayas: sin punto",
+    leyendaPierde: "Triángulo: aquí se pierde un punto",
+    verMotivo: "Solo el motivo",
+    verCompleto: "Con repeticiones",
+    vista: "Vista del gráfico",
+    vistaCompletaDemasiado:
+      "El gráfico con repeticiones es demasiado grande para dibujarlo aquí. Se muestra solo el motivo.",
+    lanaActiva: "Lana activa",
+    leerDerecho: "Las flechas del borde indican por dónde empieza a leerse cada fila.",
+    espejo: "Lectura en espejo (preferencia de tu cuenta).",
+    sinLanas: "Este diseño no tiene lanas.",
+  },
+
+  /** Panel de lanas. */
+  panelLanas: {
+    editar: "Editar",
+    cerrar: "Cerrar",
+    activa: "Usar esta lana",
+    activaEstado: "lana activa",
+    subir: "Subir",
+    bajar: "Bajar",
+    notaTitulo: "Nota privada",
+    notaAyuda: "Solo la ves tú: no se publica ni se comparte, aunque compartas el diseño. Sirve para anotar la marca o dónde la compraste.",
+    notaEtiqueta: "Mi lana (opcional)",
+    paletaVacia: "Personalizado",
+    fibra: "Fibra",
+    porcentaje: "Porcentaje",
+    agregarFibra: "Agregar fibra",
+    quitarFibra: "Quitar fibra",
+    suma: "Suma",
+    noSeGuarda: "Los cambios de esta lana no se guardan hasta que se corrija.",
+    reemplazoPregunta: "¿Con qué lana reemplazas sus casillas?",
+    reemplazoConfirmar: "Quitar y reemplazar",
+    cancelar: "Cancelar",
+    maximo: "Llegaste al máximo de lanas del diseño.",
+    sugerencia: "Para este grosor, suele usarse",
+    agujas: "agujas",
+    crochet: "crochet",
+    muestraCyc: "muestra de referencia",
+  },
+
+  /** Panel lateral. */
+  panel: {
+    titulo: "Panel lateral",
+    diseno: "Diseño",
+    cuadricula: "Cuadrícula",
+    muestraSeccion: "Muestra",
+    medidasSeccion: "Medidas y puntos",
+    validacionSeccion: "Revisión del diseño",
+    puntosEnLaFila: "Puntos por vuelta",
+    motivoTamano: "Tamaño del motivo",
+    puntosMotivo: "Puntos (ancho)",
+    filasMotivo: "Filas (alto)",
+    aplicarTamano: "Aplicar tamaño",
+    tamanoAyuda: "Si agrandas el motivo, lo nuevo se rellena con la lana A. Se ancla abajo a la izquierda.",
+    repeticionesRango: "Repeticiones recomendadas en el círculo: de 4 a 12.",
+    puntosEn10: "Puntos en 10 cm",
+    filasEn10: "Filas en 10 cm",
+    muestraAyudaVacia: "Sin muestra tuya: las medidas usan una muestra supuesta.",
+    muestraProporcion: "Muestra supuesta según el grosor de la lana A",
+    sinMedidas: "—",
+    sinPuntos: "Sin puntos todavía: las medidas aparecen cuando haya al menos un punto.",
+    revisando: "Revisando…",
+    todoBien: "Sin avisos.",
+    guardarVersionAyuda:
+      "Una versión es una copia del diseño tal como está guardado, a la que puedes volver. El autoguardado no crea versiones.",
+  },
+
+  /** Revisión (validador). */
+  validacion: {
+    impideTejer: "Impide tejer",
+    impideTejerAyuda: "El diseño se guarda como borrador, pero no se puede tejer ni publicar hasta corregirlo.",
+    impideGuardar: "Impide guardar",
+    advertencias: "Advertencias",
+    informacion: "Información",
+    verDetalle: "Ver detalle",
+    sinFilaCantidad: "se repite",
+  },
+
+  /** Vista previa. */
+  vistaPrevia: {
+    titulo: "Vista previa",
+    muestraSupuesta: "La vista usa una muestra supuesta.",
+    rotacion: "Girar el tubo",
+    error: "No se pudo dibujar la vista previa de este diseño.",
+    ajustar: "Ajustar",
+    acercar: "Acercar",
+    alejar: "Alejar",
+    descripcionCarga: "Descripción del diseño",
+    limitacionesAbrir: "Lo que la vista no muestra",
+  },
+
+  /** Pestañas en tableta y móvil. */
+  pestanas: {
+    etiqueta: "Secciones del estudio",
+    editor: "Editor",
+    vista: "Vista previa",
+    ajustes: "Ajustes",
+  },
+
+  /** Cierre de sesión y respaldo local (pendientes de T8). */
+  respaldo: {
+    recuperacionEditando:
+      "Ya empezaste a editar. Tus cambios nuevos se guardan en el diseño, pero este respaldo se conserva hasta que decidas. Recuperar lo reemplaza por el respaldo.",
   },
 } as const;
 
@@ -393,4 +532,27 @@ export function previewTooLargeText(limit: number): string {
 /** Zoom en porcentaje, para anunciarlo a lectores de pantalla. */
 export function zoomAnnouncement(percent: number): string {
   return `${STUDIO_TEXTS.accesibilidad.zoom} ${percent} %`;
+}
+
+/** Palabra para las filas según cómo se teje: "vuelta" (en redondo) o "fila" (ida y vuelta). */
+export function rowWord(workedIn: WorkedIn, plural: boolean): string {
+  if (workedIn === "rounds") return plural ? "Vueltas" : "Vuelta";
+  return plural ? "Filas" : "Fila";
+}
+
+/** Texto de la revisión agrupada: una línea por grupo, con los rangos compactados. */
+export function issueGroupText(
+  kind: "float" | "colors" | "generic",
+  p: { workedIn: WorkedIn; ranges: string; count: number; rowCount: number; yarn?: string; length?: number; cm?: string; max?: number; colors?: number; message?: string },
+): string {
+  const head = `${rowWord(p.workedIn, p.rowCount !== 1)} ${p.ranges}`;
+  if (kind === "float") {
+    const cm = p.cm ? ` (≈ ${p.cm} cm)` : "";
+    const max = p.max !== undefined ? ` Máximo sugerido: ${p.max} puntos.` : "";
+    return `${head}: la hebra flotante de ${p.yarn ?? "una lana"} llega a ${p.length ?? "?"} puntos${cm}; conviene enganchar la hebra o cambiar el dibujo.${max}`;
+  }
+  if (kind === "colors") {
+    return `${head}: usan hasta ${p.colors ?? "más de 2"} lanas; en colorwork de hebras lo habitual es 2 por ${p.workedIn === "rounds" ? "vuelta" : "fila"}.`;
+  }
+  return `${p.message ?? ""} (se repite ${p.count} veces)`;
 }
