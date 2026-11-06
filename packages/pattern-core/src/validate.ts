@@ -3,6 +3,7 @@
  * por la IA), nunca lanza excepciones y devuelve problemas estructurados en español.
  */
 import { floatLengthCm, rowFloats } from "./chart.ts";
+import { yarnLetter } from "./letters.ts";
 import { LIMITS } from "./limits.ts";
 import { STITCHES } from "./stitches.ts";
 import {
@@ -96,7 +97,7 @@ const LINE_BREAK_RE = /[\r\n\u2028\u2029]/;
  * `LIMIT`). `what` es el sujeto del mensaje, con mayúscula ("El cierre de Bolita").
  * Devuelve true si el texto es válido.
  */
-function checkText(v: unknown, path: string, what: string, max: number, c: Collector): v is string {
+function checkText(v: unknown, path: string, what: string, max: number, c: Collector, multiline = false): v is string {
   if (!isStr(v)) {
     c.error("SHAPE", path, `${what} debe ser texto.`);
     return false;
@@ -106,7 +107,80 @@ function checkText(v: unknown, path: string, what: string, max: number, c: Colle
     c.error("LIMIT", path, `${what} puede tener hasta ${max} caracteres (tiene ${length}).`, { length, max });
     return false;
   }
+  return checkChars(v, path, what, multiline, c);
+}
+
+/*
+ * Caracteres prohibidos en los textos (ADR 0003, E16): los de control `\p{Cc}` (U+0000 a
+ * U+001F y U+007F a U+009F) y los sustitutos UTF-16 sueltos. Postgres rechaza U+0000 y los
+ * sustitutos sueltos en jsonb; los demás controles no se ven y no tienen uso en un patrón.
+ * En los textos de varias líneas (notas, cierre, armado, nota de lana) se admiten el salto
+ * de línea (\n) y la tabulación (\t); en los demás (título, nombres, ids), ninguno.
+ */
+const CONTROL_RE = /\p{Cc}/u;
+const CONTROL_MULTILINE_RE = /[^\P{Cc}\n\t]/u;
+/** Primer sustituto suelto (alto sin bajo detrás, o bajo sin alto delante). */
+const LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF])[\uDC00-\uDFFF]/;
+const codePointLabel = (n: number) => `U+${n.toString(16).toUpperCase().padStart(4, "0")}`;
+
+/** TEXT_CONTROL_CHAR si el texto tiene un carácter prohibido. Devuelve true si está limpio. */
+function checkChars(v: string, path: string, what: string, multiline: boolean, c: Collector): boolean {
+  const control = (multiline ? CONTROL_MULTILINE_RE : CONTROL_RE).exec(v);
+  if (control) {
+    const codePoint = codePointLabel(control[0].codePointAt(0) ?? 0);
+    const hint = multiline ? " Solo se admiten saltos de línea y tabulaciones." : "";
+    c.error("TEXT_CONTROL_CHAR", path, `${what} tiene un carácter invisible no permitido (${codePoint}).${hint}`, { codePoint, index: control.index });
+    return false;
+  }
+  // Sin `String.prototype.isWellFormed` (ES2024): el núcleo apunta a navegadores anteriores.
+  const lone = LONE_SURROGATE_RE.exec(v);
+  if (lone) {
+    const codePoint = codePointLabel(lone[0].charCodeAt(0));
+    c.error("TEXT_CONTROL_CHAR", path, `${what} tiene un carácter dañado que no se puede guardar (${codePoint}, sustituto suelto).`, { codePoint, index: lone.index, surrogate: true });
+    return false;
+  }
   return true;
+}
+
+/*
+ * Documento cerrado (ADR 0003, E16): cada objeto del esquema v1 solo admite sus claves,
+ * incluidas las opcionales. Una clave desconocida es error estructural UNKNOWN_KEY con
+ * su ruta. Una versión futura del esquema que agregue campos los declara aquí.
+ */
+const KEYS_BASE = ["schemaVersion", "id", "title", "technique", "yarns", "gauge", "origin", "notes", "kind"] as const;
+const SCHEMA_KEYS = Object.freeze({
+  chartPattern: Object.freeze([...KEYS_BASE, "chart"]),
+  writtenPattern: Object.freeze([...KEYS_BASE, "parts", "assembly"]),
+  chart: Object.freeze(["width", "height", "cells", "repeat", "workedIn", "renderAs", "direction"]),
+  repeat: Object.freeze(["x", "y"]),
+  gauge: Object.freeze(["stitchesPer10cm", "rowsPer10cm"]),
+  origin: Object.freeze(["kind", "model", "promptVersion"]),
+  yarn: Object.freeze(["id", "weight", "composition", "color", "note"]),
+  yarnColor: Object.freeze(["hex", "paletteId"]),
+  fiberShare: Object.freeze(["fiber", "percent"]),
+  part: Object.freeze(["id", "name", "construction", "start", "startYarn", "rounds", "finish"]),
+  startMagicRing: Object.freeze(["type"]),
+  startChain: Object.freeze(["type", "count"]),
+  round: Object.freeze(["number", "through", "items", "expected", "note"]),
+  stitchItem: Object.freeze(["type", "stitch", "count", "loop"]),
+  groupItem: Object.freeze(["type", "items", "times"]),
+  colorItem: Object.freeze(["type", "yarn"]),
+} as const satisfies Record<string, readonly string[]>);
+
+/** Tope de avisos UNKNOWN_KEY por documento: un objeto con miles de claves no llena la lista. */
+const MAX_UNKNOWN_KEY_ISSUES = 20;
+
+/** Ruta de una clave: `padre.clave`, con la clave recortada y sin caracteres prohibidos. */
+const keyPath = (parent: string, key: string) => (parent ? `${parent}.${clip(key)}` : clip(key));
+
+function checkKeys(obj: Rec, allowed: readonly string[], path: string, c: Collector): void {
+  for (const key of Object.keys(obj)) {
+    if (allowed.includes(key)) continue;
+    c.unknownKeys++;
+    if (c.unknownKeys > MAX_UNKNOWN_KEY_ISSUES) return;
+    const shown = clip(key);
+    c.error("UNKNOWN_KEY", keyPath(path, key), `El patrón tiene un dato que no corresponde ("${shown}"${path ? ` en ${path}` : ""}): quítalo para poder guardarlo.`, { key: shown });
+  }
 }
 
 /** Lista de textos libres (`notes`, `assembly`): un arreglo de hasta `LIMITS.maxNotes` textos. */
@@ -119,11 +193,13 @@ function checkTextList(v: unknown, path: string, what: string, item: (i: number)
     c.error("LIMIT", path, `${what} pueden tener hasta ${LIMITS.maxNotes} elementos (hay ${v.length}).`, { length: v.length, max: LIMITS.maxNotes });
     return;
   }
-  v.forEach((t: unknown, i: number) => checkText(t, `${path}[${i}]`, item(i), LIMITS.maxNoteLength, c));
+  v.forEach((t: unknown, i: number) => checkText(t, `${path}[${i}]`, item(i), LIMITS.maxNoteLength, c, true));
 }
 
 class Collector {
   issues: Issue[] = [];
+  /** Claves desconocidas encontradas (se informan hasta `MAX_UNKNOWN_KEY_ISSUES`). */
+  unknownKeys = 0;
   add(severity: Severity, code: string, path: string, message: string, data?: Record<string, unknown>): void {
     this.issues.push(data ? { code, severity, path, message, data } : { code, severity, path, message });
   }
@@ -155,6 +231,9 @@ function validateInto(input: unknown, c: Collector, opts: ValidateOptions): void
     c.error("SHAPE", "", "El patrón debe ser un objeto.");
     return;
   }
+  // Con un `kind` desconocido (ya es error KIND) se aceptan las claves de los dos tipos.
+  const rootKeys = input.kind === "chart" ? SCHEMA_KEYS.chartPattern : input.kind === "written" ? SCHEMA_KEYS.writtenPattern : [...SCHEMA_KEYS.chartPattern, "parts", "assembly"];
+  checkKeys(input, rootKeys, "", c);
   if (input.schemaVersion !== SCHEMA_VERSION) {
     c.error("SCHEMA_VERSION", "schemaVersion", `Versión de esquema no soportada (se esperaba ${SCHEMA_VERSION}).`, { found: input.schemaVersion });
   }
@@ -166,7 +245,7 @@ function validateInto(input: unknown, c: Collector, opts: ValidateOptions): void
     const length = charLength(input.title);
     if (length < 1 || length > LIMITS.maxTitleLength) {
       c.error("TITLE_LENGTH", "title", `El título debe tener entre 1 y ${LIMITS.maxTitleLength} caracteres (tiene ${length}).`, { length, max: LIMITS.maxTitleLength });
-    }
+    } else checkChars(input.title, "title", "El título", false, c);
   }
   if (input.technique !== "knit" && input.technique !== "crochet") {
     c.error("TECHNIQUE", "technique", 'La técnica debe ser "knit" (palillo) o "crochet".');
@@ -190,8 +269,10 @@ export function parsePattern(input: unknown, opts: ValidateOptions = {}): { ok: 
 function validateOrigin(origin: unknown, c: Collector) {
   if (!isRec(origin) || !["manual", "ai", "ai_edited"].includes(origin.kind as string)) {
     c.error("ORIGIN", "origin", 'El origen debe ser "manual", "ai" o "ai_edited".');
+    if (isRec(origin)) checkKeys(origin, SCHEMA_KEYS.origin, "origin", c);
     return;
   }
+  checkKeys(origin, SCHEMA_KEYS.origin, "origin", c);
   // El tipo se revisa con cualquier origen; la falta del modelo solo avisa si viene de IA.
   if (origin.model !== undefined) checkText(origin.model, "origin.model", "El modelo de IA del origen", LIMITS.maxOriginFieldLength, c);
   if (origin.promptVersion !== undefined) {
@@ -206,6 +287,7 @@ const isGauge = (g: unknown): g is Gauge =>
   isRec(g) && isNum(g.stitchesPer10cm) && isNum(g.rowsPer10cm) && g.stitchesPer10cm > 0 && g.rowsPer10cm > 0;
 
 function validateGauge(g: unknown, c: Collector) {
+  if (isRec(g)) checkKeys(g, SCHEMA_KEYS.gauge, "gauge", c);
   if (!isGauge(g)) c.error("GAUGE", "gauge", "La muestra debe indicar puntos y filas en 10 cm, mayores que cero.");
 }
 
@@ -253,9 +335,11 @@ function checkYarn(y: unknown, p: string, label: string, c: Collector, opts: Pic
     c.error("SHAPE", p, "Cada lana debe ser un objeto.");
     return "";
   }
+  checkKeys(y, SCHEMA_KEYS.yarn, p, c);
   const id = isStr(y.id) ? y.id : "";
   if (!YARN_ID_RE.test(id)) c.error("YARN_ID", `${p}.id`, `${named(label)} necesita un identificador corto (letras, números, "-" o "_").`);
-  const name = named(id || label);
+  // Un id inválido (ya es YARN_ID) no se cita: puede traer caracteres de control o ser enorme.
+  const name = named(YARN_ID_RE.test(id) ? id : label);
 
   if (!isInt(y.weight) || y.weight < 0 || y.weight > 7) {
     c.error("YARN_WEIGHT", `${p}.weight`, `${name} necesita un grosor entre 0 (Ultra Fino) y 7 (Jumbo).`);
@@ -269,6 +353,7 @@ function checkYarn(y: unknown, p: string, label: string, c: Collector, opts: Pic
     const seen = new Set<string>();
     y.composition.forEach((f: unknown, j: number) => {
       const fp = `${p}.composition[${j}]`;
+      if (isRec(f)) checkKeys(f, SCHEMA_KEYS.fiberShare, fp, c);
       if (!isRec(f) || !isStr(f.fiber) || !isNum(f.percent)) {
         c.error("SHAPE", fp, "Cada fibra necesita su nombre y su porcentaje.");
         return;
@@ -286,6 +371,7 @@ function checkYarn(y: unknown, p: string, label: string, c: Collector, opts: Pic
     }
   }
 
+  if (isRec(y.color)) checkKeys(y.color, SCHEMA_KEYS.yarnColor, `${p}.color`, c);
   if (!isRec(y.color) || !isStr(y.color.hex) || !HEX_RE.test(y.color.hex)) {
     c.error("YARN_COLOR", `${p}.color`, `${name} necesita un color en formato #RRGGBB.`);
   } else if (y.color.paletteId !== undefined) {
@@ -297,13 +383,18 @@ function checkYarn(y: unknown, p: string, label: string, c: Collector, opts: Pic
     }
   }
   // Texto privado: se revisa su forma, pero nunca se cita en un mensaje.
-  if (y.note !== undefined) checkText(y.note, `${p}.note`, `La nota de ${lower}`, LIMITS.maxYarnNoteLength, c);
+  if (y.note !== undefined) checkText(y.note, `${p}.note`, `La nota de ${lower}`, LIMITS.maxYarnNoteLength, c, true);
   return id;
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
 /** Recorta un texto de la usuaria o de la IA antes de ponerlo en un mensaje. */
-const clip = (s: string, max = 40) => ([...s].length > max ? `${[...s].slice(0, max).join("")}…` : s);
+const clip = (s: string, max = 40) => {
+  // Sin caracteres de control ni sustitutos sueltos: el mensaje nunca los arrastra (E16).
+  // Al separar por puntos de código, un sustituto suelto queda solo y mide 1 unidad UTF-16.
+  const chars = [...s].map((ch) => (/^\p{Cc}$/u.test(ch) || (ch.length === 1 && /[\uD800-\uDFFF]/.test(ch)) ? "\uFFFD" : ch));
+  return chars.length > max ? `${chars.slice(0, max).join("")}…` : chars.join("");
+};
 /** Número con coma decimal y a lo más un decimal, sin depender de la configuración regional. */
 const fmt1 = (n: number) => String(Math.round(n * 10) / 10).replace(".", ",");
 
@@ -327,6 +418,8 @@ function validateChart(input: Rec, yarnIds: string[], c: Collector, opts: Valida
     c.error("SHAPE", "chart", "Falta el gráfico.");
     return;
   }
+  checkKeys(ch, SCHEMA_KEYS.chart, "chart", c);
+  if (isRec(ch.repeat)) checkKeys(ch.repeat, SCHEMA_KEYS.repeat, "chart.repeat", c);
   const { width, height, cells, repeat } = ch;
   const word = rowWord(ch.workedIn);
   let ok = true;
@@ -599,13 +692,13 @@ function validateChart(input: Rec, yarnIds: string[], c: Collector, opts: Valida
 }
 
 /**
- * Nombre de una lana para la tejedora: letra según su orden en el documento (A, B, C…;
- * desde la 27, su número) y su color, como la muestra la paleta del diseño. No usa el
+ * Nombre de una lana para la tejedora: letra según su orden en el documento
+ * (`yarnLetter`: A, B, C…; desde la 27, AA, AB…) y su color, como la muestra la paleta del diseño. No usa el
  * identificador interno ni la nota (texto privado: los avisos también acompañan a los
  * patrones compartidos).
  */
 function yarnLabel(yarns: unknown, index: number): string {
-  const letter = index < 26 ? String.fromCharCode(65 + index) : String(index + 1);
+  const letter = yarnLetter(index);
   const y = Array.isArray(yarns) ? yarns[index] : undefined;
   const hex = isRec(y) && isRec(y.color) && isStr(y.color.hex) && HEX_RE.test(y.color.hex) ? ` (${y.color.hex.toUpperCase()})` : "";
   return `la lana ${letter}${hex}`;
@@ -659,6 +752,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       c.error("SHAPE", pp, "Cada parte debe ser un objeto.");
       return;
     }
+    checkKeys(part, SCHEMA_KEYS.part, pp, c);
     // Nombre: texto de una línea, no vacío y de hasta `maxPartNameLength` caracteres. Si no
     // lo es, los mensajes la llaman "Parte N" (su posición) y nunca citan el valor recibido.
     const fallback = `Parte ${pi + 1}`;
@@ -675,7 +769,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       else partIds.add(part.id);
     }
 
-    if (part.finish !== undefined) checkText(part.finish, `${pp}.finish`, `El cierre de ${pname}`, LIMITS.maxFinishLength, c);
+    if (part.finish !== undefined) checkText(part.finish, `${pp}.finish`, `El cierre de ${pname}`, LIMITS.maxFinishLength, c, true);
 
     if (!["spiral", "joined", "flat"].includes(part.construction as string)) {
       c.error("PART_CONSTRUCTION", `${pp}.construction`, `${pname}: la construcción debe ser en espiral, en vueltas unidas o en filas (ida y vuelta).`);
@@ -683,6 +777,9 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
     }
     const word = partRowWord(part.construction);
     const start = part.start;
+    if (isRec(start) && (start.type === "magic_ring" || start.type === "chain")) {
+      checkKeys(start, start.type === "chain" ? SCHEMA_KEYS.startChain : SCHEMA_KEYS.startMagicRing, `${pp}.start`, c);
+    }
     if (!isRec(start) || (start.type !== "magic_ring" && start.type !== "chain")) {
       c.error("PART_START", `${pp}.start`, `${pname}: indica cómo empieza (anillo mágico o cadeneta).`);
       return;
@@ -719,6 +816,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
     let concrete = 0;
     rounds.forEach((r: unknown, ri: number) => {
       const rp = `${pp}.rounds[${ri}]`;
+      if (isRec(r)) checkKeys(r, SCHEMA_KEYS.round, rp, c);
       if (!isRec(r) || !isInt(r.number) || !Array.isArray(r.items)) {
         c.error("SHAPE", rp, `${pname}: la ${word} ${ri + 1} está mal formada.`);
         structureOk = false;
@@ -736,7 +834,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       }
       const label = `${pname}, ${word} ${r.number}`;
       // La nota no entra en los conteos: un error suyo no detiene la revisión de la vuelta.
-      if (r.note !== undefined) checkText(r.note, `${rp}.note`, `${label}: la nota`, LIMITS.maxRoundNoteLength, c);
+      if (r.note !== undefined) checkText(r.note, `${rp}.note`, `${label}: la nota`, LIMITS.maxRoundNoteLength, c, true);
       if (r.through !== undefined && (!isInt(r.through) || r.through < r.number)) {
         c.error("ROUND_RANGE", `${rp}.through`, `${label}: el rango de ${word}s no es válido.`);
         structureOk = false;
@@ -858,6 +956,8 @@ function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<
       return;
     }
     const item = it as Partial<Item> & Rec;
+    const keys = item.type === "stitch" ? SCHEMA_KEYS.stitchItem : item.type === "group" ? SCHEMA_KEYS.groupItem : item.type === "color" ? SCHEMA_KEYS.colorItem : null;
+    if (keys) checkKeys(item, keys, p, c);
     if (item.type === "stitch") {
       // Object.hasOwn: `in` aceptaría "toString", "constructor" o "__proto__" de Object.prototype.
       if (!isStr(item.stitch)) {

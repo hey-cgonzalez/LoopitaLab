@@ -19,7 +19,7 @@ insert into auth.users (id, email, raw_user_meta_data) values
 -- Un patrón generado por IA lo crea el servidor (aquí, el superusuario).
 insert into public.patterns (id, owner_id, title, technique, kind, schema_version, origin, document) values
   ('aaaaaaaa-0000-0000-0000-000000000003', '11111111-1111-1111-1111-111111111111', 'IA de Ana', 'knit', 'chart', 1, 'ai',
-   '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"ai","model":"claude"},"yarns":[]}');
+   '{"schemaVersion":1,"title":"IA de Ana","kind":"chart","technique":"knit","origin":{"kind":"ai","model":"claude"},"yarns":[]}');
 
 do $$ begin
   assert (select count(*) from public.profiles) = 2, 'el registro debe crear el perfil';
@@ -41,10 +41,14 @@ select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111
 
 insert into public.patterns (id, title, technique, kind, schema_version, origin, document) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'Privado de Ana', 'crochet', 'written', 1, 'manual',
-   '{"schemaVersion":1,"kind":"written","technique":"crochet","origin":{"kind":"manual"},"yarns":[{"id":"A","note":"la lana de mi abuela"}]}'),
+   '{"schemaVersion":1,"title":"Privado de Ana","kind":"written","technique":"crochet","origin":{"kind":"manual"},"yarns":[{"id":"A","note":"la lana de mi abuela"}]}'),
   ('aaaaaaaa-0000-0000-0000-000000000002', 'Público de Ana', 'knit', 'chart', 1, 'manual',
-   '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[{"id":"A"}]}');
+   '{"schemaVersion":1,"title":"Público de Ana","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[{"id":"A"}]}');
+-- Publicar no lo hace la usuaria (T15-M2): lo hace el servidor (aquí, el superusuario).
+reset role;
 update public.patterns set visibility = 'public' where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 
 insert into public.projects (id, title, pattern_id) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Bolita para Mateo', 'aaaaaaaa-0000-0000-0000-000000000001');
 insert into public.project_progress (project_id, part_id, round_number, stitch_index) values ('bbbbbbbb-0000-0000-0000-000000000001', 'bolita', 3, 5);
@@ -63,12 +67,13 @@ end $$;
 do $$ begin
   begin
     insert into public.patterns (title, technique, kind, schema_version, origin, document)
-    values ('Falso IA', 'knit', 'chart', 1, 'ai', '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"ai"},"yarns":[]}');
+    values ('Falso IA', 'knit', 'chart', 1, 'ai', '{"schemaVersion":1,"title":"Falso IA","kind":"chart","technique":"knit","origin":{"kind":"ai"},"yarns":[]}');
     raise exception 'FALLO: la usuaria no puede crear patrones marcados como IA';
   exception when insufficient_privilege then null; end;
 
-  update public.patterns set title = 'IA renombrado' where id = 'aaaaaaaa-0000-0000-0000-000000000003';
-  assert (select origin from public.patterns where id = 'aaaaaaaa-0000-0000-0000-000000000003') = 'ai', 'cambiar el título no altera el origen';
+  -- Desde T4 el título vive también en el documento: renombrar es editar el documento, y editar IA la marca ai_edited.
+  update public.patterns set title = 'IA renombrado', document = jsonb_set(document, '{title}', '"IA renombrado"') where id = 'aaaaaaaa-0000-0000-0000-000000000003';
+  assert (select origin from public.patterns where id = 'aaaaaaaa-0000-0000-0000-000000000003') = 'ai_edited', 'renombrar un patrón IA lo marca ai_edited';
 
   update public.patterns set document = jsonb_set(document, '{yarns}', '[{"id":"A"}]') where id = 'aaaaaaaa-0000-0000-0000-000000000003';
   assert (select origin from public.patterns where id = 'aaaaaaaa-0000-0000-0000-000000000003') = 'ai_edited', 'editar un patrón IA lo marca ai_edited';
@@ -93,18 +98,24 @@ begin
     insert into public.pattern_versions (pattern_id, version, document) values ('aaaaaaaa-0000-0000-0000-000000000001', 99, '{}');
     raise exception 'FALLO: Ana no debe insertar versiones directamente';
   exception when insufficient_privilege then null; end;
+  -- T15-M2: la usuaria no publica ni crea nada que no sea privado, ni con la base abierta.
   begin
     update public.patterns set visibility = 'public' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
-    raise exception 'FALLO: un patrón con nota privada de lana no debe poder compartirse';
-  exception when check_violation then null; end;
+    raise exception 'FALLO: la usuaria no puede cambiar visibility';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.patterns set visibility = 'private' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'FALLO: ni siquiera hacia private (la columna no es editable)';
+  exception when insufficient_privilege then null; end;
   begin
     insert into public.patterns (title, technique, kind, schema_version, visibility, document)
-    values ('Notas escondidas', 'knit', 'chart', 1, 'public', '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":{"A":{"note":"secreto"}}}');
-    raise exception 'FALLO: yarns debe ser un arreglo';
-  exception when check_violation then null; end;
+    values ('Publicado a la fuerza', 'knit', 'chart', 1, 'public', '{"schemaVersion":1,"title":"Publicado a la fuerza","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    raise exception 'FALLO: un INSERT del cliente no puede fijar visibility';
+  exception when insufficient_privilege then null; end;
+  assert (select visibility from public.patterns where id = 'aaaaaaaa-0000-0000-0000-000000000001') = 'private', 'sigue privado';
   begin
     insert into public.patterns (title, technique, kind, schema_version, document)
-    values ('Inconsistente', 'knit', 'written', 1, '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    values ('Inconsistente', 'knit', 'written', 1, '{"schemaVersion":1,"title":"Inconsistente","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
     raise exception 'FALLO: columnas y documento deben coincidir';
   exception when check_violation then null; end;
   begin
@@ -143,6 +154,49 @@ begin
   exception when program_limit_exceeded then null; end;
   raise notice 'ok - integridad, columnas editables, privacidad y topes';
 end $$;
+
+-- Restricciones de la base que ya no se alcanzan como usuaria (visibility es del servidor): se
+-- prueban como superusuario, que es lo que hará el servidor al publicar (fase 7).
+reset role;
+do $$ begin
+  begin
+    update public.patterns set visibility = 'public' where id = 'aaaaaaaa-0000-0000-0000-000000000001';
+    raise exception 'FALLO: un patrón con nota privada de lana no debe poder compartirse';
+  exception when check_violation then null; end;
+  begin
+    insert into public.patterns (owner_id, title, technique, kind, schema_version, visibility, document)
+    values ('11111111-1111-1111-1111-111111111111', 'Notas escondidas', 'knit', 'chart', 1, 'public', '{"schemaVersion":1,"title":"Notas escondidas","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":{"A":{"note":"secreto"}}}');
+    raise exception 'FALLO: yarns debe ser un arreglo';
+  exception when check_violation then null; end;
+  raise notice 'ok - la nota privada de lana y yarns-arreglo siguen protegidas al publicar';
+end $$;
+
+-- T15-M3: cuota de 500 diseños por usuaria (candado por usuaria; aquí solo el efecto).
+insert into auth.users (id, email) values ('99999999-9999-4999-8999-999999999999', 'cuota@example.test');
+insert into public.patterns (owner_id, title, technique, kind, schema_version, document)
+select '99999999-9999-4999-8999-999999999999', 'Cuota ' || i, 'knit', 'chart', 1,
+       ('{"schemaVersion":1,"title":"Cuota ' || i || '","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}')::jsonb
+from generate_series(1, 500) i;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '99999999-9999-4999-8999-999999999999', true);
+do $$ begin
+  begin
+    insert into public.patterns (title, technique, kind, schema_version, document)
+    values ('Cuota 501', 'knit', 'chart', 1, '{"schemaVersion":1,"title":"Cuota 501","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    raise exception 'FALLO: el diseño 501 debe rechazarse';
+  exception when program_limit_exceeded then null; end;
+  assert (select count(*) from public.patterns) = 500, 'quedan exactamente 500';
+  delete from public.patterns where title = 'Cuota 1';
+  insert into public.patterns (title, technique, kind, schema_version, document)
+  values ('Cuota 501', 'knit', 'chart', 1, '{"schemaVersion":1,"title":"Cuota 501","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+  assert (select count(*) from public.patterns) = 500, 'borrar libera cupo';
+  raise notice 'ok - cuota de 500 diseños por usuaria (54000)';
+end $$;
+reset role;
+delete from auth.users where id = '99999999-9999-4999-8999-999999999999';
+-- Ana de nuevo.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 
 -- ================================================================ Bea
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
@@ -190,7 +244,7 @@ begin
   exception when insufficient_privilege then null; end;
   begin
     insert into public.patterns (owner_id, title, technique, kind, schema_version, document)
-    values ('11111111-1111-1111-1111-111111111111', 'suplantación', 'knit', 'chart', 1, '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    values ('11111111-1111-1111-1111-111111111111', 'suplantación', 'knit', 'chart', 1, '{"schemaVersion":1,"title":"suplantación","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
     raise exception 'FALLO: Bea no puede crear patrones a nombre de Ana';
   exception when insufficient_privilege then null; end;
   begin
@@ -330,7 +384,7 @@ end $$;
 -- Un patrón compartido por enlace (unlisted) también se puede denunciar (F2-B3).
 insert into public.patterns (id, owner_id, title, technique, kind, schema_version, visibility, document) values
   ('aaaaaaaa-0000-0000-0000-000000000004', '11111111-1111-1111-1111-111111111111', 'Enlace de Ana', 'knit', 'chart', 1, 'unlisted',
-   '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+   '{"schemaVersion":1,"title":"Enlace de Ana","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 do $$ begin
@@ -361,7 +415,7 @@ end $$;
 reset role;
 insert into public.patterns (owner_id, title, technique, kind, schema_version, visibility, document)
 select '11111111-1111-1111-1111-111111111111', 'Tope ' || i, 'knit', 'chart', 1, 'public',
-       '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}'
+       ('{"schemaVersion":1,"title":"Tope ' || i || '","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}')::jsonb
 from generate_series(1, 20) i;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
@@ -371,7 +425,7 @@ declare
   i integer;
 begin
   -- Bea no lee la tabla de patrones; los ids salen del listado público.
-  select array_agg(id) into ids from public.list_public_patterns(100) where title like 'Tope %';
+  select array_agg(id) into ids from public.list_public_patterns(24) where title like 'Tope %';
   assert array_length(ids, 1) = 20, 'veinte patrones públicos nuevos';
   for i in 1..19 loop
     insert into public.pattern_reports (pattern_id, reason) values (ids[i], 'spam');
@@ -393,7 +447,7 @@ select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222
 do $$
 declare last_id uuid;
 begin
-  select id into last_id from public.list_public_patterns(100)
+  select id into last_id from public.list_public_patterns(24)
   where title like 'Tope %' and id not in (select pattern_id from public.pattern_reports) limit 1;
   assert last_id is not null, 'queda un patrón público sin denunciar';
   insert into public.pattern_reports (pattern_id, reason) values (last_id, 'spam');
@@ -415,6 +469,19 @@ begin
   raise notice 'ok - la moderación cambia el estado con la clave secreta';
 end $$;
 reset role;
+-- T15-M4: el listado público no entrega más de 24 documentos por página, pida lo que pida.
+insert into public.patterns (owner_id, title, technique, kind, schema_version, visibility, document)
+select '11111111-1111-1111-1111-111111111111', 'Lim ' || i, 'knit', 'chart', 1, 'public',
+       ('{"schemaVersion":1,"title":"Lim ' || i || '","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}')::jsonb
+from generate_series(1, 10) i;
+set local role anon;
+do $$ begin
+  assert (select count(*) from public.list_public_patterns(1000, 0)) = 24, 'p_limit se recorta a 24';
+  assert (select count(*) from public.list_public_patterns(1000, 24)) = 7, 'la segunda página trae el resto (31 en total)';
+  raise notice 'ok - list_public_patterns entrega como máximo 24 por página';
+end $$;
+reset role;
+delete from public.patterns where title like 'Lim %';
 delete from public.patterns where title like 'Tope %' and owner_id = '11111111-1111-1111-1111-111111111111';
 set local role authenticated;
 
@@ -428,8 +495,9 @@ do $$ begin
 end $$;
 
 -- Ana vuelve privado su patrón; el proyecto de Bea sigue editable (B3).
-select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+reset role;
 update public.patterns set visibility = 'private' where id = 'aaaaaaaa-0000-0000-0000-000000000002';
+set local role authenticated;
 select set_config('request.jwt.claim.sub', '22222222-2222-2222-2222-222222222222', true);
 do $$
 declare n integer;
@@ -940,6 +1008,135 @@ begin
   raise notice 'ok - sin TRUNCATE/REFERENCES/TRIGGER para anon y authenticated (ni TRUNCATE para service_role)';
 end $$;
 drop table public.__tabla_futura_o7;
+
+-- ================================================================ T4: título y tamaño del documento (ADR 0006)
+-- Dora: usuaria nueva para no mezclar con los datos de las secciones anteriores.
+insert into auth.users (id, email, raw_user_meta_data) values ('77777777-7777-4777-8777-777777777777', 'dora@example.test', '{}');
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '77777777-7777-4777-8777-777777777777', true);
+
+insert into public.patterns (id, title, technique, kind, schema_version, document) values
+  ('dddddddd-0000-0000-0000-000000000001', 'Gorro', 'knit', 'chart', 1,
+   '{"schemaVersion":1,"title":"Gorro","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+
+do $$ begin
+  -- La columna title y document.title deben coincidir, en inserción y en actualización.
+  begin
+    insert into public.patterns (title, technique, kind, schema_version, document)
+    values ('Uno', 'knit', 'chart', 1, '{"schemaVersion":1,"title":"Otro","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    raise exception 'FALLO: title y document.title distintos deben rechazarse al insertar';
+  exception when check_violation then null; end;
+  begin
+    insert into public.patterns (title, technique, kind, schema_version, document)
+    values ('Sin título en el documento', 'knit', 'chart', 1, '{"schemaVersion":1,"kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
+    raise exception 'FALLO: un documento sin título debe rechazarse (NULL no puede pasar la restricción)';
+  exception when check_violation then null; end;
+  begin
+    update public.patterns set title = 'Gorro nuevo' where id = 'dddddddd-0000-0000-0000-000000000001';
+    raise exception 'FALLO: cambiar solo la columna title debe rechazarse';
+  exception when check_violation then null; end;
+  begin
+    update public.patterns set document = jsonb_set(document, '{title}', '"Gorro nuevo"') where id = 'dddddddd-0000-0000-0000-000000000001';
+    raise exception 'FALLO: cambiar solo document.title debe rechazarse';
+  exception when check_violation then null; end;
+  begin
+    update public.patterns set document = jsonb_set(document, '{title}', '123') where id = 'dddddddd-0000-0000-0000-000000000001';
+    raise exception 'FALLO: un título que no es texto debe rechazarse';
+  exception when check_violation then null; end;
+  -- Cambiar ambos a la vez es lo que hace la aplicación.
+  update public.patterns set title = 'Gorro nuevo', document = jsonb_set(document, '{title}', '"Gorro nuevo"') where id = 'dddddddd-0000-0000-0000-000000000001';
+  assert (select title from public.patterns where id = 'dddddddd-0000-0000-0000-000000000001') = 'Gorro nuevo', 'título actualizado en ambos';
+  raise notice 'ok - title y document.title deben coincidir (inserción y actualización)';
+end $$;
+
+-- Peor documento válido de la interfaz: 200 x 200 celdas con 32 lanas (todas con nota), repeticiones
+-- máximas (500 x 500), título, id, 50 notas de 2000 caracteres y notas de lana de 500. Se prueba con
+-- texto ASCII y, si la base es UTF8 (Supabase lo es), con caracteres de 4 bytes: el peor caso en bytes.
+-- Medido en 2026-11-06 (texto de jsonb, con espacios): ASCII 269 235 bytes y 4 bytes 617 595; en JSON compacto
+-- del cliente, 228 573 y 576 933. Tope de la base: 1 000 000 bytes (margen de 1,6 veces).
+do $$
+declare
+  ch text;
+  worst jsonb;
+  t0 timestamptz;
+  ms numeric;
+  bytes integer;
+  pid uuid;
+  n integer := 0;
+begin
+  foreach ch in array array['a', case when current_setting('server_encoding') = 'UTF8' then chr(128512) else 'b' end] loop
+    n := n + 1;
+    pid := ('dddddddd-0000-0000-0000-00000000010' || n)::uuid;
+    worst := jsonb_build_object(
+      'schemaVersion', 1, 'id', repeat('i', 64), 'title', repeat(ch, 120), 'kind', 'chart', 'technique', 'knit',
+      'origin', jsonb_build_object('kind', 'manual'),
+      'gauge', jsonb_build_object('stitchesPer10cm', 22, 'rowsPer10cm', 30),
+      'yarns', (select jsonb_agg(jsonb_build_object('id', 'Y' || i, 'weight', 4,
+                   'composition', '[{"fiber":"lana","percent":50},{"fiber":"algodon","percent":50}]'::jsonb,
+                   'color', jsonb_build_object('hex', '#BA222C'), 'note', repeat(ch, 500)) order by i)
+                from generate_series(0, 31) i),
+      'notes', (select jsonb_agg(repeat(ch, 2000)) from generate_series(1, 50)),
+      'chart', jsonb_build_object('width', 200, 'height', 200, 'repeat', jsonb_build_object('x', 500, 'y', 500),
+                 'workedIn', 'rounds', 'renderAs', 'tube', 'direction', 'bottom_up',
+                 'cells', (select jsonb_agg((i * 7919) % 32 order by i) from generate_series(1, 40000) i)));
+    bytes := octet_length(worst::text);
+    t0 := clock_timestamp();
+    insert into public.patterns (id, title, technique, kind, schema_version, document)
+    values (pid, repeat(ch, 120), 'knit', 'chart', 1, worst);
+    ms := extract(epoch from clock_timestamp() - t0) * 1000;
+    assert bytes <= 1000000, format('el peor documento válido (%s bytes) cabe en el tope de 1 000 000', bytes);
+    assert (select pg_column_size(document) from public.patterns where id = pid) <= 2000000, 'cabe en patterns_document_size';
+    assert ms < 2000, format('insertar el peor documento tarda %s ms (tope 2000)', ms);
+    -- Se lee igual que se escribió, se versiona y se actualiza dentro de límites razonables.
+    assert (select document from public.patterns where id = pid) = worst, 'ida y vuelta sin pérdidas';
+    t0 := clock_timestamp();
+    assert public.snapshot_pattern(pid, 'peor caso') >= 1, 'snapshot del peor documento';
+    update public.patterns set document = jsonb_set(document, '{chart,cells,0}', '1') where id = pid;
+    ms := ms + extract(epoch from clock_timestamp() - t0) * 1000;
+    assert ms < 4000, format('insertar, versionar y actualizar el peor documento tarda %s ms', ms);
+    raise notice 'ok - peor documento % (% bytes de texto JSON) insertado, versionado y actualizado en % ms', n, bytes, round(ms);
+  end loop;
+end $$;
+
+-- Un documento por encima del tope se rechaza (check_violation), aunque comprimido pese poco.
+do $$
+begin
+  begin
+    insert into public.patterns (title, technique, kind, schema_version, document)
+    values ('Gigante', 'knit', 'chart', 1,
+      jsonb_build_object('schemaVersion', 1, 'title', 'Gigante', 'kind', 'chart', 'technique', 'knit',
+        'origin', jsonb_build_object('kind', 'manual'), 'yarns', '[]'::jsonb,
+        'notes', jsonb_build_array(repeat('a', 1000001))));
+    raise exception 'FALLO: un documento de más de 1 000 000 bytes debe rechazarse';
+  exception when check_violation then null; end;
+  assert (select count(*) from public.patterns where title = 'Gigante') = 0, 'el gigante no se guardó';
+  raise notice 'ok - un documento mayor que el tope de texto JSON se rechaza';
+end $$;
+
+-- Aislamiento: Ana no ve ni toca los diseños de Dora.
+select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
+do $$
+declare n integer;
+begin
+  assert not exists (select 1 from public.patterns where owner_id = '77777777-7777-4777-8777-777777777777'), 'Ana no ve los diseños de Dora';
+  update public.patterns set title = 'robado', document = jsonb_set(document, '{title}', '"robado"') where id = 'dddddddd-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  assert n = 0, 'Ana no actualiza el diseño de Dora';
+  delete from public.patterns where id = 'dddddddd-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  assert n = 0, 'Ana no borra el diseño de Dora';
+  begin
+    perform public.snapshot_pattern('dddddddd-0000-0000-0000-000000000001', 'ajena');
+    raise exception 'FALLO: Ana no puede versionar un diseño de Dora';
+  exception when sqlstate 'P0002' then null; end;
+  raise notice 'ok - los diseños de Dora (incluido el peor caso) son invisibles e intocables para Ana';
+end $$;
+reset role;
+delete from auth.users where id = '77777777-7777-4777-8777-777777777777';
+do $$ begin
+  assert not exists (select 1 from public.patterns where owner_id = '77777777-7777-4777-8777-777777777777'), 'los diseños se van con la cuenta';
+  assert not exists (select 1 from public.pattern_versions v where v.pattern_id::text like 'dddddddd-%'), 'las versiones se van con el diseño';
+end $$;
 
 -- Funciones de public ejecutables por anon o authenticated: SOLO las de la lista permitida.
 -- Una función nueva hereda EXECUTE de PUBLIC (valor global de PostgreSQL que no se revoca, ver

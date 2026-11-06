@@ -1,6 +1,6 @@
 # ADR 0006: Guardado de diseños del estudio
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido; [E11](#enmienda-e11-2026-11-06-revisión-de-t4): revisión de T4, tope de tamaño y patrones de IA)
 - Fecha: 2026-11-05
 - Paquetes: `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0003](0003-colorwork-en-esquema-v1.md), [docs/seguridad.md](../seguridad.md)
@@ -112,3 +112,48 @@ La decisión de fondo está en la [enmienda E10 del ADR 0003](0003-colorwork-en-
 - **`modo-tejiendo` (fase 3)** y **`ia-pipeline` (fase 5)**: exigen `valid`.
 - **`revisor-seguridad` (T15)**: revisa que ninguna acción que exige `valid` confíe en el cliente.
 - **Criterio CA-F7** del roadmap: actualizado con esta regla.
+
+## Enmienda E11 (2026-11-06): revisión de T4
+
+Revisión de `arquitecto` de `apps/web/src/app/disenos/actions.ts`, `apps/web/src/lib/designs/` (`prepare.ts`, `types.ts`, `messages.ts`) y `supabase/migrations/20261106100000_consistencia_titulo.sql`. **T4 coincide con este ADR y con E10.** Se aceptan sin cambios de código las precisiones de abajo, que pasan a ser parte del contrato.
+
+### Firmas (confirmadas)
+
+| Server Action | Firma | Resultado correcto |
+|---|---|---|
+| `createChartPattern` | `(input: Omit<NewChartInput, "id">)` | `{ ok, id, updatedAt, draft }` |
+| `savePattern` | `(id, document: unknown, expectedUpdatedAt: string)` | `{ ok, updatedAt, draft }` |
+| `savePatternVersion` | `(id, label?)`: etiqueta recortada a 80 puntos de código | `{ ok, version }` |
+| `listPatterns` | `()`: hasta 200, sin leer el documento completo | `{ ok, designs }` |
+| `duplicatePattern` | `(id)` | `{ ok, id, updatedAt, draft }` |
+| `deletePattern` | `(id)` | `{ ok }` |
+
+- Todo fallo es `{ ok: false, code, error, issues?, currentUpdatedAt? }`, con `code` en `DesignErrorCode` y el texto en `messages.ts`. Nunca se devuelve el mensaje de Postgres.
+- Guardar decide por `savable` (validación **sin opciones**); `draft = !valid`. `NOT_SAVABLE` devuelve solo los errores estructurales.
+- `expectedUpdatedAt` se compara como texto exacto de PostgREST (microsegundos, sin pasar por `Date`). Sin fila actualizada: `NOT_FOUND` si no existe o no es propia, `CONFLICT` con `currentUpdatedAt` si otro guardó antes. Sobrescribir es volver a llamar con `currentUpdatedAt`: acción explícita de la interfaz.
+- `savePattern` rechaza un documento cuyo `id` no es el de la fila (`INVALID_REQUEST`).
+- `id`, `kind`, `technique`, `origin` y `visibility` los fija el servidor al crear; al guardar solo se escriben `title`, `schema_version` y `document`.
+
+### Título: una sola fuente
+
+`patterns.title = document.title` es **obligatorio**: la restricción `patterns_document_consistent` exige `coalesce(document ->> 'title' = title, false)`, así que un documento sin título no pasa. La columna es una copia para listar e indexar; el servidor la toma siempre de `document.title` (`documentColumns`).
+
+### Tope de tamaño: 1 MB en la base y 750 KB en el servidor
+
+Reemplaza los "2 MB" de las secciones "Límites y tamaño" y "Contexto":
+
+- **Base**: restricción nueva `patterns_document_text_size`, `octet_length(document::text) <= 1.000.000`. La anterior (`pg_column_size <= 2.000.000`) se mantiene, pero no acota el tamaño real porque mide el valor comprimido.
+- **Servidor**: `MAX_DOCUMENT_BYTES = 750.000` bytes del JSON compacto, antes de migrar y validar (`TOO_LARGE`). El texto de `jsonb` agrega un espacio después de `:` y `,`, así que mide más que el JSON compacto; el margen hace que el servidor corte antes que la base y dé un error claro.
+- **Peor documento medido**: 576.933 bytes de JSON compacto del cliente (lo que acota `MAX_DOCUMENT_BYTES`) y 617.595 bytes de texto de jsonb en la base (lo que acota `patterns_document_text_size`), ambos con caracteres de 4 bytes; con ASCII, 228.573 y 269.235. Son dos medidas del mismo documento, rotuladas así en `prepare.ts`, el roadmap y el check. Cabe con margen en los dos topes y en el límite por defecto del cuerpo de las Server Actions (1 MB).
+- **Riesgo cerrado (2026-11-06)**: antes el validador aceptaba claves desconocidas y un documento armado a mano podía pasar los 750 KB del servidor y superar el 1 MB de la base. Con el documento cerrado (ADR 0003, E16) esas claves son `UNKNOWN_KEY` (estructural) y el documento no se envía; el peor documento válido mide 617.595 bytes de texto jsonb, bajo el tope de la base.
+
+### Patrones generados con IA
+
+- **Renombrar un patrón de IA lo marca `ai_edited`.** Como el título vive en el documento, renombrar es editar el documento, y el disparador `patterns_guard_origin` (M1) cambia `origin` y `document.origin.kind` a `ai_edited`, conservando el modelo. Es coherente con la regla de oro 4: lo que la IA generó y la usuaria tocó queda como "generado con IA y editado". Verificado en `supabase/checks/10_rls_check.sql`.
+- **Duplicar un patrón de IA devuelve `AI_DUPLICATE_UNSUPPORTED` hasta la fase 5.** La copia tendría que conservar la etiqueta, y solo el servidor con `service_role` puede crear filas con `origin ≠ 'manual'`. Crear la copia como `manual` borraría la etiqueta (prohibido por la regla de oro 4). En la fase 5, `ia-pipeline` con `backend-supabase` agregan la duplicación por el servidor: la copia queda `ai_edited` con los metadatos de origen del original (modelo y versión de prompt).
+- La interfaz (T8) muestra el mensaje de `AI_DUPLICATE_UNSUPPORTED` y no ofrece "Duplicar" en los diseños de IA, o lo ofrece deshabilitado con la explicación.
+
+### Cambios requeridos
+
+- ~~`backend-supabase` (baja): unificar la cifra del peor documento~~ Hecho (T15-O1): cada cifra dice qué mide.
+- **`backend-supabase`**: aplicar `20261106100000_consistencia_titulo.sql` en el proyecto real (pendiente, como indica T4).

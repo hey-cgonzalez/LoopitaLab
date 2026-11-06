@@ -1,6 +1,6 @@
 # ADR 0004: Render 2D de puntos y presupuesto de 100 ms
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-05)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E1 a E8](#enmiendas-tras-t5-y-t6-2026-11-06): contrato tal como quedó implementado en T5 y T6)
 - Fecha: 2026-11-05
 - Paquete: `packages/stitch-render` (nuevo)
 - Relacionado: [ADR 0003](0003-colorwork-en-esquema-v1.md), [ADR 0005](0005-geometria-circulo-y-disminuciones.md)
@@ -211,3 +211,76 @@ El estado sigue aceptado. La arquitectura de render y el presupuesto de 100 ms n
 - **`top_down`**: la pieza se dibuja rotada 180° (`(x, y) → (W − 1 − x, H − 1 − y)`), no espejada en vertical. La correspondencia viene de `wornOrientation` de `pattern-core`.
 - **Aproximaciones visibles**: los huecos de `NO_STITCH` en plano y tubo, el color del punto tras una disminución, y los orillos y el *jog* que no se dibujan.
 - **Círculo**: el sentido de giro y la orientación de la V se corrigieron en el ADR 0005.
+
+## Enmiendas tras T5 y T6 (2026-11-06)
+
+Revisión de `arquitecto` del paquete tal como lo entregó `render-puntos` (`packages/stitch-render`, README, `src/types.ts`, `src/index.ts`). Todas las desviaciones se **aceptan**; ninguna obliga a cambiar código. Las precisiones de abajo reemplazan lo que contradicen en las secciones anteriores. El detalle de la geometría y del backend está en el [README del paquete](../../packages/stitch-render/README.md).
+
+### E1. Cantidad de instancias: una por casilla en plano y tubo
+
+- **Plano y tubo**: `count = ancho × alto` del gráfico completo. Las casillas `NO_STITCH` existen como instancia con `yarn = HIDDEN` (255) y no se dibujan.
+- **Círculo**: `count = stitchTotal(chart)` (solo los puntos que existen, ADR 0005).
+- **Por qué**: así pintar o quitar "sin punto" en plano y tubo es solo `colorize`, como ya pedía la sección "Capa 1"; con una instancia por punto habría que recalcular la geometría en cada trazo de "sin punto".
+- **Propiedad que reemplaza "`count` es igual a `stitchTotal(chart)`"** (Consecuencias): en todas las formas, la cantidad de instancias con `yarn ≠ HIDDEN` es igual a `stitchTotal(chart)`. `visibleCount(layout)` cuenta además solo las de frente (`shade > 0`): en el tubo es menor que `stitchTotal`, porque la cara trasera no se dibuja (E3).
+- **Regla para la interfaz (CA-F2)**: los totales y conteos que se muestran salen de `pattern-core` (`stitchTotal`, `rowStitchCounts`, `shaping`), nunca de `count`, `visibleCount` ni de `layout.geometry` (`perRepeat`, `rowStart`). Esos datos son del render.
+- **Límite**: `MAX_LAYOUT_INSTANCES = 1.000.000`. `layoutGeometry` lanza `RangeError` por encima. La interfaz **debe** llamar a `layoutInstanceCount(chart, { shape })` antes de construir la disposición y, si pasa el tope, no dibujar la vista previa y explicarlo. El tope es alcanzable con documentos válidos: `LIMITS.maxRepeat` es 500 por eje, y un motivo de 200 × 200 lo pasa con más de 25 repeticiones en total (por ejemplo, 6 × 5). El estudio prueba ese caso (T10). El tope no se convierte en regla del validador: es un límite del render, no del tejido. El presupuesto de 100 ms se garantiza hasta 40.000 instancias (el escenario medido); entre 40.000 y el tope la vista previa funciona, pero el estudio no promete respuesta instantánea y lo indica.
+- `layoutGeometry` lanza `TypeError` o `RangeError` con un gráfico mal formado o una muestra ≤ 0; nunca con un documento `savable` dentro del tope (ADR 0006, E10).
+
+### E2. Tipos y métodos adicionales
+
+- `StitchLayout.geometry: LayoutGeometry` se agrega. Son datos del render (`hitTest`, `colorize`, `needsRelayout`, backend). `apps/web` no los lee.
+- `StitchRenderer` agrega:
+  - `resize(cssWidth, cssHeight, devicePixelRatio?)`;
+  - `flush(): FrameInfo | null`, que dibuja de inmediato (pruebas y benchmark; el estudio usa `requestRender`);
+  - `getView(): ViewState`.
+- `invalidate` acepta `Uint32Array | readonly number[]`.
+- `createCanvasRenderer(canvas, opts?)` acepta `RendererOptions` (fondo, razón de píxeles, desactivar baldosas o búfer). `createRenderer(surface, opts)` trabaja sobre una `Surface` mínima, para probar el backend en Node sin DOM. WebGL2, si llega, implementa la misma `StitchRenderer`.
+
+### E3. Tubo: la cara trasera no se dibuja
+
+En vez de atenuarla, la cara trasera tiene `shade = 0` y no se dibuja; la de frente lleva `shade = 0,55 + 0,45 cos φ`. Es más parecido a mirar una prenda real y ahorra la mitad del dibujo. `hitTest` solo responde en la cara visible. La rotación (`tubeRotation`) muestra la otra cara.
+
+### E4. Aspecto de la lana neutro por defecto
+
+`yarnLook(yarn, fibers, { fiberEffects?: boolean })`: sin la opción, el aspecto es neutro (halo, brillo y definición en 0), como pedía la fase 2. `fiberEffects: true` adelanta la derivación por fibra; la fase 3 decide los valores con `catalogo-lanas` y la activa. `neutralLook(hex)` da el aspecto neutro de un color suelto (por ejemplo, para la vista previa al pasar el cursor).
+
+### E5. API pura adicional
+
+Se aceptan, todas puras y probadas con `node:test`:
+
+| Módulo | Funciones | Uso previsto |
+|---|---|---|
+| `layout.ts` | `needsRelayout`, `layoutShape`, `layoutInstanceCount`, `visibleCount` | Estudio: decidir entre `colorize` y recalcular; avisar antes del tope |
+| `view.ts` | `fitView`, `zoomAt`, `panBy`, `screenToLayout`, `layoutToScreen`, `MIN_ZOOM`, `MAX_ZOOM` | Estudio: zoom, desplazamiento y puntero |
+| `regions.ts` | `instanceBounds`, `buildGrid`, `queryGrid`, `queryGridRects`, `dirtyRegions`, `deviceBox`, `tilePlan`, `tileRect`, `tileClass`, `tileRepresentative` | **Internas del backend.** Se exportan para las pruebas y el benchmark |
+| `canvas.ts` | constantes `LOD_MIN_PX`, `MAX_TILE_PX`, `QUAD_CHUNK`, `ROTATED_SPRITE_BUDGET`, `SETTLE_MS`, `SHADE_LEVELS`; `paintSprite`, `drawInstances` | Internas del backend |
+
+**Contrato estable para `apps/web`**: las funciones de `layout.ts`, `look.ts` y `view.ts`, `createCanvasRenderer`, los tipos de `types.ts` y `HIDDEN`, `MAX_LAYOUT_INSTANCES`. Lo marcado como interno puede cambiar sin enmienda. Si el estudio (T10) llega a importar algo interno, se mueve a un subpath `@loopitalab/stitch-render/internal` o se promueve aquí; hoy solo lo usa la página de benchmark (`apps/web/src/app/dev/`).
+
+### E6. Optimizaciones del backend Canvas 2D
+
+Se aceptan como detalle de implementación, sin cambio de contrato:
+
+- **Baldosas** en plano y tubo con repeticiones: se dibuja una baldosa por clase (a lo más 9) y la pieza se compone copiándolas.
+- **Búfer de la pieza** si cabe en `MAX_TILE_PX` (2048 px por lado).
+- **Círculo**: sobre `ROTATED_SPRITE_BUDGET` (15.000) puntos visibles se omite la V y se dibuja solo el color; con menos de `LOD_MIN_PX` (3 px) por punto, lo mismo en todas las formas. Es un nivel de detalle, no un cambio de datos.
+- **Zoom**: copia escalada durante el gesto y redibujo nítido `SETTLE_MS` (120 ms) después.
+- Corrige la sección "Implementación de Canvas 2D": en el tubo **no** se usa `setTransform` por instancia (la compresión es el ancho de destino del `drawImage`); solo en el círculo.
+
+Riesgo aceptado: en un círculo grande sin zoom la V no se ve. La interfaz no lo anuncia (la vista sigue siendo una aproximación, regla de oro 8); si las tejedoras lo notan, se reconsidera con WebGL2.
+
+### E7. Rendimiento medido y criterio de WebGL2
+
+Medición de `render-puntos` (Chromium sin interfaz, CPU limitada ×4, escenarios de la sección "Cómo se mide"):
+
+- peor p95 de `edit-to-paint`: **87,8 ms** (círculo, cambio de repeticiones; CA-P3);
+- zoom y desplazamiento: **≥ 48,5 fps** (CA-P4).
+
+Ningún escenario supera 100 ms ni baja de 30 fps: **el criterio para pasar a WebGL2 no se activó** y Canvas 2D sigue siendo el único backend. El margen del círculo es corto (12 ms): T10 vuelve a medir con el estudio real (almacén, React, paneles), y si el p95 pasa de 100 ms se activa el criterio con una nueva enmienda.
+
+**Pendiente: CA-P6**, la medición manual en el equipo de referencia (4 núcleos, 8 GB, GPU integrada, Chrome estable). Se adjunta al PR de cierre de la fase 2; sin ella la fase no se cierra.
+
+### E8. Lo que `stitch-render` no hace
+
+- **No avisa del rango de repeticiones del círculo.** El aviso es `CHART_CIRCLE_REPEATS` del validador (información fuera de 4 a 12, ADR 0005). Cualquier mención a "5 a 10" está superada.
+- **Limitaciones visibles** (pedido de `experto-tejido`, 2026-11-06): la vista previa no dibuja orillos ni el desfase de vuelta (*jog*), el punto tras una disminución toma el color de la fila `y`, y el canesú (`yoke`) se dibuja como tubo. La interfaz las dice junto a la vista previa, además del aviso de prototipo y de los huecos de "sin punto" (CA-F10, CA-F13). Lo implementa `frontend-editor` en T9 con los textos de `documentador` (T12); `stitch-render` no cambia.

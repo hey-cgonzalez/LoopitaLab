@@ -1,4 +1,5 @@
 export * from "./types.ts";
+export * from "./letters.ts";
 export * from "./stitches.ts";
 export * from "./written.ts";
 export * from "./chart.ts";

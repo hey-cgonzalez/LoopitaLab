@@ -13,6 +13,8 @@
   },
   "dependencies": {
     "@loopitalab/pattern-core": "workspace:*",
+    "@loopitalab/pattern-render": "workspace:*",
+    "@loopitalab/stitch-render": "workspace:*",
     "@loopitalab/yarn-catalog": "workspace:*",
     "@supabase/ssr": ">=0.6.1 <1.0.0",
     "@supabase/supabase-js": "^2.57.0",

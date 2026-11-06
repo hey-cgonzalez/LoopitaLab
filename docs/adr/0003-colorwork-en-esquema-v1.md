@@ -524,6 +524,22 @@ Aprobado por el orquestador. Regla de oro 3: una salida de IA con campos de text
 4. `formatPart` escribe nombre y cierre en una sola línea (un salto de línea pasa a espacio), para que el texto no se reinterprete como otra vuelta al volver a leerlo.
 5. Solo `title` tiene restricción en la base (`char_length` 1..120). Los demás topes viven dentro de `document` (jsonb) y los impone el validador en el servidor al guardar (T4); no hace falta replicarlos en columnas.
 
+### E16. Documento cerrado y sin caracteres de control (T15 M1 y QA F1, 2026-11-06)
+
+Aprobado por el orquestador a partir de la revisión de seguridad T15 y de QA de T4:
+
+1. **Documento cerrado.** `validatePattern` rechaza como error estructural (`UNKNOWN_KEY`, con la ruta) toda clave que el modelo no define, en la raíz, `chart`, `chart.repeat`, `chart.gauge`, `yarns[i]`, `yarns[i].color`, `composition[k]`, `origin`, `parts[i]`, `rounds[j]`, ítems y demás objetos del esquema v1. Motivo: con el documento abierto, el cliente podía guardar hasta 750 KB de datos arbitrarios (por ejemplo una marca en una lana, contra la regla de oro 9) que saldrían públicos al compartir, y PostgREST permite escribir sin pasar por las Server Actions. Una versión futura del esquema que agregue campos los declara y `migratePattern` los acepta desde esa versión.
+2. **Sin caracteres de control.** Los textos del documento no admiten `U+0000` (Postgres lo rechaza en jsonb con 22P05) ni otros caracteres de control `\p{Cc}`, salvo salto de línea y tabulación en notas, cierre, armado y nota de lana. Error estructural `TEXT_CONTROL_CHAR` con la ruta.
+3. Ambos son estructurales: el autoguardado no los envía y la interfaz debe impedirlos al escribir (T9).
+
+### E17. Detalles de E16 y letras de lana (2026-11-06)
+
+Aprobado por el orquestador al integrar la implementación:
+
+1. `UNKNOWN_KEY` informa hasta 20 claves por documento. `TEXT_CONTROL_CHAR` cubre también los sustitutos UTF-16 sueltos (`data.surrogate: true`). Admiten `\n` y `\t`: notas, armado, cierre, nota de lana y nota de vuelta. `\r` no se admite en ningún campo: la interfaz normaliza `\r\n` a `\n` (T9).
+2. `yarnLetter(index)` se exporta desde `pattern-core` (`src/letters.ts`) y es la única regla de letras: A a Z y, desde la lana 27, AA, AB… (como columnas de planilla; antes era el número, que se confundía con la numeración de filas). La usan el validador, `pattern-render` y, desde T9, el editor. Por validar con `experto-tejido`.
+3. `pattern-render` publica `isNumberedRow` para que el editor (T9) numere las filas igual que el SVG cuando las casillas son chicas (fila 1, múltiplos de 5 y la última).
+
 ### Cambios que aplica `motor-patrones` (T2d)
 
 | # | Archivo | Cambio |

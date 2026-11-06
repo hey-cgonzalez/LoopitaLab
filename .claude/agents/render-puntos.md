@@ -14,7 +14,7 @@ Construyes la vista previa realista que convierte una cuadrícula en algo que pa
 - **Proporción**: el ancho y alto del punto salen de la muestra (puntos y filas en 10 cm); un punto no es cuadrado.
 - **Formas de render**:
   - Plano o tubo.
-  - Círculo: el gráfico en cuña se proyecta en sectores radiales (copa de gorro), con 5 a 10 repeticiones recomendadas. Avisar fuera de ese rango.
+  - Círculo: el gráfico en cuña se proyecta en sectores radiales (copa de gorro). El rango habitual es de 4 a 12 repeticiones; el aviso fuera de ese rango lo da `CHART_CIRCLE_REPEATS` del validador de `pattern-core`, no el render (ADR 0005).
   - Canesú (fase posterior): anillos con disminuciones.
 - Celdas fuera de forma (gráficos en cuña) no se dibujan.
 - La textura se ajusta a la composición: halo en mohair y alpaca, brillo en seda, viscosa, bambú y lurex, y punto más definido en algodón y acrílico. El grosor cambia el tamaño relativo del punto según la muestra.

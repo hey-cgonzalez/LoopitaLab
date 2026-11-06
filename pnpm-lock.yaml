@@ -20,6 +20,12 @@ importers:
       '@loopitalab/pattern-core':
         specifier: workspace:*
         version: link:../../packages/pattern-core
+      '@loopitalab/pattern-render':
+        specifier: workspace:*
+        version: link:../../packages/pattern-render
+      '@loopitalab/stitch-render':
+        specifier: workspace:*
+        version: link:../../packages/stitch-render
       '@loopitalab/yarn-catalog':
         specifier: workspace:*
         version: link:../../packages/yarn-catalog
@@ -70,6 +76,21 @@ importers:
   packages/ai-router: {}
 
   packages/pattern-core: {}
+
+  packages/pattern-render:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+
+  packages/stitch-render:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+      '@loopitalab/yarn-catalog':
+        specifier: workspace:*
+        version: link:../yarn-catalog
 
   packages/yarn-catalog: {}
 

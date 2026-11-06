@@ -644,10 +644,16 @@ describe("C8: validateYarn", () => {
 
   it("addYarn no lanza con una lana que structuredClone no puede copiar", () => {
     const base = doc(chartOf([[A]]), { yarns: [yarnA] });
-    const odd = { ...yarnB, note: "x", extra: () => 1 } as unknown as Yarn;
-    const out = addYarn(base, odd);
+    // Un Proxy solo con claves del modelo: structuredClone lanza y se copia un nivel.
+    const proxied = new Proxy({ ...yarnB, note: "x" }, {}) as Yarn;
+    const out = addYarn(base, proxied);
     assert.equal(out.yarns.length, 2);
-    assert.notEqual(out.yarns[1], odd);
+    assert.notEqual(out.yarns[1], proxied);
+    assert.equal(validatePattern(out).savable, true);
+    // Una clave fuera del modelo (aquí, una función) es error UNKNOWN_KEY (E16): no se agrega y no lanza.
+    const odd = { ...yarnB, note: "x", extra: () => 1 } as unknown as Yarn;
+    assert.deepEqual(validateYarn(odd).map((i) => [i.code, i.path]), [["UNKNOWN_KEY", "yarn.extra"]]);
+    assert.equal(addYarn(base, odd), base);
   });
 });
 

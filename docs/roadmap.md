@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-06, agente `arquitecto` (T2b y T2c hechas; enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-06, agente `arquitecto` (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -178,6 +178,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 
     Una dependencia de imagen, si hace falta, se justifica en el PR.
   - **Agentes del producto**: moderador, clasificador, asistente de paleta, descomponedor de forma y redactor. Toda salida pasa por `validatePattern` (regla de oro 3).
+  - **Duplicar un patrón de IA** por el servidor (`service_role`): la copia queda `ai_edited` con los metadatos de origen del original. Hasta entonces, `duplicatePattern` devuelve `AI_DUPLICATE_UNSUPPORTED` (ADR 0006, E11).
 - **Paquetes**: `ai-router`, `pattern-core`, `yarn-catalog`, `apps/web` (Route Handlers), `supabase/` (Edge Functions o servidor, Storage).
 - **Agentes**:
 
@@ -372,7 +373,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 | CA-P3 | Cambiar las repeticiones de 5 × 5 a 10 × 10 (20 veces): p95 < 100 ms |
 | CA-P4 | Zoom y desplazamiento: ≥ 30 fps |
 | CA-P5 | `layoutGeometry` con 40.000 puntos en Node: tiempo registrado en CI; falla si supera 3 veces la referencia |
-| CA-P6 | Medición manual en el equipo de referencia (4 núcleos, 8 GB, GPU integrada), adjunta al PR de cierre |
+| CA-P6 | Medición manual en el equipo de referencia (4 núcleos, 8 GB, GPU integrada), adjunta al PR de cierre. **Pendiente** (T6 midió en Chromium sin interfaz con CPU ×4: peor p95 87,8 ms, zoom ≥ 48,5 fps; ADR 0004, E7) |
 | CA-P7 | La validación nunca corre entre la edición y el dibujo (verificado en el perfil de rendimiento del PR) |
 
 **Funcionales**
@@ -437,7 +438,7 @@ Detalle en el [ADR 0003](adr/0003-colorwork-en-esquema-v1.md) y el [ADR 0005](ad
 
 | Paquete | Qué hace | Depende de | Contrato |
 |---|---|---|---|
-| `packages/stitch-render` | Vista previa realista. Tres capas: disposición (pura), aspecto de la lana (puro), backend (Canvas 2D primero) | `pattern-core`, `yarn-catalog`. Sin terceros | `layoutGeometry`, `colorize`, `hitTest`, `yarnLook`, `StitchRenderer`, `createCanvasRenderer` ([ADR 0004](adr/0004-render-de-puntos-2d.md)) |
+| `packages/stitch-render` | Vista previa realista. Tres capas: disposición (pura), aspecto de la lana (puro), backend (Canvas 2D primero) | `pattern-core`, `yarn-catalog`. Sin terceros | `layoutGeometry`, `colorize`, `hitTest`, `needsRelayout`, `layoutInstanceCount`, `yarnLook`, funciones de vista, `StitchRenderer`, `createCanvasRenderer` ([ADR 0004](adr/0004-render-de-puntos-2d.md), contrato estable en la enmienda E5) |
 | `packages/pattern-render` | Derivados estáticos: gráfico de símbolos en SVG y descripción textual. Más adelante, texto escrito y PDF | `pattern-core`. Sin terceros | Ver abajo |
 
 Contrato de `pattern-render`:
@@ -450,10 +451,27 @@ export interface ChartSvgOptions {
   symbols?: boolean;        // letra por lana (daltonismo)
   mirror?: boolean;         // preferencia mirror_knitting: solo la numeración y las flechas de lectura
 }
-export function chartToSvg(pattern: ChartPattern, opts?: ChartSvgOptions): string;
-/** Descripción en español para lectores de pantalla. */
-export function describeChart(pattern: ChartPattern): string;
+export interface DescribeOptions {
+  /** Nombre del color de la paleta propia. Lo pasa quien llama: pattern-render no depende de yarn-catalog. */
+  paletteName?(paletteId: string): string | undefined;
+}
+export const CHART_SVG_MAX_CELLS = 40_000; // casillas del gráfico completo que se dibujan como máximo
+export const DEFAULT_CELL_PX = 16;
+export const DESCRIBE_MAX_ISSUES = 3;     // avisos citados textualmente en la descripción
+export function chartToSvg(pattern: ChartPattern, opts?: ChartSvgOptions, describe?: DescribeOptions): string;
+/** Descripción en español, en texto plano, para lectores de pantalla. */
+export function describeChart(pattern: ChartPattern, opts?: DescribeOptions): string;
 ```
+
+**Revisión del contrato tras T7 (2026-11-06, `arquitecto`)**. Se aceptan las desviaciones de la implementación:
+
+- **`DescribeOptions`** como tercer parámetro de `chartToSvg` y segundo de `describeChart`. Se aceptan porque mantienen a `pattern-render` dependiendo solo de `pattern-core`: quien llama (la web) inyecta la búsqueda en la paleta de `yarn-catalog`. Se separa de `ChartSvgOptions` porque es contenido de la descripción, no presentación del gráfico.
+- **Gráfico completo, o solo el motivo** si el gráfico completo pasa de `CHART_SVG_MAX_CELLS` (40.000) casillas, con el rótulo visible "Motivo: se repite N × M veces" y `data-view="full" | "motif"`. El tope coincide con el escenario de 40.000 puntos del ADR 0004 y protege del caso de `LIMITS.maxRepeat` (500 por eje).
+- Las dos funciones aceptan todo documento `savable`, nunca lanzan y no dibujan un documento con errores estructurales.
+- **Letra de la lana**: `yarnLetter` hoy está copiada en `pattern-render/src/xml.ts` desde `yarnLabel` del validador. Es terminología del dominio (la usan el validador, el SVG, la cuadrícula del editor por CA-A2 y, en la fase 3, `follow`), así que **se exporta desde `pattern-core`** como `yarnLetter(index: number): string` (A–Z; desde la 27, su número). `yarnLabel` del validador y `pattern-render` la usan, y se borra la copia. Tarea T7b.
+- **Pedidos de `experto-tejido`** (2026-11-06), tarea T7b:
+  - con el motivo solo, ida y vuelta, alto del motivo impar y `repeat.y > 1`, el rótulo agrega que la numeración es la de la primera repetición y que el derecho y el revés de cada fila del motivo se alternan entre repeticiones;
+  - con casillas chicas (por debajo de una constante con nombre, propuesta 12 px), se numeran solo la fila 1, los múltiplos de 5 y la última; con casillas grandes, todas. La flecha de lectura acompaña a cada número que se dibuja.
 
 Los dos paquetes siguen la convención del núcleo:
 
@@ -514,15 +532,15 @@ Hay **una migración menor recomendada**: agregar `document ->> 'title' = title`
 
 `backend-supabase` también verifica que el peor documento de la interfaz quepa:
 
-- en el límite de 2 MB de `patterns`;
+- en el tope de 1.000.000 bytes del texto del documento en `patterns` (`patterns_document_text_size`) y en los 750.000 bytes que acepta el servidor (ADR 0006, E11);
 - en el límite del cuerpo de las Server Actions.
 
 ### Riesgos
 
 | ID | Riesgo | Mitigación |
 |---|---|---|
-| R1 | El círculo y el tubo con Canvas 2D (una transformación por punto) no cumplen 100 ms | Interfaz de backend reemplazable. Pasar a WebGL2 según el criterio del ADR 0004. Medir temprano (tarea T6) |
-| R2 | Documentos grandes superan 2 MB en la base o el límite de las Server Actions | Límite de 200 × 200 en la interfaz. Prueba del peor caso (T4). Codificación compacta como plan B (ADR 0003) |
+| R1 | El círculo y el tubo con Canvas 2D (una transformación por punto) no cumplen 100 ms | Interfaz de backend reemplazable. Pasar a WebGL2 según el criterio del ADR 0004. T6 midió el peor p95 en 87,8 ms (círculo, repeticiones): el criterio no se activó, pero el margen es corto. T10 vuelve a medir con el estudio real y CA-P6 en el equipo de referencia (ADR 0004, E7) |
+| R2 | Documentos grandes superan el tope de la base (1 MB de texto) o el límite de las Server Actions | Límite de 200 × 200 en la interfaz. Prueba del peor caso (T4: cabe con margen; tope de 750 KB en el servidor, ADR 0006, E11). Codificación compacta como plan B (ADR 0003) |
 | R3 | Paquetes en TypeScript sin compilar, con imports `.ts` e imports JSON con atributos (`yarn-catalog`), en Next 16 y Turbopack | Prueba de concepto al inicio de T8. `pattern-core` ya funciona con `transpilePackages`; falta probar `yarn-catalog` |
 | R4 | Lo marcado "validar con tejedora" no coincide con lo que esperan las tejedoras reales: sentido de giro en el círculo, proporción 1,35 en colorwork, rango de repeticiones, ancho mínimo de cuña, umbrales de `ringDistortion`, terminología | `experto-tejido` ya revisó las reglas (T1). T1b valida con tejedoras antes de cerrar la fase. Los valores viven en constantes con nombre, para cambiarlos sin rediseñar |
 | R5 | Las usuarias esperan ver el tipo de disminución ("2 juntos al derecho", "inclinada a la izquierda") en la coronilla | Limitación visible en la interfaz y en la ayuda. Capa de símbolos en un ADR futuro |
@@ -547,16 +565,17 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 | T3b | B | Generador de datos de referencia: escribir una migración nueva e idempotente en vez de sobrescribir la ya aplicada; ajustar `reference-sql.test.ts`; aplicar los alias limpios de T3. **Hecha 2026-11-06** (`20261106035603_datos_referencia_v2.sql`; falta aplicarla en el proyecto real) | `backend-supabase` | Media (sonnet) | T3 |
 | T3c | B | Perfil: columna `profiles.mirror_knitting boolean not null default false`, con permiso de UPDATE por columna y verificación en `10_rls_check.sql`. Interruptor "Tejer en espejo" en `/cuenta`. **Hecha 2026-11-06** (`20261106035525_tejer_en_espejo.sql`) | `backend-supabase` (migración) y `frontend-editor` (interruptor) | Media (sonnet) / Baja (haiku) | T0 |
 | T3d | B | `packages/ai-router` como paquete del workspace: `package.json`, `router.config.ts` a `src/` (así entra en `tsc -p tsconfig.json`), corrección de `model: MODEL_LADDER[capped]` (con `noUncheckedIndexedAccess` es `ModelId \| undefined`) y pruebas de `selectModel`. Actualizar `pnpm-lock.yaml`, porque la CI instala con `--frozen-lockfile`. **Hecha 2026-11-06** | `ia-pipeline` | Baja (haiku) | — |
-| T4 | B | Migración de consistencia del título, verificación en `10_rls_check.sql`, prueba del peor tamaño de documento. Capa de datos y Server Actions: crear, guardar con `expectedUpdatedAt`, guardar versión, listar, duplicar y borrar. Guardar decide por `savable`, no por `valid` (ADR 0006, E10) | `backend-supabase` | Media (sonnet) | T0, T2d |
-| T5 | C | `stitch-render`: disposición (plano, tubo, círculo; `top_down` como rotación de 180°; sentido de giro según la dirección; V abierta hacia donde crece la labor) y `yarnLook` neutro, con pruebas de propiedades (casos 5, 26 y 27) y la guardia de rendimiento en Node | `render-puntos` | Alta (opus) | T2 |
-| T6 | C | `stitch-render`: backend Canvas 2D, redibujo incremental, `hitTest`, `snapshot` y página de benchmark | `render-puntos` | Alta (opus) | T5 |
-| T7 | C | `pattern-render`: `chartToSvg` (numeración según el caso 25) y `describeChart`, con pruebas | `motor-patrones` | Media (sonnet) | T2 |
+| T4 | B | Migración de consistencia del título, verificación en `10_rls_check.sql`, prueba del peor tamaño de documento. Capa de datos y Server Actions: crear, guardar con `expectedUpdatedAt`, guardar versión, listar, duplicar y borrar. Guardar decide por `savable`, no por `valid` (ADR 0006, E10). **Hecha 2026-11-06** (`20261106100000_consistencia_titulo.sql`, `apps/web/src/app/disenos/actions.ts`, `apps/web/src/lib/designs/`; peor documento medido: 617 595 bytes de texto de jsonb en la base (269 235 con ASCII) y 576 933 de JSON compacto del cliente (228 573 con ASCII); tope 1 000 000 en la base y 750 000 en el servidor; migración pendiente en el proyecto real; correcciones de la revisión T15 en `20261106110000_publicar_y_cuotas.sql`) | `backend-supabase` | Media (sonnet) | T0, T2d |
+| T5 | C | `stitch-render`: disposición (plano, tubo, círculo; `top_down` como rotación de 180°; sentido de giro según la dirección; V abierta hacia donde crece la labor) y `yarnLook` neutro, con pruebas de propiedades (casos 5, 26 y 27) y la guardia de rendimiento en Node. **Hecha 2026-11-06** (desviaciones de contrato aceptadas en el [ADR 0004, E1 a E5 y E8](adr/0004-render-de-puntos-2d.md#enmiendas-tras-t5-y-t6-2026-11-06): una instancia por casilla en plano y tubo, `geometry`, tope de 1.000.000 de instancias, aspecto neutro con `fiberEffects` opcional) | `render-puntos` | Alta (opus) | T2 |
+| T6 | C | `stitch-render`: backend Canvas 2D, redibujo incremental, `hitTest`, `snapshot` y página de benchmark. **Hecha 2026-11-06** (ADR 0004, E2, E3, E6 y E7: peor p95 87,8 ms, zoom ≥ 48,5 fps, sin WebGL2; **CA-P6 pendiente**) | `render-puntos` | Alta (opus) | T5 |
+| T7 | C | `pattern-render`: `chartToSvg` (numeración según el caso 25) y `describeChart`, con pruebas. **Hecha 2026-11-06** (`DescribeOptions`, `CHART_SVG_MAX_CELLS` y motivo solo aceptados en el [contrato de `pattern-render`](#paquetes-nuevos-y-su-contrato)) | `motor-patrones` | Media (sonnet) | T2 |
+| T7b | C | `pattern-core`: exportar `yarnLetter(index)` y usarla en `yarnLabel`; `pattern-render`: usarla y borrar la copia de `xml.ts`. Pedidos de `experto-tejido`: rótulo de numeración alternada con el motivo solo (ida y vuelta, alto impar, `repeat.y > 1`) y numerar solo la fila 1, los múltiplos de 5 y la última con casillas chicas (constante con nombre). Pruebas y README. Antes de T9, que usa la letra en la cuadrícula | `motor-patrones` | Baja (haiku) | T7 |
 | T8a | C | Web: agregar `@loopitalab/yarn-catalog` (y luego `stitch-render` y `pattern-render`) a `transpilePackages` en `next.config.ts` y a las dependencias de `apps/web`. Prueba de concepto de que los imports JSON con atributos (`with { type: "json" }`) compilan en Next 16. **Hecha 2026-11-06** | `frontend-editor` | Baja (haiku) | — |
 | T8 | C | Web: almacén del documento con historial para deshacer, autoguardado (envía si `savable`; estado "guardado como borrador" si no es `valid`; título y muestra solo se escriben en el documento cuando son válidos, ADR 0006, E10), rutas `/disenos` y `/disenos/nuevo` | `frontend-editor` | Media (sonnet) | T2d, T4, T8a |
-| T9 | D | Web: editor de motivo en canvas (herramientas, teclado, numeración, letras por lana) y paneles (repeticiones, forma, dirección, muestra, lanas mínimas, validación, aviso de prototipo) | `frontend-editor` | Media (sonnet) | T7, T8 |
-| T10 | D | Integrar la vista previa en el estudio. Instrumentación `edit-to-paint`. Cumplir CA-P1 a CA-P4 y CA-P7 | `render-puntos` con `frontend-editor` | Alta (opus) | T6, T9 |
+| T9 | D | Web: editor de motivo en canvas (herramientas, teclado, numeración, letras por lana) y paneles (repeticiones, forma, dirección, muestra, lanas mínimas, validación, aviso de prototipo). Junto a la vista previa, las limitaciones del render (ADR 0004, E8): orillos y *jog* sin dibujar, color tras una disminución, canesú dibujado como tubo, huecos de "sin punto" en plano y tubo. Letras por lana con `yarnLetter` de `pattern-core`. "Duplicar" no disponible en diseños de IA (ADR 0006, E11) | `frontend-editor` | Media (sonnet) | T7b, T8 |
+| T10 | D | Integrar la vista previa en el estudio. Instrumentación `edit-to-paint`. Cumplir CA-P1 a CA-P4 y CA-P7. Consultar `layoutInstanceCount` antes de `layoutGeometry` (tope de 1.000.000; sobre 40.000 instancias, aviso de que la respuesta no es instantánea). Usar solo el contrato estable de `stitch-render` (ADR 0004, E5). Medir CA-P6 en el equipo de referencia | `render-puntos` con `frontend-editor` | Alta (opus) | T6, T9 |
 | T11 | D | Accesibilidad: teclado, lector de pantalla, daltonismo, tejido en espejo y tableta (CA-A1 a CA-A3) | `ux-accesibilidad` | Media (sonnet) | T9 |
-| T12 | D | Textos de la interfaz con la terminología del [glosario pendiente](#glosario-pendiente) (provisional hasta T1b): aviso de prototipo, ayuda del estudio, limitación de las disminuciones, huecos de "sin punto", muestra supuesta en punto jersey | `documentador` | Baja (haiku) | T1 |
+| T12 | D | Textos de la interfaz con la terminología del [glosario pendiente](#glosario-pendiente) (provisional hasta T1b): aviso de prototipo, ayuda del estudio, limitación de las disminuciones, huecos de "sin punto", muestra supuesta en punto jersey, limitaciones del render (orillos, *jog*, color tras una disminución, canesú como tubo; ADR 0004, E8) | `documentador` | Baja (haiku) | T1 |
 | T13 | B | Jobs de CI para `stitch-render`, `pattern-render` y `ai-router`, y el E2E de latencia con Playwright (coordinado con quien edita `ci.yml`). Vitest, Playwright y el lockfile ya están resueltos en esta rama | `devops` | Media (sonnet) | — |
 | T14 | E | QA: propiedades, los 27 casos de dominio (CA-F11), E2E funcional y de latencia. Revisión con opus de T2, T5, T6 y T10 (no se revisa con un modelo inferior cuando la complejidad es alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10, T11, T13 |
 | T15 | E | Revisión de seguridad: Server Actions de guardado (validación en el servidor, tamaño, concurrencia, RLS) y las migraciones (título, `mirror_knitting`, datos de referencia) | `revisor-seguridad` | Media (sonnet) | T3b, T3c, T4, T8 |
