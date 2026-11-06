@@ -23,10 +23,10 @@ import { vi } from "vitest";
 export const CONSISTENCY_RULES: { sql: string; ok: (r: Row) => boolean }[] = [
   { sql: "jsonb_typeof(document) = 'object'", ok: (r) => typeof r.document === "object" && r.document !== null && !Array.isArray(r.document) },
   { sql: "jsonb_typeof(document -> 'yarns') = 'array'", ok: (r) => Array.isArray(r.document.yarns) },
-  { sql: "document ->> 'kind' = kind", ok: (r) => typeof r.document.kind === "string" && r.document.kind === r.kind },
-  { sql: "document ->> 'technique' = technique", ok: (r) => typeof r.document.technique === "string" && r.document.technique === r.technique },
-  { sql: "(document ->> 'schemaVersion')::smallint = schema_version", ok: (r) => Number(r.document.schemaVersion) === r.schema_version },
-  { sql: "document -> 'origin' ->> 'kind' = origin", ok: (r) => (r.document.origin as { kind?: unknown } | undefined)?.kind === r.origin },
+  { sql: "coalesce(document ->> 'kind' = kind, false)", ok: (r) => typeof r.document.kind === "string" && r.document.kind === r.kind },
+  { sql: "coalesce(document ->> 'technique' = technique, false)", ok: (r) => typeof r.document.technique === "string" && r.document.technique === r.technique },
+  { sql: "coalesce((document ->> 'schemaVersion')::smallint = schema_version, false)", ok: (r) => Number(r.document.schemaVersion) === r.schema_version },
+  { sql: "coalesce(document -> 'origin' ->> 'kind' = origin, false)", ok: (r) => (r.document.origin as { kind?: unknown } | undefined)?.kind === r.origin },
   { sql: "jsonb_typeof(document -> 'title') = 'string'", ok: (r) => typeof r.document.title === "string" },
   { sql: "coalesce(document ->> 'title' = title, false)", ok: (r) => typeof r.document.title === "string" && r.document.title === r.title },
 ];
