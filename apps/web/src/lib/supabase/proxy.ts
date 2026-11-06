@@ -3,7 +3,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { supabaseEnv } from "@/lib/env";
 
 /** Rutas que requieren sesión. */
-const PROTECTED = ["/proyectos", "/cuenta", "/nueva-clave"];
+const PROTECTED = ["/proyectos", "/disenos", "/cuenta", "/nueva-clave"];
 /** Rutas de acceso: con sesión iniciada no tiene sentido verlas. */
 const AUTH_PAGES = ["/ingresar", "/registro"];
 

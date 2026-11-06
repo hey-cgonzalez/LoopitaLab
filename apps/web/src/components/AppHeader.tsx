@@ -12,6 +12,9 @@ export function AppHeader({ name }: { name: string }) {
           <Link href="/proyectos" className="underline-offset-4 hover:underline">
             Proyectos
           </Link>
+          <Link href="/disenos" className="underline-offset-4 hover:underline">
+            Mis diseños
+          </Link>
           <Link href="/cuenta" className="underline-offset-4 hover:underline">
             Cuenta
           </Link>
