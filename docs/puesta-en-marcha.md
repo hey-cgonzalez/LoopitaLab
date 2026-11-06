@@ -144,7 +144,10 @@ Abre http://localhost:3000, crea una cuenta, confirma el correo y crea un proyec
 | Pruebas del núcleo | `pnpm test` |
 | Tipos | `pnpm typecheck` |
 | RLS en un PostgreSQL local | aplicar `supabase/checks/00_stubs_supabase.sql`, luego las migraciones, y después `psql -f supabase/checks/10_rls_check.sql` |
+| E2E del estudio (Playwright) | la primera vez, `pnpm --filter @loopitalab/web exec playwright install chromium`; después, `pnpm --filter @loopitalab/web e2e` (o `e2e:ui` para el modo interactivo) |
 
-GitHub Actions (`.github/workflows/ci.yml`) corre las tres cosas en cada pull request: pruebas, tipos y build de la web, y migraciones con RLS en PostgreSQL 16.
+GitHub Actions (`.github/workflows/ci.yml`) corre todo esto en cada pull request: pruebas del núcleo, tipos y build de la web, migraciones con RLS en PostgreSQL 16 y las E2E del estudio en Chromium.
+
+Las E2E corren contra `/dev/estudio`, sin sesión ni Supabase. Levantan su propio servidor (`next build` y `next start` en el puerto 3100) con variables de ejemplo que reemplazan a las de `.env.local`. Cómo ver el reporte, las trazas y los artefactos de GitHub, y por qué se agregó Playwright: [`apps/web/e2e/README.md`](../apps/web/e2e/README.md).
 
 > **Estado al 2026-11-05:** el repositorio se movió a `hey-cgonzalez/LoopitaLab`. En la cuenta anterior la CI nunca corrió porque la facturación de GitHub estaba bloqueada ("Startup failure"). En el repositorio nuevo, revisar que Actions esté habilitado (Settings > Actions). Mientras tanto, el build de la web se verifica localmente con `pnpm install && pnpm typecheck && pnpm --filter @loopitalab/web build`.

@@ -122,7 +122,7 @@ Si `user_has_password` falla, eliminar la cuenta falla cerrado y `/nueva-clave` 
 | B3. Copiar contenido generado con IA | Pendiente | Revisión legal (titularidad y etiquetado de lo copiado) antes de ofrecerlo; hoy se rechaza (`AI_DUPLICATE_UNSUPPORTED`) | — |
 | B4. Guardar un diseño público | Pendiente (fase 7) | Publicar y guardar un diseño ya público exigen `valid` (hoy se guardan borradores con errores de tejido, E10) | — |
 | B5. El estudio debe capturar `RangeError` de `layoutGeometry` | Pendiente (T10) | Un documento extremo no debe romper la página | — |
-| B6. Acciones de CI sin fijar por SHA | Pendiente (T13) | Fijar `uses:` por SHA de commit | `.github/workflows/ci.yml` |
+| B6. Acciones de CI sin fijar por SHA | Corregido (T13, 2026-11-06) | Todas las `uses:` van fijadas por SHA de commit con la versión en un comentario: `actions/checkout` v4.4.0, `actions/setup-node` v4.4.0, `pnpm/action-setup` v4.3.0, `actions/cache` v4.3.0 y `actions/upload-artifact` v4.6.2. Son los mismos commits a los que apuntaba cada `@v4` (no cambia el comportamiento). El encabezado del workflow explica cómo obtener un SHA nuevo con `git ls-remote`. Pendiente aparte: evaluar el paso a las versiones mayores nuevas (checkout v7, setup-node v7, pnpm/action-setup v6, cache v6, upload-artifact v7) y activar Dependabot para `github-actions` | `.github/workflows/ci.yml` |
 | Total de versiones por usuaria | Pendiente | 200 versiones por diseño x 500 diseños x 1 MB es un techo alto; evaluar un tope total por usuaria en `snapshot_pattern` | — |
 
 ### Revisión del estudio web (T8 a T11, 2026-11-06)
