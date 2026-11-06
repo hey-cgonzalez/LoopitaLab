@@ -15,8 +15,12 @@ vi.mock("next/headers", () => ({
   cookies: async () => ({ get: (n: string) => (jar.has(n) ? { name: n, value: jar.get(n)! } : undefined), set: cookieSet, delete: cookieDelete }),
 }));
 
-const proof = { value: { userId: "u-1", sessionId: "sesion-b", passwordAuthAt: 1_800_000_000, amr: [] } as unknown };
+const proof = { value: { userId: "u-1", sessionId: "sesion-b", passwordAuthAt: 1_800_000_000, oauthAuthAt: null, amr: [] } as unknown };
 vi.mock("@/lib/recovery", () => ({ readSessionProof: async () => proof.value }));
+/** Resultado de public.user_has_password (lib/password-status.ts): true, false o null (error). */
+const withPassword = { value: true as boolean | null };
+const hasPassword = vi.fn(async (_admin: unknown, _userId: string) => withPassword.value);
+vi.mock("@/lib/password-status", () => ({ hasPassword }));
 
 const { issueReauthIntent, consumeReauthIntent, reauthCookieName } = await import("@/app/api/_lib/reauth");
 
@@ -30,14 +34,16 @@ beforeEach(() => {
   rpc.mockClear();
   cookieSet.mockClear();
   cookieDelete.mockClear();
-  proof.value = { userId: "u-1", sessionId: "sesion-b", passwordAuthAt: 1_800_000_000, amr: [] };
+  proof.value = { userId: "u-1", sessionId: "sesion-b", passwordAuthAt: 1_800_000_000, oauthAuthAt: null, amr: [] };
+  withPassword.value = true;
+  hasPassword.mockClear();
   rpcResult.value = { data: NONCE, error: null };
   vi.spyOn(console, "error").mockImplementation(() => undefined);
 });
 
 describe("issueReauthIntent", () => {
   it("registra usuaria, sesión y acción, y deja el nonce en una cookie httpOnly SameSite=Strict de 5 min", async () => {
-    proof.value = { userId: "u-1", sessionId: "sesion-a", passwordAuthAt: null, amr: [] };
+    proof.value = { userId: "u-1", sessionId: "sesion-a", passwordAuthAt: null, oauthAuthAt: null, amr: [] };
     expect(await issueReauthIntent(supabase, admin, "delete_account")).toBe("ok");
     expect(rpc).toHaveBeenCalledWith("begin_reauth", { p_owner: "u-1", p_session: "sesion-a", p_action: "delete_account" });
     const [name, value, opts] = cookieSet.mock.calls[0]!;
@@ -53,7 +59,7 @@ describe("issueReauthIntent", () => {
   });
 
   it("sin session_id en el token: error, sin intento ni cookie (falla cerrado)", async () => {
-    proof.value = { userId: "u-1", sessionId: null, passwordAuthAt: null, amr: [] };
+    proof.value = { userId: "u-1", sessionId: null, passwordAuthAt: null, oauthAuthAt: null, amr: [] };
     expect(await issueReauthIntent(supabase, admin, "delete_account")).toBe("error");
     expect(rpc).not.toHaveBeenCalled();
     expect(cookieSet).not.toHaveBeenCalled();
@@ -72,11 +78,82 @@ describe("consumeReauthIntent", () => {
     expect(rpc).not.toHaveBeenCalled();
   });
 
-  it("intento sin re-autenticación posterior (sin password en el token): no basta", async () => {
+  it("intento sin re-autenticación posterior (sin password ni oauth en el token): no basta", async () => {
     jar.set(reauthCookieName("delete_account"), NONCE);
-    proof.value = { userId: "u-1", sessionId: "sesion-a", passwordAuthAt: null, amr: [] };
+    proof.value = { userId: "u-1", sessionId: "sesion-a", passwordAuthAt: null, oauthAuthAt: null, amr: [] };
     expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(false);
     expect(jar.has(reauthCookieName("delete_account"))).toBe(false); // igual se gasta
+  });
+
+  it("cambiar contraseña con solo oauth: nunca vale, ni en cuentas sin contraseña, y no consulta la base", async () => {
+    for (const pw of [true, false]) {
+      withPassword.value = pw;
+      jar.set(reauthCookieName("change_password"), NONCE);
+      proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: null, oauthAuthAt: 1_800_000_100, amr: [] };
+      rpcResult.value = { data: true, error: null };
+      expect(await consumeReauthIntent(supabase, admin, "change_password")).toBe(false);
+      expect(jar.has(reauthCookieName("change_password"))).toBe(false);
+    }
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("cambiar contraseña: usa la hora del password aunque haya un oauth más reciente, sin consultar user_has_password", async () => {
+    jar.set(reauthCookieName("change_password"), NONCE);
+    proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: 1_800_000_000, oauthAuthAt: 1_800_000_100, amr: [] };
+    rpcResult.value = { data: true, error: null };
+    expect(await consumeReauthIntent(supabase, admin, "change_password")).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("consume_reauth", expect.objectContaining({ p_auth_time: new Date(1_800_000_000 * 1000).toISOString() }));
+    expect(hasPassword).not.toHaveBeenCalled();
+  });
+
+  it("eliminar cuenta CON contraseña y solo oauth: no vale y no consume en la base", async () => {
+    jar.set(reauthCookieName("delete_account"), NONCE);
+    withPassword.value = true;
+    proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: null, oauthAuthAt: 1_800_000_100, amr: [] };
+    rpcResult.value = { data: true, error: null };
+    expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(false);
+    expect(hasPassword).toHaveBeenCalledWith(admin, "u-1");
+    expect(rpc).not.toHaveBeenCalled();
+  });
+
+  it("eliminar cuenta CON contraseña, password y oauth más reciente: pasa la hora del password, no la máxima", async () => {
+    jar.set(reauthCookieName("delete_account"), NONCE);
+    proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: 1_800_000_000, oauthAuthAt: 1_800_000_100, amr: [] };
+    rpcResult.value = { data: true, error: null };
+    expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("consume_reauth", expect.objectContaining({ p_auth_time: new Date(1_800_000_000 * 1000).toISOString() }));
+  });
+
+  it("eliminar cuenta SIN contraseña con oauth: pasa a la base la hora de ese ingreso", async () => {
+    jar.set(reauthCookieName("delete_account"), NONCE);
+    withPassword.value = false;
+    proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: null, oauthAuthAt: 1_800_000_100, amr: [] };
+    rpcResult.value = { data: true, error: null };
+    expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("consume_reauth", expect.objectContaining({ p_session: "sesion-c", p_auth_time: new Date(1_800_000_100 * 1000).toISOString() }));
+  });
+
+  it("eliminar cuenta SIN contraseña con password y oauth: usa la más reciente", async () => {
+    jar.set(reauthCookieName("delete_account"), NONCE);
+    withPassword.value = false;
+    proof.value = { userId: "u-1", sessionId: "sesion-c", passwordAuthAt: 1_800_000_200, oauthAuthAt: 1_800_000_100, amr: [] };
+    rpcResult.value = { data: true, error: null };
+    expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(true);
+    expect(rpc).toHaveBeenCalledWith("consume_reauth", expect.objectContaining({ p_auth_time: new Date(1_800_000_200 * 1000).toISOString() }));
+  });
+
+  it("eliminar cuenta sin poder saber si tiene contraseña (null): falla cerrado, también con password", async () => {
+    withPassword.value = null;
+    for (const p of [
+      { passwordAuthAt: 1_800_000_000, oauthAuthAt: null },
+      { passwordAuthAt: null, oauthAuthAt: 1_800_000_100 },
+    ]) {
+      jar.set(reauthCookieName("delete_account"), NONCE);
+      proof.value = { userId: "u-1", sessionId: "sesion-c", ...p, amr: [] };
+      rpcResult.value = { data: true, error: null };
+      expect(await consumeReauthIntent(supabase, admin, "delete_account")).toBe(false);
+    }
+    expect(rpc).not.toHaveBeenCalled();
   });
 
   it("pasa a la base la sesión actual y la hora de la autenticación password", async () => {

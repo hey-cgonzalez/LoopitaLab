@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { FIBERS, PALETTE, WEIGHTS, deltaE2000, hexToLab, nearestPaletteColor, suggestedGauge, weightLabel } from "../src/index.ts";
+import { FIBERS, PALETTE, ROWS_PER_STITCH_RATIO, WEIGHTS, deltaE2000, hexToLab, nearestPaletteColor, suggestedGauge, weightLabel } from "../src/index.ts";
 
 describe("datos de referencia", () => {
   it("tiene las 8 categorías de grosor en orden", () => {
@@ -15,8 +15,89 @@ describe("datos de referencia", () => {
   });
 
   it("sugiere una muestra inicial dentro del rango", () => {
-    assert.deepEqual(suggestedGauge(4, "knit"), { stitchesPer10cm: 18 });
-    assert.deepEqual(suggestedGauge(7, "knit"), { stitchesPer10cm: 6 });
+    assert.equal(suggestedGauge(4, "knit")?.stitchesPer10cm, 18);
+    assert.equal(suggestedGauge(7, "knit")?.stitchesPer10cm, 6);
+    assert.equal(suggestedGauge(99, "knit"), undefined);
+  });
+
+  it("caso 19: puntos y filas de jersey por categoría (filas supuestas con 1,35)", () => {
+    const expected: [number, number][] = [
+      [37, 50], [30, 41], [25, 34], [23, 31], [18, 24], [14, 19], [9, 12], [6, 8],
+    ];
+    expected.forEach(([stitches, rows], cat) => {
+      assert.deepEqual(suggestedGauge(cat, "knit"), {
+        stitchesPer10cm: stitches,
+        rowsPer10cm: rows,
+        assumption: "stockinette",
+        lowConfidence: cat === 7,
+      });
+    });
+  });
+
+  it("caso 19: filas / puntos entre 1,2 y 1,5 en toda categoría (solo palillo)", () => {
+    for (const w of WEIGHTS) {
+      const g = suggestedGauge(w.cat, "knit")!;
+      const ratio = g.rowsPer10cm / g.stitchesPer10cm;
+      assert.ok(ratio >= 1.2 && ratio <= 1.5, `categoría ${w.cat}: ${ratio.toFixed(3)}`);
+    }
+  });
+
+  it("categoría 7 marcada con baja confianza y el resto no", () => {
+    assert.equal(suggestedGauge(7, "knit")?.lowConfidence, true);
+    assert.equal(suggestedGauge(7, "crochet")?.lowConfidence, true);
+    for (let cat = 0; cat <= 6; cat++) assert.equal(suggestedGauge(cat, "knit")?.lowConfidence, false);
+  });
+
+  it("crochet devuelve la misma forma y declara el punto supuesto", () => {
+    assert.deepEqual(suggestedGauge(0, "crochet"), {
+      stitchesPer10cm: 37,
+      rowsPer10cm: 22,
+      assumption: "crochet-pa",
+      lowConfidence: false,
+    });
+    assert.equal(suggestedGauge(4, "crochet")?.assumption, "crochet-pb");
+    assert.equal(ROWS_PER_STITCH_RATIO, 1.35);
+  });
+
+  it("crochet: puntos y filas supuestas (pb 1,2; pa 0,6; validar con tejedora)", () => {
+    const expected: [number, number, number][] = [
+      [0, 37, 22], [1, 27, 32], [2, 18, 22], [3, 15, 18], [4, 13, 16], [5, 10, 12], [6, 8, 10], [7, 6, 7],
+    ];
+    for (const [cat, stitches, rows] of expected) {
+      const g = suggestedGauge(cat, "crochet")!;
+      assert.equal(g.stitchesPer10cm, stitches, `categoría ${cat} puntos`);
+      assert.equal(g.rowsPer10cm, rows, `categoría ${cat} filas`);
+      assert.equal(g.assumption, cat === 0 ? "crochet-pa" : "crochet-pb");
+    }
+  });
+});
+
+describe("alias y fuentes", () => {
+  it("ningún alias lleva nombre de tienda", () => {
+    const tiendas = ["Orquídea", "Revés Derecho", "Modista"];
+    for (const w of WEIGHTS) {
+      for (const alias of w.alias) {
+        for (const t of tiendas) assert.ok(!alias.includes(t), `categoría ${w.cat}: "${alias}" contiene "${t}"`);
+      }
+    }
+  });
+
+  it('no existen "Baby" ni "Roving" en alias ni en equivalencias en inglés', () => {
+    for (const w of WEIGHTS) {
+      for (const term of [...w.alias, ...w.ingles]) {
+        assert.notEqual(term, "Baby", `categoría ${w.cat}`);
+        assert.notEqual(term, "Roving", `categoría ${w.cat}`);
+      }
+    }
+  });
+
+  it("cada alias con origen atribuido es un alias de su categoría y el origen es un dominio", () => {
+    for (const w of WEIGHTS) {
+      for (const [alias, origen] of Object.entries(w.fuentesAlias)) {
+        assert.ok(w.alias.includes(alias), `categoría ${w.cat}: "${alias}" no está en alias`);
+        assert.match(origen, /^[a-z0-9-]+\.[a-z.]+$/, `categoría ${w.cat}: origen "${origen}"`);
+      }
+    }
   });
 });
 

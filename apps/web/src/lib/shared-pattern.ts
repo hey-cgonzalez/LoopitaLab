@@ -1,5 +1,5 @@
 import "server-only";
-import { validatePattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
+import { migratePattern, validatePattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
 import { createClient } from "@/lib/supabase/server";
 
 /**
@@ -46,12 +46,15 @@ interface SharedRow {
 
 /** Valida una fila de la RPC. Exportada para poder probarla sin base de datos. */
 export function checkSharedRow(row: SharedRow): PublicPatternItem {
-  const r = validatePattern(row.document);
+  // ADR 0006: todo documento que se abre pasa por migratePattern y luego por validatePattern.
+  const m = migratePattern(row.document);
+  if (!m.ok) return { id: row.id, ok: false, reason: "invalid_document", issues: m.issues };
+  const r = validatePattern(m.document);
   if (!r.valid) return { id: row.id, ok: false, reason: "invalid_document", issues: r.issues };
   return {
     id: row.id,
     ok: true,
-    pattern: row.document as Pattern,
+    pattern: m.document as Pattern,
     warnings: r.issues,
     meta: {
       id: row.id,

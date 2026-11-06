@@ -1,0 +1,14 @@
+{
+  "name": "@loopitalab/pattern-render",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Derivados estáticos del modelo canónico: gráfico SVG y descripción para lectores de pantalla. Sin dependencias de terceros.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@loopitalab/pattern-core": "workspace:*"
+  }
+}

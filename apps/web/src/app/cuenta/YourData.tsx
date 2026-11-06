@@ -1,30 +1,55 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { startOAuth, oauthButtonClass } from "@/components/OAuthButtons";
+import { ProviderLogo } from "@/components/ProviderLogo";
 import { Captcha } from "@/components/Captcha";
 import { Field } from "@/components/Field";
 import { FormMessage } from "@/components/FormMessage";
 import { deleteAccountMessage, exportMessage, reauthErrorMessage, requestReauthIntent } from "@/lib/account-messages";
+import Link from "next/link";
+import { CREATE_PASSWORD_FIRST, PASSWORD_STATUS_UNKNOWN, REAUTH_FAILED_MESSAGE, REAUTH_RETURN_NOTICE } from "@/lib/auth-messages";
+import { providerLabel, type ReauthChoice } from "@/lib/auth-providers";
 import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
+import { clearBrowserBackups } from "@/lib/studio/backup.ts";
 import { createClient } from "@/lib/supabase/client";
 
 const CONFIRM_TEXT = "ELIMINAR";
 const EXPORT_FILENAME = "loopitalab-mis-datos.json";
 
-export function YourData() {
-  const [open, setOpen] = useState(false);
+const REAUTH_NEXT = "/cuenta?reauth=delete_account";
+
+interface Props {
+  /** Cómo puede confirmar su identidad. Lo calcula el servidor; null = no se pudo comprobar. */
+  choice: ReauthChoice | null;
+  /** Vino de vuelta del proveedor con la confirmación hecha (?reauth=delete_account). */
+  reauthDone?: boolean;
+  /** Vino de vuelta del proveedor con error (?reauth_error=1). */
+  reauthFailed?: boolean;
+}
+
+export function YourData({ choice, reauthDone = false, reauthFailed = false }: Props) {
+  // Con contraseña, solo contraseña. Sin ella: proveedor, o (needsPassword) crear una primero.
+  const usesPassword = choice?.password ?? false;
+  const needsPassword = choice?.needsPassword ?? false;
+  const providers = choice?.providers ?? [];
+  // Con contraseña no hay paso de proveedor: un ?reauth=... manipulado no salta la contraseña.
+  const finalStep = reauthDone && !reauthFailed && !usesPassword && providers.length > 0;
+  const [open, setOpen] = useState(reauthDone || reauthFailed);
+  const [providerBusy, setProviderBusy] = useState(false);
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [pending, setPending] = useState(false);
   const passwordRef = useRef<HTMLInputElement>(null);
-  const [error, setError] = useState<string>();
+  const confirmRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | undefined>(reauthFailed ? REAUTH_FAILED_MESSAGE : undefined);
   const [fieldError, setFieldError] = useState<{ password?: string; confirm?: string }>({});
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string>();
 
   // Al abrir el formulario, el foco pasa al primer campo.
   useEffect(() => {
-    if (open) passwordRef.current?.focus();
+    if (open) (passwordRef.current ?? confirmRef.current)?.focus();
   }, [open]);
 
   /**
@@ -62,64 +87,85 @@ export function YourData() {
     }
   }
 
+  /** Paso final: el servidor consume la confirmación (una vez, menos de 5 minutos) y borra la cuenta. */
+  async function deleteNow(supabase: ReturnType<typeof createClient>) {
+    const res = await fetch("/api/cuenta/eliminar", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ confirm: CONFIRM_TEXT }),
+    });
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      setError(deleteAccountMessage(res.status, body?.error));
+      setPending(false);
+      return;
+    }
+    // La cuenta ya no existe: tampoco deben quedar sus respaldos locales en este navegador (seguridad, ALTO-1).
+    clearBrowserBackups();
+    await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
+    window.location.assign("/");
+  }
+
+  /** Confirma con Google o Microsoft: pide el intento y se va al proveedor. */
+  async function onProvider(p: Parameters<typeof startOAuth>[0]) {
+    setError(undefined);
+    setProviderBusy(true);
+    const intentError = await requestReauthIntent("delete_account");
+    const failed = intentError ?? (await startOAuth(p, REAUTH_NEXT, true));
+    if (failed) {
+      setError(failed);
+      setProviderBusy(false);
+    }
+  }
+
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const form = new FormData(e.currentTarget);
     const errors: { password?: string; confirm?: string } = {};
-    if (!password) errors.password = "Escribe tu contraseña.";
+    if (usesPassword && !finalStep && !password) errors.password = "Escribe tu contraseña.";
     if (confirm.trim() !== CONFIRM_TEXT) errors.confirm = `Escribe ${CONFIRM_TEXT} para confirmar.`;
     setFieldError(errors);
     setError(undefined);
     if (Object.keys(errors).length) return;
-    if (captchaEnabled() && !captchaToken(form)) return setError(CAPTCHA_MISSING);
+    const viaPassword = usesPassword && !finalStep;
+    if (viaPassword && captchaEnabled() && !captchaToken(form)) return setError(CAPTCHA_MISSING);
 
     setPending(true);
     try {
-      // 1. El servidor emite un intento de re-autenticación y luego la contraseña se verifica
-      //    aquí, en el navegador: Supabase Auth ve la IP real y el CAPTCHA, y crea la sesión
-      //    nueva que el servidor exige (F2-M5).
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user?.email) {
-        setError(deleteAccountMessage(401));
-        setPending(false);
-        return;
+      if (viaPassword) {
+        // 1. El servidor emite un intento de re-autenticación y luego la contraseña se verifica
+        //    aquí, en el navegador: Supabase Auth ve la IP real y el CAPTCHA, y crea la sesión
+        //    nueva que el servidor exige (F2-M5).
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user?.email) {
+          setError(deleteAccountMessage(401));
+          setPending(false);
+          return;
+        }
+        const intentError = await requestReauthIntent("delete_account");
+        if (intentError) {
+          setError(intentError);
+          setPending(false);
+          return;
+        }
+        const { error: authError } = await supabase.auth.signInWithPassword({
+          email: user.email,
+          password,
+          options: captchaOptions(form),
+        });
+        resetCaptcha();
+        if (authError) {
+          if (authError.code === "invalid_credentials") setFieldError({ password: reauthErrorMessage(authError.code) });
+          else setError(reauthErrorMessage(authError.code));
+          setPending(false);
+          return;
+        }
       }
-      const intentError = await requestReauthIntent("delete_account");
-      if (intentError) {
-        setError(intentError);
-        setPending(false);
-        return;
-      }
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: user.email,
-        password,
-        options: captchaOptions(form),
-      });
-      resetCaptcha();
-      if (authError) {
-        if (authError.code === "invalid_credentials") setFieldError({ password: reauthErrorMessage(authError.code) });
-        else setError(reauthErrorMessage(authError.code));
-        setPending(false);
-        return;
-      }
-
-      // 2. El servidor consume el intento (una vez, menos de 5 minutos) y borra la cuenta.
-      const res = await fetch("/api/cuenta/eliminar", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ confirm: CONFIRM_TEXT }),
-      });
-      if (!res.ok) {
-        const body = (await res.json().catch(() => null)) as { error?: string } | null;
-        setError(deleteAccountMessage(res.status, body?.error));
-        setPending(false);
-        return;
-      }
-      await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
-      window.location.assign("/");
+      // 2. Con proveedor, la confirmación ya se hizo al volver (?reauth=delete_account).
+      await deleteNow(supabase);
     } catch {
       setError("No pudimos conectar con el servidor. Revisa tu conexión e intenta de nuevo.");
       resetCaptcha();
@@ -157,7 +203,18 @@ export function YourData() {
         <p className="mt-2 text-tinta-suave">
           Se borran tu perfil, patrones, proyectos, notas, lanas y subidas. Tus patrones públicos o compartidos dejarán de estar disponibles, también para quienes los usaban en sus proyectos. No se puede deshacer. Te recomendamos descargar tus datos antes.
         </p>
-        {!open ? (
+        {choice === null ? (
+          <p role="status" className="mt-4 text-tinta-suave">
+            {PASSWORD_STATUS_UNKNOWN}
+          </p>
+        ) : needsPassword ? (
+          <p className="mt-4 text-tinta-suave">
+            {CREATE_PASSWORD_FIRST}{" "}
+            <Link href="/nueva-clave" className="font-bold underline underline-offset-4">
+              Crear contraseña
+            </Link>
+          </p>
+        ) : !open ? (
           <button
             type="button"
             onClick={() => setOpen(true)}
@@ -169,28 +226,38 @@ export function YourData() {
         ) : (
           <form onSubmit={onSubmit} className="mt-4 grid max-w-md gap-5 rounded-2xl border-2 border-error/40 p-5" noValidate>
             <FormMessage message={error} tone="error" />
-            <Field
-              id="delete_password"
-              label="Tu contraseña"
-              type="password"
-              autoComplete="current-password"
-              required
-              ref={passwordRef}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              error={fieldError.password}
-            />
-            <Field
-              id="delete_confirm"
-              label={`Escribe ${CONFIRM_TEXT} para confirmar`}
-              autoComplete="off"
-              required
-              value={confirm}
-              onChange={(e) => setConfirm(e.target.value)}
-              error={fieldError.confirm}
-            />
-            <Captcha />
+            {finalStep ? <FormMessage message={REAUTH_RETURN_NOTICE} tone="ok" /> : null}
+            {usesPassword && !finalStep ? (
+              <Field
+                id="delete_password"
+                label="Tu contraseña"
+                type="password"
+                autoComplete="current-password"
+                required
+                ref={passwordRef}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                error={fieldError.password}
+              />
+            ) : null}
+            {!usesPassword && !finalStep ? (
+              <p className="text-tinta-suave">Para eliminar tu cuenta, primero confirma que eres tú con tu proveedor. Después te pedimos escribir {CONFIRM_TEXT}.</p>
+            ) : null}
+            {usesPassword || finalStep ? (
+              <Field
+                id="delete_confirm"
+                label={`Escribe ${CONFIRM_TEXT} para confirmar`}
+                autoComplete="off"
+                required
+                ref={confirmRef}
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                error={fieldError.confirm}
+              />
+            ) : null}
+            {usesPassword && !finalStep ? <Captcha /> : null}
             <div className="flex flex-wrap gap-3">
+              {usesPassword || finalStep ? (
               <button
                 type="submit"
                 disabled={pending}
@@ -199,10 +266,12 @@ export function YourData() {
               >
                 {pending ? "Eliminando…" : "Eliminar definitivamente"}
               </button>
+              ) : null}
               <button
                 type="button"
-                disabled={pending}
+                disabled={pending || providerBusy}
                 onClick={() => {
+                  if (reauthDone || reauthFailed) window.history.replaceState(null, "", "/cuenta#tus-datos");
                   setOpen(false);
                   setPassword("");
                   setConfirm("");
@@ -214,6 +283,17 @@ export function YourData() {
                 Cancelar
               </button>
             </div>
+            {!finalStep && providers.length > 0 ? (
+              <div className="grid gap-3 border-t-2 border-linea pt-4">
+                <p className="text-sm text-tinta-suave">Confirma con:</p>
+                {providers.map((p) => (
+                  <button key={p} type="button" onClick={() => onProvider(p)} disabled={pending || providerBusy} aria-disabled={pending || providerBusy} className={oauthButtonClass}>
+                    <ProviderLogo provider={p} />
+                    <span>{providerBusy ? `Abriendo ${providerLabel(p)}…` : `Confirmar con ${providerLabel(p)}`}</span>
+                  </button>
+                ))}
+              </div>
+            ) : null}
           </form>
         )}
       </div>

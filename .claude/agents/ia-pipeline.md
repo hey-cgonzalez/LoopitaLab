@@ -11,7 +11,7 @@ Implementas la capa de IA del producto. Lee `CLAUDE.md` y `docs/agentes-runtime.
 
 1. **La IA propone, el motor decide.** Ningún conteo de puntos sale de un LLM. Los modelos entregan estructuras intermedias (paleta, regiones, forma base, intención) y el motor determinista calcula el patrón.
 2. **Salidas estructuradas**: el JSON del modelo se revisa con `validatePattern` de `pattern-core` (y validadores propios para las estructuras intermedias). Si el JSON no valida, reintentar una vez con el mismo modelo; si vuelve a fallar, escalar de modelo según el router.
-3. **Router de modelos** (`packages/ai-router/router.config.ts`): elige el modelo por tarea, complejidad de la imagen y plan del usuario. Registra en `ai_jobs` el modelo usado, tokens y costo.
+3. **Router de modelos** (`packages/ai-router/src/router.config.ts`): elige el modelo por tarea, complejidad de la imagen y plan del usuario. Registra en `ai_jobs` el modelo usado, tokens y costo.
 4. **Pipeline determinista primero**: la conversión imagen → gráfico de colores (pixelado, cuantización de colores, mapeo a paleta de lanas) es código de procesamiento de imagen, no IA. La IA solo asiste (detectar sujeto, sugerir recorte, nombrar colores, redactar notas).
 5. **Transparencia**: todo resultado lleva `origin: "ai"`, lista de supuestos y nivel de confianza.
 

@@ -23,6 +23,21 @@ jobs:
       - name: Pruebas de yarn-catalog
         working-directory: packages/yarn-catalog
         run: node --test "test/**/*.test.ts"
+      - name: Pruebas de ai-router
+        working-directory: packages/ai-router
+        run: node --test "test/**/*.test.ts"
+      # stitch-render y pattern-render importan pattern-core (y yarn-catalog) por nombre de
+      # paquete: hace falta enlazar el workspace. El filtro instala solo ese paquete y sus dependencias
+      # dentro del monorepo (sin dependencias de terceros, ADR 0002).
+      - uses: pnpm/action-setup@v4
+      - name: Enlaces del workspace para stitch-render y pattern-render
+        run: pnpm install --frozen-lockfile --filter "@loopitalab/stitch-render..." --filter "@loopitalab/pattern-render..."
+      - name: Pruebas de stitch-render (incluye la guardia de rendimiento CA-P5)
+        working-directory: packages/stitch-render
+        run: node --test "test/**/*.test.ts"
+      - name: Pruebas de pattern-render
+        working-directory: packages/pattern-render
+        run: node --test "test/**/*.test.ts"
 
   base-de-datos:
     name: Migraciones y RLS

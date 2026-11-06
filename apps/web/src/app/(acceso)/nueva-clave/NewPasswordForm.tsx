@@ -9,6 +9,7 @@ import { reauthErrorMessage, requestReauthIntent } from "@/lib/account-messages"
 import { passwordProblem, type FormState } from "@/lib/auth-messages";
 import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
 import { createClient } from "@/lib/supabase/client";
+import { requestPasswordCreationLink } from "../client-actions";
 import { updatePassword } from "../actions";
 
 /**
@@ -39,7 +40,14 @@ async function confirmCurrentPassword(form: FormData): Promise<FormState | null>
   return { error: reauthErrorMessage(error.code) };
 }
 
-export function NewPasswordForm({ needsCurrent }: { needsCurrent: boolean }) {
+interface Props {
+  /** Falta la prueba reciente del enlace por correo: hay que confirmar la contraseña actual. */
+  needsCurrent: boolean;
+  /** La cuenta ya tiene contraseña (lo calcula el servidor). */
+  hasPassword: boolean;
+}
+
+export function NewPasswordForm({ needsCurrent, hasPassword }: Props) {
   const [state, action] = useActionState<FormState, FormData>(async (prev, form) => {
     if (needsCurrent) {
       // Primero lo que se puede revisar sin gastar un intento de ingreso.
@@ -58,6 +66,7 @@ export function NewPasswordForm({ needsCurrent }: { needsCurrent: boolean }) {
   useEffect(() => {
     if (state.error || state.fieldErrors) resetCaptcha();
   }, [state]);
+
   return (
     <form action={action} className="grid gap-5" noValidate>
       <FormMessage message={state.error} tone="error" />
@@ -67,7 +76,23 @@ export function NewPasswordForm({ needsCurrent }: { needsCurrent: boolean }) {
       <Field id="password" label="Nueva contraseña" type="password" autoComplete="new-password" required minLength={8} hint="Al menos 8 caracteres, con letras y números." error={state.fieldErrors?.password} />
       <Field id="confirm" label="Repite la contraseña" type="password" autoComplete="new-password" required error={state.fieldErrors?.confirm} />
       {needsCurrent ? <Captcha /> : null}
-      <SubmitButton pending="Guardando…">Guardar contraseña</SubmitButton>
+      <SubmitButton pending="Guardando…">{hasPassword ? "Guardar contraseña" : "Crear contraseña"}</SubmitButton>
+    </form>
+  );
+}
+
+/** Cuenta sin contraseña: se crea con un enlace enviado al correo (no sirve confirmar con el proveedor). */
+export function CreatePasswordLink() {
+  const [state, action] = useActionState<FormState, FormData>(requestPasswordCreationLink, {});
+  useEffect(() => {
+    if (state.error) resetCaptcha();
+  }, [state]);
+  if (state.ok) return <FormMessage message={state.ok} tone="ok" />;
+  return (
+    <form action={action} className="grid gap-5" noValidate>
+      <FormMessage message={state.error} tone="error" />
+      <Captcha />
+      <SubmitButton pending="Enviando…">Enviarme el enlace por correo</SubmitButton>
     </form>
   );
 }

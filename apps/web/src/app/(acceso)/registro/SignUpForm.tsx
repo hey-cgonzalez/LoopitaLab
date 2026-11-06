@@ -5,6 +5,7 @@ import { useActionState } from "react";
 import { Field } from "@/components/Field";
 import { Captcha } from "@/components/Captcha";
 import { FormMessage } from "@/components/FormMessage";
+import { OAuthButtons } from "@/components/OAuthButtons";
 import { SubmitButton } from "@/components/SubmitButton";
 import type { FormState } from "@/lib/auth-messages";
 import { signUp } from "../client-actions";
@@ -13,6 +14,10 @@ export function SignUpForm() {
   const [state, action] = useActionState<FormState, FormData>(signUp, {});
   if (state.ok) return <FormMessage message={state.ok} tone="ok" />;
   return (
+    <>
+    <OAuthButtons next="/">
+      <p className="text-sm text-tinta-suave">Con Google o Microsoft no necesitas confirmar tu correo ni crear una contraseña.</p>
+    </OAuthButtons>
     <form action={action} className="grid gap-5" noValidate>
       <FormMessage message={state.error} tone="error" />
       <Field id="name" label="Cómo quieres que te llamemos" autoComplete="given-name" maxLength={80} defaultValue={state.fields?.name} hint="Opcional." />
@@ -47,5 +52,6 @@ export function SignUpForm() {
         </Link>
       </p>
     </form>
+    </>
   );
 }

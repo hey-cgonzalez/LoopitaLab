@@ -49,7 +49,7 @@ Responsabilidades: aplicar cuotas y presupuesto, llamar al router, persistir cad
 
 ## Router de modelos
 
-Configuración en `packages/ai-router/router.config.ts`. Reglas:
+Configuración en `packages/ai-router/src/router.config.ts`. Reglas:
 
 1. Cada agente tiene un modelo base y una cadena de escalamiento.
 2. **Sube de modelo** cuando: la complejidad estimada por el Clasificador es ≥ 4, la salida no valida contra el esquema dos veces, o el motor rechaza el resultado.

@@ -20,11 +20,29 @@ describe("readSessionProof", () => {
     const p = await readSessionProof(
       client({ session_id: "s-1", amr: [{ method: "password", timestamp: 100 }, { method: "otp", timestamp: 300 }, { method: "password", timestamp: 200 }] }),
     );
-    expect(p).toMatchObject({ userId: "u", sessionId: "s-1", passwordAuthAt: 200 });
+    expect(p).toMatchObject({ userId: "u", sessionId: "s-1", passwordAuthAt: 200, oauthAuthAt: null });
   });
 
-  it("sin password en amr: passwordAuthAt null", async () => {
-    expect((await readSessionProof(client({ session_id: "s", amr: [{ method: "recovery", timestamp: 1 }] })))?.passwordAuthAt).toBeNull();
+  it("ingreso con proveedor (oauth): queda en oauthAuthAt, no en passwordAuthAt", async () => {
+    const p = await readSessionProof(client({ session_id: "s-2", amr: [{ method: "oauth", timestamp: 500 }] }));
+    expect(p).toMatchObject({ passwordAuthAt: null, oauthAuthAt: 500 });
+  });
+
+  it("password y oauth: cada método conserva su propia hora (un oauth más reciente no pisa la de password)", async () => {
+    const amr = [{ method: "oauth", timestamp: 400 }, { method: "password", timestamp: 300 }, { method: "oauth", timestamp: 350 }];
+    expect(await readSessionProof(client({ amr }))).toMatchObject({ passwordAuthAt: 300, oauthAuthAt: 400 });
+    const amr2 = [{ method: "oauth", timestamp: 400 }, { method: "password", timestamp: 450 }];
+    expect(await readSessionProof(client({ amr: amr2 }))).toMatchObject({ passwordAuthAt: 450, oauthAuthAt: 400 });
+  });
+
+  it("solo métodos por correo (recovery, otp, magiclink): ninguna re-autenticación", async () => {
+    const amr = [{ method: "recovery", timestamp: 1 }, { method: "otp", timestamp: 2 }, { method: "magiclink", timestamp: 3 }];
+    expect(await readSessionProof(client({ session_id: "s", amr }))).toMatchObject({ passwordAuthAt: null, oauthAuthAt: null });
+  });
+
+  it("un método desconocido no cuenta, aunque sea más reciente", async () => {
+    const amr = [{ method: "password", timestamp: 10 }, { method: "sso/saml", timestamp: 99 }, { method: "OAuth", timestamp: 98 }, { method: "Password", timestamp: 97 }];
+    expect(await readSessionProof(client({ amr }))).toMatchObject({ passwordAuthAt: 10, oauthAuthAt: null });
   });
 
   it("descarta entradas de amr mal formadas", async () => {

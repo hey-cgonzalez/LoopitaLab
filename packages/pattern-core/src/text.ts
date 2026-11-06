@@ -291,8 +291,20 @@ export function formatRound(round: Round, dialect: Dialect = "es"): string {
   return `${prefix}${round.number}${range}: ${formatItems(round.items, dialect)}${expected}`;
 }
 
+/**
+ * Texto libre en una sola línea para los encabezados: un salto de línea dentro del nombre
+ * o del cierre se convertiría en otra línea del patrón al volver a leerlo. Devuelve "" si
+ * no es texto o está en blanco (documento sin validar: `validatePattern` los rechaza).
+ */
+function oneLine(v: unknown): string {
+  return typeof v === "string" ? v.replace(/\s*[\r\n\u2028\u2029]+\s*/g, " ").trim() : "";
+}
+
 export function formatPart(part: Part, dialect: Dialect = "es"): string {
   const es = dialect === "es";
+  // Un nombre vacío se escribe como "Parte", el mismo valor por omisión de `parsePart`.
+  const name = oneLine(part.name) || (es ? "Parte" : "Part");
+  const finish = oneLine(part.finish);
   const construction = es
     ? { spiral: "espiral", joined: "cerrada", flat: "hileras" }[part.construction]
     : part.construction;
@@ -301,12 +313,12 @@ export function formatPart(part: Part, dialect: Dialect = "es"): string {
       ? es ? "AM" : "MR"
       : `${es ? "cad" : "ch"} ${part.start.count}`;
   const lines = [
-    `${es ? "Parte" : "Part"}: ${part.name}`,
+    `${es ? "Parte" : "Part"}: ${name}`,
     `${es ? "Inicio" : "Start"}: ${start}`,
     `${es ? "Construcción" : "Construction"}: ${construction}`,
     `${es ? "Lana" : "Yarn"}: ${part.startYarn}`,
     ...part.rounds.map((r) => formatRound(r, dialect)),
   ];
-  if (part.finish !== undefined) lines.push(`${es ? "Cierre" : "Finish"}: ${part.finish}`);
+  if (finish !== "") lines.push(`${es ? "Cierre" : "Finish"}: ${finish}`);
   return lines.join("\n");
 }

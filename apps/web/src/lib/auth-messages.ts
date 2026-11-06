@@ -41,3 +41,14 @@ export function authMessage(error: { code?: string | undefined; message: string 
       return "No pudimos completar la solicitud. Revisa tu conexión e intenta de nuevo en unos minutos.";
   }
 }
+
+/** Ingreso y registro con Google o Microsoft. */
+export const OAUTH_ERROR_MESSAGE = "No pudimos completar el ingreso con el proveedor. Intenta de nuevo o usa tu correo.";
+export const OAUTH_START_ERROR = "No pudimos abrir el ingreso con el proveedor. Intenta de nuevo en unos minutos o usa tu correo.";
+export const REAUTH_EXPIRED_MESSAGE = "La confirmación venció o no es válida. Vuelve a confirmar.";
+export const REAUTH_FAILED_MESSAGE = "No pudimos confirmar tu identidad con el proveedor. Intenta de nuevo.";
+/** Neutro a propósito: un enlace manipulado (?reauth=...) también mostraría este aviso. */
+export const REAUTH_RETURN_NOTICE = "Si ya confirmaste con tu proveedor, escribe ELIMINAR para terminar. La confirmación vale 5 minutos.";
+export const PASSWORD_STATUS_UNKNOWN = "No pudimos comprobar tu forma de ingreso. Intenta más tarde.";
+export const CREATE_PASSWORD_FIRST = "Crea una contraseña con un enlace por correo y luego podrás eliminar tu cuenta.";
+export const PASSWORD_LINK_SENT = "Te enviamos un enlace por correo. Ábrelo para crear tu contraseña; vale por poco tiempo.";

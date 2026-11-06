@@ -38,7 +38,7 @@ beforeEach(() => {
 describe("updatePassword", () => {
   it("sesión recién ingresada sin intento de re-autenticación: no cambia la contraseña", async () => {
     const res = await updatePassword({}, form(good));
-    expect(res.fieldErrors?.current).toMatch(/vuelve a escribir tu contraseña/);
+    expect(res.fieldErrors?.current).toMatch(/vuelve a confirmar que eres tú/);
     expect(consumeReauthIntent).toHaveBeenCalledWith(expect.anything(), expect.anything(), "change_password");
     expect(updateUser).not.toHaveBeenCalled();
   });

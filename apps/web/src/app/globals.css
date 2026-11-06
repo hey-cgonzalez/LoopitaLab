@@ -6,7 +6,10 @@
   --color-marino: #1a2540;
   --color-indigo: #2d3878;
   --color-tinta-suave: #44546e;
+  /* Separadores decorativos (tarjetas, divisiones). No sirve como borde de un campo: no llega a 3:1. */
   --color-linea: #c9d4d0;
+  /* Borde de campos, casillas y botones (WCAG 1.4.11, mínimo 3:1 sobre superficie y fondo). */
+  --color-borde: #6b7b76;
   --color-mostaza: #cfa02a;
   --color-rosado: #ec9db0;
   --color-error: #ba222c;
@@ -26,9 +29,18 @@ body {
   line-height: 1.55;
 }
 
+/* Foco de dos tonos (WCAG 1.4.11 y 2.4.7): anillo marino pegado al elemento y mostaza por fuera. El marino se ve
+   sobre fondos claros y el mostaza sobre fondos oscuros, así el foco se distingue en cualquier página. */
 :focus-visible {
   outline: 3px solid var(--color-mostaza);
   outline-offset: 2px;
+  box-shadow: 0 0 0 2px var(--color-marino);
+}
+
+/* WCAG 2.4.11: al desplazarse hacia un elemento enfocado, el navegador deja libre el alto de un aviso fijo inferior.
+   `--aviso-alto` lo escribe el aviso de prototipo del estudio con su alto real; en el resto de páginas vale 0. */
+html {
+  scroll-padding-bottom: calc(var(--aviso-alto, 0px) + 1rem);
 }
 
 @media (prefers-reduced-motion: reduce) {

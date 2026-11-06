@@ -2,8 +2,10 @@ import "server-only";
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 /**
- * Cliente de Supabase con la clave secreta (sb_secret_...). Se salta RLS: usarlo solo en
- * Route Handlers después de verificar la sesión, y siempre acotado a la usuaria de esa sesión.
+ * Cliente de Supabase con la clave secreta (sb_secret_...). Se salta RLS: usarlo solo en código
+ * de servidor (Route Handlers, server actions y server components) después de verificar la
+ * sesión, siempre acotado a la usuaria de esa sesión, y sin pasar nunca el cliente ni sus
+ * errores a componentes de cliente.
  *
  * `import "server-only"` hace fallar el build si algún componente de cliente lo importa, así la
  * clave nunca termina en el navegador. La variable no lleva prefijo NEXT_PUBLIC_, por lo que

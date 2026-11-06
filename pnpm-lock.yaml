@@ -20,6 +20,15 @@ importers:
       '@loopitalab/pattern-core':
         specifier: workspace:*
         version: link:../../packages/pattern-core
+      '@loopitalab/pattern-render':
+        specifier: workspace:*
+        version: link:../../packages/pattern-render
+      '@loopitalab/stitch-render':
+        specifier: workspace:*
+        version: link:../../packages/stitch-render
+      '@loopitalab/yarn-catalog':
+        specifier: workspace:*
+        version: link:../../packages/yarn-catalog
       '@supabase/ssr':
         specifier: '>=0.6.1 <1.0.0'
         version: 0.12.7(@supabase/supabase-js@2.119.0)
@@ -64,7 +73,24 @@ importers:
         specifier: ^5.1.0
         version: 5.1.0(@types/node@22.20.5)(vite@8.3.5(@types/node@22.20.5)(jiti@2.7.0))
 
+  packages/ai-router: {}
+
   packages/pattern-core: {}
+
+  packages/pattern-render:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+
+  packages/stitch-render:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+      '@loopitalab/yarn-catalog':
+        specifier: workspace:*
+        version: link:../yarn-catalog
 
   packages/yarn-catalog: {}
 

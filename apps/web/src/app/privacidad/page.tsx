@@ -17,7 +17,7 @@ export default function Page() {
       <section>
         <h2>2. Qué datos tratamos</h2>
         <ul>
-          <li><strong>Cuenta y perfil:</strong> correo, contraseña (guardada con hash por el proveedor de autenticación, nunca en texto legible), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante).</li>
+          <li><strong>Cuenta y perfil:</strong> correo, contraseña si creas una (guardada con hash por el proveedor de autenticación, nunca en texto legible), el proveedor con el que ingresas (correo, Google o Microsoft), nombre visible opcional y tus preferencias (terminología, unidades, mano dominante, tejer en espejo).</li>
           <li><strong>Patrones:</strong> los diseños que creas (gráficos, texto, lanas, colores, gauge), su visibilidad (privado, por enlace o público), versiones y si fueron generados con IA.</li>
           <li><strong>Proyectos:</strong> tus proyectos, el avance guardado y las notas que escribes.</li>
           <li><strong>Lanas:</strong> las lanas que defines (grosor, composición, color) y el texto libre opcional (&ldquo;mi lana&rdquo;), que es privado.</li>
@@ -26,6 +26,7 @@ export default function Page() {
           <li><strong>Denuncias:</strong> si denuncias un patrón, guardamos el motivo, el detalle libre que escribas y el título del patrón denunciado junto con una huella digital (hash) de su contenido, para detectar si cambió después de la denuncia. No guardamos una copia del contenido.</li>
           <li><strong>Moderación (si un patrón tuyo fue denunciado):</strong> conservamos su título, una huella digital (hash) del contenido y tu identificador interno para la moderación. [PENDIENTE DE REVISIÓN LEGAL]</li>
           <li><strong>Registros de seguridad:</strong> eventos de uso (por ejemplo, el número de acciones por día) que usamos para aplicar los límites diarios, y las confirmaciones de contraseña que pedimos antes de acciones sensibles (cambiar la contraseña o eliminar la cuenta). [PENDIENTE DE REVISIÓN LEGAL]</li>
+          <li><strong>Respaldo en tu navegador:</strong> mientras editas un diseño, guardamos una copia temporal en el almacenamiento local de tu navegador (no en nuestros servidores), para no perder cambios si se corta la conexión o se cierra la pestaña. No está cifrada y puede incluir tus notas privadas. Se borra al guardarse el diseño, al cerrar sesión o eliminar tu cuenta, cuando entra otra cuenta en el mismo navegador y, en todo caso, a los 14 días. [PENDIENTE DE REVISIÓN LEGAL]</li>
           <li><strong>Datos técnicos:</strong> dirección IP y datos del navegador, que se tratan para la seguridad y la prevención de abuso (incluida la verificación CAPTCHA, cuando está activa) y para mantener tu sesión.</li>
         </ul>
         <p>No vendemos tus datos ni los usamos para publicidad de terceros.</p>
@@ -46,6 +47,7 @@ export default function Page() {
           <li><strong>Supabase:</strong> base de datos, autenticación y almacenamiento de archivos. [REGIÓN DEL PROYECTO]</li>
           <li><strong>Anthropic:</strong> procesa la imagen y las instrucciones cuando usas funciones con IA, para proponer el patrón. [CONDICIONES DE CONSERVACIÓN Y USO DE DATOS: confirmar con el contrato vigente.]</li>
           <li><strong>Cloudflare Turnstile:</strong> verificación CAPTCHA al ingresar, registrarte, recuperar o cambiar tu contraseña y eliminar tu cuenta, cuando está activa.</li>
+          <li><strong>Google y Microsoft (opcional):</strong> si eliges entrar con Google o con Microsoft, esos servicios nos entregan tu nombre y tu correo (y tu foto de perfil y tu identificador en ese servicio: no los usamos ni los mostramos, pero el servicio de autenticación los conserva mientras tengas la cuenta; puedes descargarlos con “Descargar mis datos”). Actúan bajo sus propias políticas de privacidad. Entrar con un proveedor es opcional: siempre puedes usar tu correo y una contraseña. [PENDIENTE DE REVISIÓN LEGAL]</li>
           <li><strong>Hosting de la aplicación:</strong> [PROVEEDOR].</li>
         </ul>
       </section>

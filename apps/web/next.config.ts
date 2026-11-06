@@ -1,4 +1,9 @@
 import type { NextConfig } from "next";
+import { assertDevPagesSafe } from "./src/lib/dev-pages.ts";
+
+// Falla el build y el arranque si las páginas `/dev/*` quedaran activas en el despliegue real (seguridad, MEDIO-2).
+// `next build` corre con NODE_ENV=production; `next start` también.
+assertDevPagesSafe();
 
 /**
  * Cabeceras de seguridad para todas las rutas.
@@ -16,8 +21,8 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
-  // pattern-core se publica como TypeScript sin compilar.
-  transpilePackages: ["@loopitalab/pattern-core"],
+  // Los paquetes del monorepo se publican como TypeScript sin compilar.
+  transpilePackages: ["@loopitalab/pattern-core", "@loopitalab/yarn-catalog", "@loopitalab/stitch-render", "@loopitalab/pattern-render"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
