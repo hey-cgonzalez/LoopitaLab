@@ -78,7 +78,14 @@ Medido el 2026-11-06 en un Mac (Chromium 156 completo, Playwright 1.64.1), p95 e
 
 Validaciones dentro de una ventana de edición: 0 en todos los casos.
 
-**Umbral en la CI.** Los runners de GitHub tienen 4 vCPU compartidas y no tienen GPU. La CI usa `E2E_LATENCY_BUDGET_MS=200` (el doble), como guardia contra regresiones grandes. El criterio de 100 ms se exige en local y en la medición del equipo de referencia (CA-P6, pendiente). CA-P7 no depende de la máquina y se exige siempre. Si la CI muestra números estables muy por debajo de 200, conviene bajar el umbral.
+**Umbral en la CI.** Los runners de GitHub tienen 4 vCPU compartidas y no tienen GPU. La CI usa `E2E_LATENCY_BUDGET_MS=160`, como guardia contra regresiones. Se fijó con la primera corrida en GitHub (2026-11-06): el peor p95 fue 102,2 ms (círculo de 40.000 puntos al cambiar repeticiones; al pintar, 88,6 ms), y el umbral es ese valor por 1,5. Plano, tubo y copa quedaron entre 25 y 87 ms; 0 validaciones dentro de una edición en todos. El criterio de 100 ms se exige en local y en la medición del equipo de referencia (CA-P6, pendiente). CA-P7 no depende de la máquina y se exige siempre. Si la CI se mantiene estable bajo 100 ms, conviene bajar el umbral.
+
+| CI de GitHub (2026-11-06), p95 en ms | Pintar | Repeticiones |
+|---|---|---|
+| Plano | 41,3 | 87,1 |
+| Tubo | 25,5 | 83,6 |
+| Círculo de rombos (40.000 puntos) | 88,6 | 102,2 |
+| Copa | 31,2 | 50,4 |
 
 **Chromium completo, no el shell.** Por defecto Playwright usa `chromium-headless-shell`, que dibuja el canvas mucho más lento: con CPU ×4, el círculo de rombos daba p95 de 177 ms al pintar y 202 ms en repeticiones, contra 63,5 ms y 86,7 ms con Chromium completo. Por eso la configuración usa `channel: "chromium"`.
 
