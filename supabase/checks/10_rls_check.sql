@@ -943,7 +943,7 @@ drop table public.__tabla_futura_o7;
 
 -- Funciones de public ejecutables por anon o authenticated: SOLO las de la lista permitida.
 -- Una función nueva hereda EXECUTE de PUBLIC (valor global de PostgreSQL que no se revoca, ver
--- 20261106030000_sin_truncate.sql): si su migración olvida el `revoke`, este check falla.
+-- 20261106035626_sin_truncate.sql): si su migración olvida el `revoke`, este check falla.
 -- Las funciones de trigger no cuentan: no se pueden invocar por /rpc.
 -- Para exponer una función nueva: grant explícito en su migración y agregarla aquí.
 do $$

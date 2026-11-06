@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 /**
  * requireUser (lib/session.ts): la relectura sin `mirror_knitting` debe usarse solo cuando
- * la columna no existe (migración 20261106010000 sin aplicar). Cualquier otro error de la
+ * la columna no existe (migración 20261106035525 sin aplicar). Cualquier otro error de la
  * base no debe convertirse en silencio en "mirror_knitting = false", porque /cuenta
  * mostraría el interruptor apagado y, al guardar otras preferencias, escribiría false
  * sobre el true real de la usuaria.

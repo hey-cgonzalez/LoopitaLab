@@ -5,7 +5,7 @@
  *   node scripts/gen-reference-sql.ts            # imprime el SQL
  *   node scripts/gen-reference-sql.ts --write    # escribe MIGRATION_FILE (la migración vigente)
  *
- * Las migraciones ya aplicadas no se editan: 20261106020000_datos_referencia_v2.sql queda congelada.
+ * Las migraciones ya aplicadas no se editan: 20261106035603_datos_referencia_v2.sql queda congelada.
  * Los upserts son idempotentes (on conflict do update, sin borrar filas, porque user_yarns referencia
  * yarn_weights y palette_colors). Cuando los JSON cambien otra vez, crea una migración NUEVA, apunta
  * MIGRATION_FILE y HEADER a ella; la prueba reference-sql.test.ts compara contra la última migración
@@ -16,7 +16,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-export const MIGRATION_FILE = join(root, "supabase/migrations/20261106020000_datos_referencia_v2.sql");
+export const MIGRATION_FILE = join(root, "supabase/migrations/20261106035603_datos_referencia_v2.sql");
 
 const HEADER = `-- GENERADO por scripts/gen-reference-sql.ts desde packages/yarn-catalog/data. No editar a mano.
 -- Datos de referencia v2: grosores CYC 0–7, fibras y paleta propia (sin marcas).
