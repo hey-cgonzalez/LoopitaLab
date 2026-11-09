@@ -4,6 +4,7 @@ import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitala
 import Link from "next/link";
 import { memo, useCallback, useDeferredValue, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { savePatternVersion } from "@/app/disenos/actions";
+import { LegalLinks } from "@/components/SiteFooter";
 import { nextTabId } from "@/lib/studio/a11y.ts";
 import { DEFAULT_CELL_PX, type GridView } from "@/lib/studio/editor-grid.ts";
 import {
@@ -254,10 +255,17 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
     }
   }
 
-  const show = (t: Tab) => (tab === t ? "block" : "hidden lg:block");
+  // Cada zona es una columna que desplaza por dentro (escritorio) o el panel de su pestaña (tableta y móvil).
+  // `relative`: los textos `sr-only` (posición absoluta) quedan dentro de la columna; sin él alargarían la página.
+  const show = (t: Tab) => (tab === t ? "flex" : "hidden lg:flex");
   // En escritorio las tres zonas se ven a la vez y no hay pestañas: sin rol de panel de pestaña (que apuntaría a una pestaña oculta).
   const compact = useCompactLayout();
   const panelA11y = (t: Tab) => (compact ? { role: "tabpanel" as const, "aria-labelledby": `tab-${t}` } : {});
+
+  // Lanas: en escritorio encabezan la columna izquierda (así el editor usa todo el alto de la suya); en tableta y
+  // móvil van en la pestaña del editor, debajo de la cuadrícula (que queda a la vista al abrir la pestaña), para
+  // cambiar de lana mientras se pinta. El orden del DOM es el visual en los dos casos.
+  const yarnPanel = <YarnPanel store={store} yarns={yarns} activeId={activeId} onActiveChange={setActiveId} />;
 
   const design = (
     <>
@@ -275,8 +283,8 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
         <label htmlFor={`${titleId}-version`} className="font-bold">
           Nombre de la versión (opcional)
         </label>
-        <input id={`${titleId}-version`} value={versionLabel} maxLength={80} onChange={(e) => setVersionLabel(e.target.value)} className="rounded-xl border-2 border-borde bg-superficie px-3 py-2" />
-        <button type="button" onClick={onSaveVersion} disabled={versionBusy || detached} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo disabled:opacity-60">
+        <input id={`${titleId}-version`} value={versionLabel} maxLength={80} onChange={(e) => setVersionLabel(e.target.value)} className="rounded-xl border-2 border-borde bg-superficie px-3 py-1.5" />
+        <button type="button" onClick={onSaveVersion} disabled={versionBusy || detached} className="rounded-full bg-marino px-5 py-1.5 font-bold text-white hover:bg-indigo disabled:opacity-60">
           {versionBusy ? "Guardando versión…" : T.guardado.guardarVersion}
         </button>
         <p role="status" className={versionMsg?.tone === "error" ? "text-sm font-bold text-error" : "text-sm text-exito"}>
@@ -288,7 +296,10 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
   );
 
   return (
-    <div className="flex min-h-[calc(100dvh-8rem)] flex-col">
+    // Estudio a pantalla completa (`data-studio`, ver globals.css): ocupa el alto que deja la barra superior y nunca
+    // desplaza la página; cada columna (o el panel de la pestaña) desplaza por dentro. `min-h` es el respaldo para
+    // ventanas muy bajas: ahí la página sí desplaza y el aviso de prototipo queda pegado abajo.
+    <div data-studio className="flex min-h-[30rem] min-w-0 flex-1 flex-col">
       {/* Primer elemento enfocable del estudio: sin él, la cuadrícula queda a ~50 tabulaciones (T11, ux-accesibilidad). */}
       <a
         href={`#${CHART_CANVAS_ID}`}
@@ -298,12 +309,12 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
       >
         {T.accesibilidad.saltarEditor}
       </a>
-      <div className="border-b-2 border-linea bg-superficie">
-        <div className="mx-auto flex max-w-[1600px] flex-wrap items-start gap-x-6 gap-y-3 px-4 py-3">
-          <Link href="/disenos" className="py-2 text-sm underline underline-offset-4">
+      <div className="shrink-0 border-b-2 border-linea bg-superficie">
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 px-3 py-1.5 sm:px-4">
+          <Link href="/disenos" className="py-1 text-sm underline underline-offset-4">
             ← Mis diseños
           </Link>
-          <div className="min-w-[14rem] flex-1">
+          <div className="min-w-[12rem] flex-1">
             <label htmlFor={titleId} className="sr-only">
               Nombre del diseño
             </label>
@@ -313,7 +324,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
               onChange={(e) => onTitle(e.target.value)}
               aria-invalid={titleProblems.length > 0 ? true : undefined}
               aria-describedby={titleProblems.length > 0 ? `${titleId}-error` : undefined}
-              className="w-full rounded-xl border-2 border-borde bg-superficie px-3 py-2 font-display text-xl font-bold aria-invalid:border-error"
+              className="w-full rounded-xl border-2 border-borde bg-superficie px-3 py-1 font-display text-lg font-bold aria-invalid:border-error"
             />
             {titleProblems.length > 0 ? (
               <p id={`${titleId}-error`} className="mt-1 text-sm font-bold text-error">
@@ -322,7 +333,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
             ) : null}
           </div>
           {isAi ? (
-            <span className="rounded-full border-2 border-marino px-3 py-1 text-sm font-bold" data-testid="ai-label">
+            <span className="rounded-full border-2 border-marino px-3 py-0.5 text-sm font-bold" data-testid="ai-label">
               {T.misDisenos.etiquetaIa}
             </span>
           ) : null}
@@ -331,8 +342,8 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
       </div>
 
       {recovery ? (
-        <section aria-label="Cambios sin guardar de una sesión anterior" className="border-b-2 border-mostaza bg-superficie px-4 py-3">
-          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-4">
+        <section aria-label="Cambios sin guardar de una sesión anterior" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-mostaza bg-superficie px-4 py-2">
+          <div className="mx-auto flex flex-wrap items-center gap-4">
             <p className="min-w-0 flex-1">
               Encontramos cambios sin guardar de {timeFmt.format(new Date(recovery.savedAt))}, de la última vez que abriste este diseño en este equipo.
               {recovery.serverIsNewer ? " Ojo: el diseño se guardó después desde otro lugar; si los recuperas, reemplazan esa versión." : ""}
@@ -349,8 +360,8 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
       ) : null}
 
       {status.kind === "conflict" ? (
-        <section role="alert" aria-label="Conflicto al guardar" className="border-b-2 border-error bg-superficie px-4 py-3">
-          <div className="mx-auto flex max-w-[1600px] flex-wrap items-center gap-4">
+        <section role="alert" aria-label="Conflicto al guardar" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-error bg-superficie px-4 py-2">
+          <div className="mx-auto flex flex-wrap items-center gap-4">
             <p className="min-w-0 flex-1">{T.guardado.conflicto}</p>
             <button type="button" onClick={reloadFromServer} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo">
               Recargar la versión guardada
@@ -359,14 +370,14 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
               {overwriting ? "Sobrescribiendo…" : "Sobrescribir con mi versión"}
             </button>
           </div>
-          <p className="mx-auto mt-1 max-w-[1600px] text-sm text-tinta-suave">Recargar descarta lo que cambiaste aquí. Sobrescribir reemplaza lo guardado desde el otro lugar.</p>
+          <p className="mx-auto mt-1 text-sm text-tinta-suave">Recargar descarta lo que cambiaste aquí. Sobrescribir reemplaza lo guardado desde el otro lugar.</p>
         </section>
       ) : null}
 
       {status.kind === "blocked" ? (
-        <section role="alert" aria-label="No se puede guardar" className="border-b-2 border-error bg-superficie px-4 py-3">
-          <p className="mx-auto max-w-[1600px] font-bold text-error">No se puede guardar el diseño con estos errores:</p>
-          <ul className="mx-auto max-w-[1600px] list-disc pl-6">
+        <section role="alert" aria-label="No se puede guardar" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-error bg-superficie px-4 py-2">
+          <p className="mx-auto font-bold text-error">No se puede guardar el diseño con estos errores:</p>
+          <ul className="mx-auto list-disc pl-6">
             {status.issues.slice(0, 5).map((i) => (
               <li key={`${i.code}-${i.path}`}>{i.message}</li>
             ))}
@@ -374,7 +385,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
         </section>
       ) : null}
 
-      <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex gap-2 border-b-2 border-linea bg-superficie px-4 py-2 lg:hidden">
+      <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -386,18 +397,24 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
             tabIndex={tab === t.id ? 0 : -1}
             onKeyDown={(e) => onTabKey(e, t.id)}
             onClick={() => setTab(t.id)}
-            className={`flex-1 rounded-full border-2 border-marino px-4 py-2 font-bold ${tab === t.id ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
+            className={`flex-1 rounded-full border-2 border-marino px-2 py-1.5 text-sm font-bold sm:text-base ${tab === t.id ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
           >
             {t.label}
           </button>
         ))}
       </div>
 
-      <div className="mx-auto grid w-full max-w-[1600px] flex-1 content-start gap-4 p-4 lg:grid-cols-[19rem_minmax(0,1.15fr)_minmax(0,1fr)]" data-testid="studio-layout">
-        <div id="panel-settings" {...panelA11y("settings")} className={`${show("settings")} lg:row-span-2`}>
+      <div
+        className="grid min-h-0 flex-1 grid-rows-[minmax(0,1fr)] gap-3 p-3 lg:grid-cols-[20rem_minmax(0,1.15fr)_minmax(0,1fr)] xl:grid-cols-[22rem_minmax(0,1.15fr)_minmax(0,1fr)] 2xl:grid-cols-[24rem_minmax(0,1.2fr)_minmax(0,1fr)]"
+        data-testid="studio-layout"
+      >
+        <div id="panel-settings" {...panelA11y("settings")} className={`${show("settings")} relative min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain`} data-column="settings">
+          {compact ? null : yarnPanel}
           <SidebarSlot store={store} design={design} />
+          {/* En tableta y móvil el pie del sitio no se ve (estudio a pantalla completa): los enlaces legales van aquí. */}
+          {compact ? <LegalLinks className="px-2 pb-1" /> : null}
         </div>
-        <div id="panel-editor" {...panelA11y("editor")} className={`${show("editor")} grid content-start gap-4`}>
+        <div id="panel-editor" {...panelA11y("editor")} className={`${show("editor")} relative min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain`} data-column="editor">
           <EditorToolbar
             tool={tool}
             onTool={changeTool}
@@ -414,9 +431,8 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
             activeYarn={activeYarn}
             activeHex={activeHex}
           />
-          <YarnPanel store={store} yarns={yarns} activeId={activeId} onActiveChange={setActiveId} />
-          <section aria-label="Editor del gráfico" data-zone="editor" className="rounded-2xl border-2 border-linea bg-superficie p-4">
-            <h2 className="mb-2 font-display text-lg font-bold">{T.editor.titulo}</h2>
+          <section aria-label="Editor del gráfico" data-zone="editor" className="flex flex-1 flex-col rounded-2xl border-2 border-linea bg-superficie p-3">
+            <h2 className="mb-2 font-display text-base font-bold">{T.editor.titulo}</h2>
             <ChartEditor
               store={store}
               tool={tool}
@@ -431,8 +447,9 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
               onEffectivePx={setEffectivePx}
             />
           </section>
+          {compact ? yarnPanel : null}
         </div>
-        <div id="panel-preview" {...panelA11y("preview")} className={`${show("preview")} lg:self-start`}>
+        <div id="panel-preview" {...panelA11y("preview")} className={`${show("preview")} relative min-h-0 flex-col overflow-y-auto overscroll-contain`} data-column="preview">
           <PreviewPane store={store} />
         </div>
       </div>
@@ -441,7 +458,8 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
         {announce}
       </div>
 
-      <PrototypeNotice />
+      {/* En escritorio, los enlaces legales del pie del sitio (oculto en el estudio) van en la franja del aviso. */}
+      <PrototypeNotice aside={compact ? null : <LegalLinks />} />
       {perf ? <PerfPanel /> : null}
     </div>
   );

@@ -103,9 +103,9 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
   const hidden = status.kind !== "ok";
 
   return (
-    <section aria-label={T.vistaPrevia.titulo} data-zone="preview" className="grid gap-3 rounded-2xl border-2 border-linea bg-superficie p-4">
+    <section aria-label={T.vistaPrevia.titulo} data-zone="preview" className="flex min-h-full flex-col gap-3 rounded-2xl border-2 border-linea bg-superficie p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-lg font-bold">{T.vistaPrevia.titulo}</h2>
+        <h2 className="font-display text-base font-bold">{T.vistaPrevia.titulo}</h2>
         <div role="group" aria-label={T.herramientas.zoom} className="flex gap-2">
           <button type="button" onClick={() => zoomBy(1 / 1.25)} aria-label={T.vistaPrevia.alejar} className={BTN}>
             <span aria-hidden="true">−</span>
@@ -118,20 +118,23 @@ export function PreviewPane({ store }: { store: DocumentStore }) {
           </button>
         </div>
       </div>
-      <div className="hidden gap-1 [@media(any-pointer:coarse)]:grid">
+      <div className="hidden flex-wrap items-center gap-x-3 gap-y-1 [@media(any-pointer:coarse)]:flex">
         <button type="button" aria-pressed={touchMove} aria-describedby={`${uid}-touch`} onClick={() => setTouchMove((v) => !v)} className={`justify-self-start ${BTN} ${touchMove ? "bg-marino text-white" : ""}`}>
           {T.vistaPrevia.moverConDedo}
         </button>
-        <p id={`${uid}-touch`} className="text-sm text-tinta-suave">
-          {T.vistaPrevia.moverConDedoAyuda}
-        </p>
+        <details className="text-sm">
+          <summary className="cursor-pointer py-1 font-bold underline-offset-4 hover:underline">{T.editor.dedoAyudaTitulo}</summary>
+          <p id={`${uid}-touch`} className="text-tinta-suave">
+            {T.vistaPrevia.moverConDedoAyuda}
+          </p>
+        </details>
       </div>
       {assumed ? (
         <p className="text-sm font-bold" data-testid="preview-assumed">
           {T.vistaPrevia.muestraSupuesta}
         </p>
       ) : null}
-      <div ref={hostRef} className="relative h-[min(60vh,32rem)] min-h-64 overflow-hidden rounded-xl border-2 border-linea bg-[#EFE9DF]" data-testid="preview-host">
+      <div ref={hostRef} className="relative min-h-64 flex-1 basis-0 overflow-hidden rounded-xl border-2 border-linea bg-[#EFE9DF]" data-testid="preview-host">
         <canvas
           ref={canvasRef}
           data-testid="preview-canvas"

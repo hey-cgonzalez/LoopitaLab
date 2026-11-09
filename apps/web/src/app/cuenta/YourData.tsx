@@ -174,7 +174,7 @@ export function YourData({ choice, reauthDone = false, reauthFailed = false }: P
   }
 
   return (
-    <section id="tus-datos" aria-labelledby="tus-datos-titulo" className="mt-14 border-t-2 border-linea pt-10">
+    <section id="tus-datos" aria-labelledby="tus-datos-titulo" className="mt-10 border-t-2 border-linea pt-8 lg:mt-0 lg:border-t-0 lg:pt-0">
       <h2 id="tus-datos-titulo" className="font-display text-2xl font-bold">
         Tus datos
       </h2>

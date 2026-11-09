@@ -10,10 +10,10 @@ export default async function Page() {
   return (
     <>
       <AppHeader name={name} />
-      <main className="mx-auto grid max-w-3xl gap-8 px-6 py-10">
+      <main className="mx-auto grid w-full max-w-6xl content-start gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <div>
-          <h1 className="font-display text-4xl font-bold tracking-tight">Nuevo diseño</h1>
-          <p className="mt-2 text-tinta-suave">Parte de una plantilla o responde unas preguntas. Después puedes cambiar todo en el estudio.</p>
+          <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Nuevo diseño</h1>
+          <p className="mt-1 text-tinta-suave">Parte de una plantilla o responde unas preguntas. Después puedes cambiar todo en el estudio.</p>
         </div>
         <NewDesignWizard />
       </main>

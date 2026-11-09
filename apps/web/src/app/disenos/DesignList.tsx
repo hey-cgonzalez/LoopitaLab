@@ -54,8 +54,8 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
   }
 
   return (
-    <div className="grid gap-4">
-      <p role={message?.tone === "error" ? "alert" : "status"} className={message?.tone === "error" ? "font-bold text-error" : "font-bold text-exito"}>
+    <div className="grid gap-3">
+      <p role={message?.tone === "error" ? "alert" : "status"} className={`empty:hidden ${message?.tone === "error" ? "font-bold text-error" : "font-bold text-exito"}`}>
         {message?.text}
       </p>
       {designs.length === 0 ? (
@@ -63,12 +63,12 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
           Todavía no tienes diseños. Crea el primero con «Nuevo diseño»: puedes partir de una plantilla.
         </p>
       ) : (
-        <ul className="grid divide-y-2 divide-linea border-y-2 border-linea">
+        <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
           {designs.map((d) => {
             const isAi = d.origin !== "manual";
             return (
-              <li key={d.id} className="flex flex-wrap items-center gap-x-6 gap-y-3 py-4">
-                <div className="min-w-0 flex-1">
+              <li key={d.id} className="flex flex-col gap-3 rounded-2xl border-2 border-linea bg-superficie p-4">
+                <div className="min-w-0">
                   <p className="truncate font-display text-xl font-semibold">
                     <Link href={`/disenos/${d.id}`} className="underline-offset-4 hover:underline">
                       {d.title}
@@ -79,9 +79,9 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
                     {d.width !== null && d.height !== null ? ` · motivo de ${d.width} × ${d.height}` : ""} · actualizado el {dateFmt.format(new Date(d.updatedAt))}
                   </p>
                 </div>
-                {isAi ? <span className="rounded-full border-2 border-marino px-3 py-0.5 text-sm font-bold">Generado con IA</span> : null}
+                {isAi ? <span className="self-start rounded-full border-2 border-marino px-3 py-0.5 text-sm font-bold">Generado con IA</span> : null}
                 {confirming === d.id ? (
-                  <div role="group" aria-label={`Confirmar borrado de ${d.title}`} className="flex flex-wrap items-center gap-2">
+                  <div role="group" aria-label={`Confirmar borrado de ${d.title}`} className="mt-auto flex flex-wrap items-center gap-2">
                     <span className="font-bold">¿Borrar «{d.title}»? No se puede deshacer.</span>
                     <button type="button" onClick={() => onDelete(d)} disabled={busy === d.id} className="rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
                       Sí, borrar
@@ -91,7 +91,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
                     </button>
                   </div>
                 ) : (
-                  <div className="flex flex-wrap items-center gap-2">
+                  <div className="mt-auto flex flex-wrap items-center gap-2">
                     {isAi ? (
                       <span id={`dup-${d.id}`} className="text-sm text-tinta-suave">
                         Los diseños con IA aún no se duplican.

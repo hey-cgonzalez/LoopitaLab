@@ -7,7 +7,7 @@ import { createProject, type ProjectFormState } from "./actions";
 function Submit() {
   const { pending } = useFormStatus();
   return (
-    <button type="submit" disabled={pending} className="rounded-full bg-marino px-5 py-3 font-bold text-white hover:bg-indigo disabled:opacity-70">
+    <button type="submit" disabled={pending} className="rounded-full bg-marino px-5 py-2.5 font-bold text-white hover:bg-indigo disabled:opacity-70">
       {pending ? "Creando…" : "Crear proyecto"}
     </button>
   );
@@ -33,7 +33,7 @@ export function NewProjectForm() {
           placeholder="Por ejemplo: gorro de invierno para Sofía"
           aria-invalid={state.error ? true : undefined}
           aria-describedby={state.error ? "title-error" : undefined}
-          className="min-w-0 flex-1 rounded-xl border-2 border-linea bg-superficie px-4 py-3 aria-invalid:border-error"
+          className="min-w-0 flex-1 basis-56 rounded-xl border-2 border-borde bg-superficie px-4 py-2.5 aria-invalid:border-error"
         />
         <Submit />
       </div>

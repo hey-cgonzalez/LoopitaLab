@@ -238,6 +238,7 @@ test("CA-F3: cuña de 8 repeticiones de 10 a 1 punto: 80 → 8 puntos por vuelta
 });
 
 test("caso 26: bottom_up gira antihorario visto desde arriba, top_down horario; invertir direction espeja los ángulos (validar con tejedora)", () => {
+  // validar con tejedora: sentido de giro del círculo (caso 26, T1b). Si las tejedoras lo corrigen, cambiar los signos esperados.
   forAll(
     "sentido",
     (r) => ({ ...randomChart(r), renderAs: "circle" as const }),

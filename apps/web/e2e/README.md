@@ -49,7 +49,7 @@ Proyectos de `playwright.config.ts`, todos en Chromium (`channel: "chromium"`, e
 - **movil** (390 × 844, táctil): solo lo marcado `@movil`.
 - **latencia** (1440 × 900): corre al final y solo, cuando terminaron los otros dos (`dependencies`). Si falla una prueba de escritorio o de móvil, la latencia no corre.
 
-Todas las pruebas fallan si en la página hubo un `console.error` o una excepción no capturada (`support/estudio.ts`). Única excepción: el 404 de `/favicon.ico`, porque la web todavía no tiene ícono (**pendiente** de `frontend-editor`; no lo provoca el estudio).
+Todas las pruebas fallan si en la página hubo un `console.error` o una excepción no capturada (`support/estudio.ts`), sin excepciones: la web declara su ícono (`src/app/icon.svg`), así el navegador ya no pide `/favicon.ico`.
 
 | Archivo | Pruebas | Criterios |
 |---|---|---|

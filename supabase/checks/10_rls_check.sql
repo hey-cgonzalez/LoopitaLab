@@ -1227,5 +1227,154 @@ begin
   raise notice 'ok - un documento sin kind, technique, schemaVersion u origin no pasa el CHECK';
 end $$;
 
+-- T15 final (MEDIO-2): topes de proyectos (1000), notas (10 000), lanas (500) y versiones (5000)
+-- por usuaria, y largo de la fibra en la composición. Se prueban como superusuario: los triggers
+-- corren para cualquier rol.
+reset role;
+insert into auth.users (id, email) values ('66666666-6666-4666-8666-666666666666', 'topes@example.test');
+insert into public.projects (owner_id, title) select '66666666-6666-4666-8666-666666666666', 'P' || i from generate_series(1, 1000) i;
+insert into public.user_yarns (owner_id, weight, composition, color_hex)
+  select '66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE' from generate_series(1, 500) i;
+do $$
+declare pid uuid;
+begin
+  begin
+    insert into public.projects (owner_id, title) values ('66666666-6666-4666-8666-666666666666', 'P1001');
+    raise exception 'FALLO: el proyecto 1001 debe rechazarse';
+  exception when program_limit_exceeded then null; end;
+  delete from public.projects where title = 'P1';
+  insert into public.projects (owner_id, title) values ('66666666-6666-4666-8666-666666666666', 'P1001');
+  assert (select count(*) from public.projects where owner_id = '66666666-6666-4666-8666-666666666666') = 1000, 'borrar libera cupo de proyectos';
+  -- Otra usuaria no se ve afectada por el tope de esta.
+  insert into auth.users (id, email) values ('67676767-6767-4767-8767-676767676767', 'libre@example.test');
+  insert into public.projects (owner_id, title) values ('67676767-6767-4767-8767-676767676767', 'Libre');
+
+  begin
+    insert into public.user_yarns (owner_id, weight, composition, color_hex)
+    values ('66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE');
+    raise exception 'FALLO: la lana 501 debe rechazarse';
+  exception when program_limit_exceeded then null; end;
+  delete from public.user_yarns where ctid = (select ctid from public.user_yarns where owner_id = '66666666-6666-4666-8666-666666666666' limit 1);
+  insert into public.user_yarns (owner_id, weight, composition, color_hex)
+  values ('66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE');
+  assert (select count(*) from public.user_yarns where owner_id = '66666666-6666-4666-8666-666666666666') = 500, 'borrar libera cupo de lanas';
+
+  -- Notas: 10 000 repartidas en dos proyectos de la misma usuaria (el tope es por usuaria).
+  select id into pid from public.projects where title = 'P2' and owner_id = '66666666-6666-4666-8666-666666666666';
+  insert into public.project_notes (project_id, body) select pid, 'n' from generate_series(1, 5000);
+  select id into pid from public.projects where title = 'P3' and owner_id = '66666666-6666-4666-8666-666666666666';
+  insert into public.project_notes (project_id, body) select pid, 'n' from generate_series(1, 5000);
+  begin
+    insert into public.project_notes (project_id, body) values (pid, 'n10001');
+    raise exception 'FALLO: la nota 10001 debe rechazarse';
+  exception when program_limit_exceeded then null; end;
+  delete from public.project_notes where ctid = (select ctid from public.project_notes where project_id = pid limit 1);
+  insert into public.project_notes (project_id, body) values (pid, 'n10001');
+  raise notice 'ok - topes por usuaria: 1000 proyectos, 500 lanas, 10 000 notas (54000); borrar libera';
+end $$;
+
+-- Versiones: 25 diseños x 200 = 5000; la siguiente falla aunque cada diseño esté bajo su tope de 200.
+insert into public.patterns (id, owner_id, title, technique, kind, schema_version, document)
+select ('66666666-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, '66666666-6666-4666-8666-666666666666', 'V' || i, 'knit', 'chart', 1,
+       ('{"schemaVersion":1,"title":"V' || i || '","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}')::jsonb
+from generate_series(1, 26) i;
+insert into public.pattern_versions (pattern_id, version, document)
+select ('66666666-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, v, '{}'::jsonb
+from generate_series(1, 25) i, generate_series(1, 200) v;
+do $$ begin
+  begin
+    insert into public.pattern_versions (pattern_id, version, document)
+    values ('66666666-0000-4000-8000-000000000026', 1, '{}');
+    raise exception 'FALLO: la versión 5001 debe rechazarse';
+  exception when program_limit_exceeded then null; end;
+  delete from public.pattern_versions where pattern_id = '66666666-0000-4000-8000-000000000001' and version = 1;
+  insert into public.pattern_versions (pattern_id, version, document)
+  values ('66666666-0000-4000-8000-000000000026', 1, '{}');
+  raise notice 'ok - tope total de 5000 versiones por usuaria (54000); borrar libera';
+end $$;
+-- También por la función que usa la usuaria.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '66666666-6666-4666-8666-666666666666', true);
+do $$ begin
+  begin
+    perform public.snapshot_pattern('66666666-0000-4000-8000-000000000026');
+    raise exception 'FALLO: snapshot_pattern debe respetar el tope total';
+  exception when program_limit_exceeded then null; end;
+  raise notice 'ok - snapshot_pattern respeta el tope total de versiones';
+end $$;
+reset role;
+delete from auth.users where id = '66666666-6666-4666-8666-666666666666';
+delete from auth.users where id = '67676767-6767-4767-8767-676767676767';
+
+-- Largo del nombre de fibra: 40 caracteres pasan, 41 no.
+do $$ begin
+  assert public.composition_is_valid(('[{"fiber":"' || repeat('a', 40) || '","percent":100}]')::jsonb), '40 caracteres valen';
+  assert not public.composition_is_valid(('[{"fiber":"' || repeat('a', 41) || '","percent":100}]')::jsonb), '41 caracteres no valen';
+  assert not public.composition_is_valid('[{"fiber":"","percent":100}]'), 'fibra vacía no vale';
+  begin
+    insert into public.user_yarns (owner_id, weight, composition, color_hex)
+    values ('55555555-5555-5555-5555-555555555555', 3, ('[{"fiber":"' || repeat('a', 41) || '","percent":100}]')::jsonb, '#E9DDBE');
+    raise exception 'FALLO: una fibra de 41 caracteres no pasa el CHECK';
+  exception when check_violation then null; end;
+  raise notice 'ok - la fibra de una composición mide 1 a 40 caracteres';
+end $$;
+
+-- Toda relación de public (tablas y particionadas) tiene RLS activado; las vistas, security_invoker
+-- o sin grants para anon y authenticated (T15 MEDIO-1).
+do $$
+declare
+  r record;
+  n integer := 0;
+begin
+  for r in
+    select c.oid::regclass as t, c.relrowsecurity, c.relkind, c.reloptions
+    from pg_class c join pg_namespace s on s.oid = c.relnamespace
+    where s.nspname = 'public' and c.relkind in ('r','p','v','m')
+  loop
+    if r.relkind in ('r','p') then
+      n := n + 1;
+      if not r.relrowsecurity then
+        raise exception 'FALLO: % no tiene RLS activado', r.t;
+      end if;
+    elsif r.relkind = 'v' then
+      if not coalesce(r.reloptions @> array['security_invoker=true'], false)
+         and (has_table_privilege('anon', r.t, 'select') or has_table_privilege('authenticated', r.t, 'select')) then
+        raise exception 'FALLO: la vista % no es security_invoker y es legible por anon o authenticated', r.t;
+      end if;
+    else
+      if has_table_privilege('anon', r.t, 'select') or has_table_privilege('authenticated', r.t, 'select') then
+        raise exception 'FALLO: la vista materializada % es legible por anon o authenticated (no admite RLS)', r.t;
+      end if;
+    end if;
+  end loop;
+  assert n >= 16, format('se revisaron solo %s tablas de public', n);
+  raise notice 'ok - las % tablas de public tienen RLS activado; vistas seguras', n;
+end $$;
+-- Prueba en negativo: una tabla sin RLS hace fallar la aserción; una vista sin security_invoker, también.
+create table public.__sin_rls (id int);
+create view public.__vista_abierta as select 1 as x;
+grant select on public.__vista_abierta to anon;
+do $$
+declare
+  r record;
+  tabla_detectada boolean := false;
+  vista_detectada boolean := false;
+begin
+  for r in
+    select c.oid::regclass as t, c.relrowsecurity, c.relkind, c.reloptions
+    from pg_class c join pg_namespace s on s.oid = c.relnamespace
+    where s.nspname = 'public' and c.relkind in ('r','p','v')
+  loop
+    if r.relkind in ('r','p') and not r.relrowsecurity then tabla_detectada := true; end if;
+    if r.relkind = 'v' and not coalesce(r.reloptions @> array['security_invoker=true'], false)
+       and has_table_privilege('anon', r.t, 'select') then vista_detectada := true; end if;
+  end loop;
+  assert tabla_detectada, 'una tabla sin RLS debe detectarse';
+  assert vista_detectada, 'una vista abierta debe detectarse';
+  raise notice 'ok - el check detecta una tabla sin RLS y una vista sin security_invoker';
+end $$;
+drop view public.__vista_abierta;
+drop table public.__sin_rls;
+
 rollback;
 \echo 'RLS: todas las verificaciones pasaron'

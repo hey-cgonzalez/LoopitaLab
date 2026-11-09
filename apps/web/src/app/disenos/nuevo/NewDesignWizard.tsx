@@ -90,12 +90,13 @@ export function NewDesignWizard() {
   const paletteFamilies = [...new Set(PALETTE.map((c) => c.familia))];
 
   return (
-    <div className="grid gap-10">
+    // Escritorio: plantillas a la izquierda y el formulario "de cero" a la derecha, así la página cabe en menos alto.
+    <div className="grid gap-8 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)] lg:items-start lg:gap-12">
       <section aria-labelledby={`${uid}-plantillas`} className="grid gap-4">
         <h2 id={`${uid}-plantillas`} className="font-display text-2xl font-bold">
           Plantillas
         </h2>
-        <ul className="grid gap-4 sm:grid-cols-2">
+        <ul className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
           {TEMPLATES.map((t) => (
             <li key={t.id} className="grid content-between gap-3 rounded-2xl border-2 border-linea bg-superficie p-5">
               <div>
@@ -110,7 +111,7 @@ export function NewDesignWizard() {
         </ul>
       </section>
 
-      <form onSubmit={onSubmit} noValidate className="grid gap-6" aria-labelledby={`${uid}-blanco`}>
+      <form onSubmit={onSubmit} noValidate className="grid gap-5" aria-labelledby={`${uid}-blanco`}>
         <h2 id={`${uid}-blanco`} className="font-display text-2xl font-bold">
           O empieza de cero
         </h2>

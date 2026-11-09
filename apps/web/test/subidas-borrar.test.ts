@@ -35,9 +35,18 @@ beforeEach(() => {
   state.deleteResult = { error: null };
   for (const f of [getUser, remove, adminFrom]) f.mockClear();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  vi.stubEnv("LOOPITA_UPLOADS_ENABLED", "1");
 });
 
 describe("DELETE /api/subidas/[id]", () => {
+  it("con la bandera apagada responde 404 (T15 BAJO-4)", async () => {
+    vi.stubEnv("LOOPITA_UPLOADS_ENABLED", "");
+    const res = await DELETE(new NextRequest(`http://localhost/api/subidas/${ID}`, { method: "DELETE", headers: { origin: "http://localhost" } }), { params: Promise.resolve({ id: ID }) });
+    expect(res.status).toBe(404);
+    expect(getUser).not.toHaveBeenCalled();
+    expect(remove).not.toHaveBeenCalled();
+  });
+
   it("otro sitio: 403", async () => expect((await del(ID, { "sec-fetch-site": "cross-site" })).status).toBe(403));
 
   it("sin sesión: 401", async () => {

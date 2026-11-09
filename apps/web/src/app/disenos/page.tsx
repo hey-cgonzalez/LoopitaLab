@@ -15,13 +15,13 @@ export default async function Page() {
   return (
     <>
       <AppHeader name={name} />
-      <main className="mx-auto grid max-w-5xl gap-8 px-6 py-10">
+      <main className="mx-auto grid w-full max-w-6xl content-start gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
-            <h1 className="font-display text-4xl font-bold tracking-tight">Mis diseños</h1>
-            <p className="mt-2 text-tinta-suave">Tus gráficos de colorwork. Se guardan solos mientras los editas.</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Mis diseños</h1>
+            <p className="mt-1 text-tinta-suave">Tus gráficos de colorwork. Se guardan solos mientras los editas.</p>
           </div>
-          <Link href="/disenos/nuevo" className="rounded-full bg-marino px-6 py-3 font-bold text-white hover:bg-indigo">
+          <Link href="/disenos/nuevo" className="rounded-full bg-marino px-6 py-2.5 font-bold text-white hover:bg-indigo">
             Nuevo diseño
           </Link>
         </div>

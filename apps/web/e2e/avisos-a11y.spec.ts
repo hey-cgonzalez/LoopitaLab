@@ -3,19 +3,36 @@ import { cellColors, chart, expect, focusChart, nextFrames, openStudio, repeatsX
 // Aviso de prototipo (CA-F10), accesibilidad del editor (T11) y tope de la vista previa (T10).
 
 test.describe("Aviso de prototipo (CA-F10)", () => {
-  test("queda visible arriba, al medio y al final de la página, y no se puede cerrar", async ({ page }) => {
+  test("queda visible arriba, al medio y al final de la página y de cada columna, y no se puede cerrar", async ({ page }) => {
     await openStudio(page);
     const notice = page.locator("[data-zone=prototype-notice]");
     await expect(notice).toContainText("Teje una muestra");
+    // El estudio ocupa la ventana y cada columna desplaza por dentro (`data-column`): se desplazan la página y las columnas.
     for (const where of ["top", "middle", "bottom"] as const) {
       await page.evaluate((w) => {
-        const h = document.documentElement.scrollHeight;
-        window.scrollTo(0, w === "top" ? 0 : w === "middle" ? h / 2 : h);
+        const at = (h: number) => (w === "top" ? 0 : w === "middle" ? h / 2 : h);
+        window.scrollTo(0, at(document.documentElement.scrollHeight));
+        for (const col of document.querySelectorAll<HTMLElement>("[data-column]")) col.scrollTop = at(col.scrollHeight);
       }, where);
       await nextFrames(page, 2);
       await expect(notice, `visible (${where})`).toBeInViewport();
     }
     await expect(notice.getByRole("button")).toHaveCount(0);
+  });
+
+  test("el estudio ocupa la ventana: la página no desplaza y el aviso no tapa las columnas", async ({ page }) => {
+    for (const forma of ["tubo", "circulo"]) {
+      await openStudio(page, `forma=${forma}&reps=3`);
+      const m = await page.evaluate(() => {
+        const d = document.documentElement;
+        const notice = document.querySelector("[data-zone=prototype-notice]")!.getBoundingClientRect();
+        const bottoms = [...document.querySelectorAll<HTMLElement>("[data-column]")].map((c) => c.getBoundingClientRect().bottom);
+        return { sh: d.scrollHeight, ih: innerHeight, sw: d.scrollWidth, cw: d.clientWidth, noticeTop: notice.top, maxBottom: Math.max(...bottoms) };
+      });
+      expect(m.sh, `${forma}: sin desplazamiento vertical de la página`).toBeLessThanOrEqual(m.ih);
+      expect(m.sw, `${forma}: sin desplazamiento horizontal`).toBeLessThanOrEqual(m.cw);
+      expect(m.maxBottom, `${forma}: las columnas terminan sobre el aviso`).toBeLessThanOrEqual(m.noticeTop);
+    }
   });
 });
 

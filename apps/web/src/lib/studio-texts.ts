@@ -318,6 +318,7 @@ export const STUDIO_TEXTS = {
       "Lectura en espejo: la preferencia «Tejer en espejo» de tu cuenta, pensada para zurdas que tejen en sentido contrario. Las filas se leen al revés y las casillas se numeran desde la izquierda. El dibujo no cambia.", // validar con tejedora
     sinLanas: "Este diseño no tiene lanas.",
     dedoDibuja: "Dibujar con el dedo o el lápiz",
+    dedoAyudaTitulo: "¿Cómo funciona?",
     dedoAyuda:
       "Apagado, con el dedo o el lápiz desplazas la cuadrícula y tocas una casilla para aplicar la herramienta. Encendido, arrastrar dibuja y la página no se desplaza sobre la cuadrícula.",
     descripcionTitulo: "Descripción del motivo en texto",

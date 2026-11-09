@@ -89,7 +89,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
-      <AppHeader name={name} />
+      <AppHeader name={name} wide />
       <StudioShell document={doc} updatedAt={data.updated_at} ownerId={user.id} draftIssues={errors} mirror={profile?.mirror_knitting ?? false} />
     </>
   );
