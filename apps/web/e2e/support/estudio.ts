@@ -15,9 +15,6 @@ export const test = base.extend<{ pageProblems: string[] }>({
       const problems: string[] = [];
       page.on("console", (m) => {
         if (m.type() !== "error") return;
-        // Excepción única y conocida: la web todavía no tiene ícono y el navegador pide `/favicon.ico` por su cuenta
-        // (404). No lo provoca el estudio; queda informado como pendiente en `e2e/README.md`.
-        if (new URL(m.location().url || "about:blank").pathname === "/favicon.ico") return;
         problems.push(`console.error: ${m.text()} (${m.location().url})`);
       });
       page.on("pageerror", (e) => problems.push(`excepción no capturada: ${e.message}`));

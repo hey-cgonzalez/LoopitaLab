@@ -11,8 +11,8 @@ import { paintGate } from "@/lib/studio/paint-gate.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 
 const T = STUDIO_TEXTS;
-const FIELD = "w-24 rounded-xl border-2 border-borde bg-superficie px-3 py-1.5";
-const BTN = "rounded-full border-2 border-marino px-4 py-1.5 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
+const FIELD = "w-20 rounded-xl border-2 border-borde bg-superficie px-3 py-1";
+const BTN = "rounded-full border-2 border-marino px-3 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 const SHAPES: Chart["renderAs"][] = ["flat", "tube", "circle", "yoke"];
 const SHAPE_HELP: Record<Chart["renderAs"], string> = {
   flat: T.formas.ayudaPlano,
@@ -23,9 +23,9 @@ const SHAPE_HELP: Record<Chart["renderAs"], string> = {
 
 function Section({ title, children, defaultOpen = true, testId }: { title: string; children: ReactNode; defaultOpen?: boolean; testId?: string }) {
   return (
-    <details open={defaultOpen} className="group border-b-2 border-linea py-3 last:border-b-0" data-testid={testId}>
-      <summary className="cursor-pointer font-display text-lg font-bold">{title}</summary>
-      <div className="mt-3 grid gap-3">{children}</div>
+    <details open={defaultOpen} className="group border-b-2 border-linea py-2 last:border-b-0" data-testid={testId}>
+      <summary className="cursor-pointer py-0.5 font-display text-base font-bold">{title}</summary>
+      <div className="mt-2 grid gap-2.5">{children}</div>
     </details>
   );
 }
@@ -69,14 +69,17 @@ function IntField({ label, value, min, max, onCommit }: { label: string; value: 
 
 function Radios<V extends string>({ legend, name, value, options, onChange }: { legend: string; name: string; value: V; options: { value: V; label: string }[]; onChange(v: V): void }) {
   return (
-    <fieldset className="grid gap-1">
+    <fieldset>
       <legend className="font-bold">{legend}</legend>
-      {options.map((o) => (
-        <label key={o.value} className="flex items-center gap-2">
-          <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="size-6 accent-marino" />
-          {o.label}
-        </label>
-      ))}
+      {/* Opciones en línea (envuelven si no caben): el panel queda más corto. */}
+      <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1">
+        {options.map((o) => (
+          <label key={o.value} className="flex items-center gap-1.5">
+            <input type="radio" name={name} value={o.value} checked={value === o.value} onChange={() => onChange(o.value)} className="size-5 accent-marino" />
+            {o.label}
+          </label>
+        ))}
+      </div>
     </fieldset>
   );
 }
@@ -105,8 +108,8 @@ export function StudioSidebar({ store, doc, design }: Props) {
   const sizeValid = Number.isInteger(mw) && mw >= 1 && mw <= EDIT_LIMITS.maxMotifWidth && Number.isInteger(mh) && mh >= 1 && mh <= EDIT_LIMITS.maxMotifHeight;
 
   return (
-    <aside aria-label={T.panel.titulo} data-zone="sidebar" className="rounded-2xl border-2 border-linea bg-superficie px-4 py-2">
-      <Section title={T.panel.diseno} testId="section-design">
+    <aside aria-label={T.panel.titulo} data-zone="sidebar" className="shrink-0 rounded-2xl border-2 border-linea bg-superficie px-3 py-1">
+      <Section title={T.panel.diseno} testId="section-design" defaultOpen={false}>
         {design}
       </Section>
 

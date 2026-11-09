@@ -52,7 +52,7 @@ El correo que trae Supabase por defecto tiene un límite bajo de envíos por hor
 
 ## 2b. Acceso con Google y Microsoft
 
-> **Estado al 2026-11-05:** preparado en el código, **no activado** en el proyecto real. En `supabase/config.toml` ambos proveedores están con `enabled = false`. Las claves de cliente de Google y Microsoft se guardan **solo** en el panel de Supabase; nunca en la web, en `.env.local` de la web ni en el repositorio.
+> **Estado al 2026-11-08:** Google está **activo** en el proyecto real desde el 2026-11-05 (`supabase/config.toml`, `enabled = true`). Microsoft está **apagado**, en el panel (verificado) y en `config.toml` (`enabled = false`). Los requisitos previos de F2-M7 y M3 quedan como riesgo aceptado por la usuaria (2026-11-08) mientras no haya plan Pro; ver `docs/seguridad.md`, "Riesgos aceptados". Las claves de cliente de Google y Microsoft se guardan **solo** en el panel de Supabase; nunca en la web, en `.env.local` de la web ni en el repositorio.
 
 La URI de redirección que se registra en Google y en Microsoft es siempre la de Supabase Auth, no la de la web:
 

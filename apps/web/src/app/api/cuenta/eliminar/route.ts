@@ -150,7 +150,8 @@ export async function POST(request: NextRequest) {
   try {
     await removePaths(admin, user.id, await listFolder(admin, user.id));
   } catch (e) {
-    console.error("eliminar: quedaron archivos sin borrar tras eliminar la cuenta", user.id, e instanceof Error ? e.message : e);
+    // Sin el uid ni rutas (empiezan con el uid): solo el tipo de error.
+    console.error("eliminar: quedaron archivos sin borrar tras eliminar la cuenta", e instanceof Error ? e.name : "error");
   }
 
   // La sesión ya no existe en el servidor; signOut local borra las cookies de todos modos.

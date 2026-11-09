@@ -43,6 +43,7 @@ beforeEach(() => {
   state.adminThrows = false;
   for (const f of [getUser, sessionFrom, rpc, upload, remove, insertQuery]) f.mockClear();
   vi.spyOn(console, "error").mockImplementation(() => undefined);
+  vi.stubEnv("LOOPITA_UPLOADS_ENABLED", "1");
 });
 
 // ---------------------------------------------------------------- utilidades
@@ -371,7 +372,18 @@ describe("POST /api/subidas: re-codificación y guardado", () => {
     remove.mockResolvedValueOnce({ error: { message: "storage caído" } } as never);
     const res = await POST(post(formWith(await png())));
     expect(res.status).toBe(500);
-    expect(console.error).toHaveBeenCalledWith("subidas: no se pudo borrar el archivo huérfano", upload.mock.calls[0]![0], "storage caído");
+    // Sin la ruta (empieza con el uid) ni el mensaje de Storage en el log (T15 BAJO-3).
+    expect(console.error).toHaveBeenCalledWith("subidas: no se pudo borrar el archivo huérfano (sin ruta: lleva el uid)");
+    expect(JSON.stringify(vi.mocked(console.error).mock.calls)).not.toContain(USER.id);
+  });
+
+  it("con la bandera apagada responde 404 sin tocar nada (T15 BAJO-4)", async () => {
+    vi.stubEnv("LOOPITA_UPLOADS_ENABLED", "");
+    const res = await POST(post(formWith(await png())));
+    expect(res.status).toBe(404);
+    expect(getUser).not.toHaveBeenCalled();
+    expect(rpc).not.toHaveBeenCalled();
+    expect(upload).not.toHaveBeenCalled();
   });
 
   it("otro error al registrar: 500 y no queda archivo huérfano", async () => {

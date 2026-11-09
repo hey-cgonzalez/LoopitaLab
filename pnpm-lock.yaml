@@ -30,7 +30,7 @@ importers:
         specifier: workspace:*
         version: link:../../packages/yarn-catalog
       '@supabase/ssr':
-        specifier: '>=0.6.1 <1.0.0'
+        specifier: ^0.12.7
         version: 0.12.7(@supabase/supabase-js@2.119.0)
       '@supabase/supabase-js':
         specifier: ^2.57.0

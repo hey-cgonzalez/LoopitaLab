@@ -20,7 +20,7 @@
     "@loopitalab/pattern-render": "workspace:*",
     "@loopitalab/stitch-render": "workspace:*",
     "@loopitalab/yarn-catalog": "workspace:*",
-    "@supabase/ssr": ">=0.6.1 <1.0.0",
+    "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.57.0",
     "next": "^16.0.0",
     "react": "^19.2.0",

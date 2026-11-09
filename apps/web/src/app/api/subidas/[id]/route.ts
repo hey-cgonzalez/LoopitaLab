@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { createAdminClient, UPLOADS_BUCKET } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
+import { notFound, uploadsEnabled } from "../enabled";
 import { isSameSite, jsonError, jsonOk } from "../../_lib/request";
 
 /**
@@ -14,6 +15,7 @@ import { isSameSite, jsonError, jsonOk } from "../../_lib/request";
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  if (!uploadsEnabled()) return notFound();
   if (!isSameSite(request)) return jsonError(403, "cross_site");
 
   const supabase = await createClient();
@@ -49,7 +51,7 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
   // Primero el archivo: si falla, la fila sigue apuntando a él y se puede reintentar.
   const { error: removeError } = await admin.storage.from(UPLOADS_BUCKET).remove([row.storage_path]);
   if (removeError) {
-    console.error("subidas: no se pudo borrar el archivo", row.storage_path, removeError.message);
+    console.error("subidas: no se pudo borrar el archivo (sin ruta: lleva el uid)", removeError.name);
     return jsonError(500, "storage_delete_failed");
   }
   const { error: deleteError } = await admin.from("uploads").delete().eq("id", row.id).eq("owner_id", user.id);

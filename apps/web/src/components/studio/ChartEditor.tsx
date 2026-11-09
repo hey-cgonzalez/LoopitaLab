@@ -122,8 +122,9 @@ export function ChartEditor(props: ChartEditorProps) {
     if (!host) return;
     const ro = new ResizeObserver(() => {
       const w = host.clientWidth;
-      // El alto disponible no sale del contenedor (su alto depende del canvas): es una fracción de la ventana.
-      const h = Math.round(Math.max(300, window.innerHeight * 0.65));
+      // El contenedor ocupa el alto libre de su columna (flex-1 con min-h-0: su alto no depende del canvas, que
+      // desplaza por dentro), así "Ajustar a la pantalla" usa todo ese alto. Se descuenta el relleno (p-1).
+      const h = Math.max(160, host.clientHeight - 8);
       if (w > 0) setAvailable((a) => (a.w === w && a.h === h ? a : { w, h }));
     });
     ro.observe(host);
@@ -396,23 +397,27 @@ export function ChartEditor(props: ChartEditorProps) {
   const showAlternation = chart.workedIn === "rows" && chart.height % 2 === 1 && chart.repeat.y > 1 && size.view === "full";
 
   return (
-    <div className="grid gap-2">
+    <div className="flex min-h-0 flex-1 flex-col gap-2">
       {/* Solo donde hay pantalla táctil. Sin este modo, un canvas con touch-action: none atraparía el desplazamiento. */}
-      <div className="hidden gap-1 [@media(any-pointer:coarse)]:grid">
+      {/* La ayuda va plegada (sigue siendo la descripción accesible del botón): en móvil ocupaba media pantalla. */}
+      <div className="hidden shrink-0 flex-wrap items-center gap-x-3 gap-y-1 [@media(any-pointer:coarse)]:flex">
         <button
           type="button"
           aria-pressed={fingerDraw}
           aria-describedby={touchId}
           onClick={() => setFingerDraw((v) => !v)}
-          className={`justify-self-start rounded-full border-2 border-marino px-4 py-2 font-bold ${fingerDraw ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
+          className={`justify-self-start rounded-full border-2 border-marino px-3 py-1.5 text-sm font-bold ${fingerDraw ? "bg-marino text-white" : "hover:bg-marino hover:text-white"}`}
         >
           {STUDIO_TEXTS.editor.dedoDibuja}
         </button>
-        <p id={touchId} className="text-sm text-tinta-suave">
-          {STUDIO_TEXTS.editor.dedoAyuda}
-        </p>
+        <details className="text-sm">
+          <summary className="cursor-pointer py-1 font-bold underline-offset-4 hover:underline">{STUDIO_TEXTS.editor.dedoAyudaTitulo}</summary>
+          <p id={touchId} className="text-tinta-suave">
+            {STUDIO_TEXTS.editor.dedoAyuda}
+          </p>
+        </details>
       </div>
-      <div ref={hostRef} className="max-h-[70vh] min-h-48 overflow-auto rounded-xl border-2 border-borde bg-white p-1" data-testid="chart-scroll">
+      <div ref={hostRef} className="flex min-h-64 flex-1 basis-0 overflow-auto rounded-xl border-2 border-borde bg-white p-1" data-testid="chart-scroll">
         <canvas
           ref={canvasRef}
           id={CHART_CANVAS_ID}
@@ -426,7 +431,7 @@ export function ChartEditor(props: ChartEditorProps) {
           aria-describedby={`${descId} ${noteId}`}
           tabIndex={0}
           style={{ width: layout.width, height: layout.height, touchAction: paints && fingerDraw ? "none" : "manipulation", cursor: paints ? "crosshair" : "cell" }}
-          className="block max-w-none"
+          className="m-auto block max-w-none shrink-0"
           onPointerDown={onPointerDown}
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}

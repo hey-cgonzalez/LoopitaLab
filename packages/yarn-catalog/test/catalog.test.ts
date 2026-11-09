@@ -21,6 +21,7 @@ describe("datos de referencia", () => {
   });
 
   it("caso 19: puntos y filas de jersey por categoría (filas supuestas con 1,35)", () => {
+    // validar con tejedora: proporción 1,35 de filas por punto (en colorwork a hebras suele ser 1,25 a 1,3; T1b).
     const expected: [number, number][] = [
       [37, 50], [30, 41], [25, 34], [23, 31], [18, 24], [14, 19], [9, 12], [6, 8],
     ];

@@ -43,6 +43,24 @@ html {
   scroll-padding-bottom: calc(var(--aviso-alto, 0px) + 1rem);
 }
 
+/* La barra superior queda fija arriba desde 640 px (una sola línea): el navegador deja libre su alto al desplazar
+   hacia un elemento enfocado (WCAG 2.4.11). En móvil no es fija y no hace falta reservar. */
+@media (min-width: 640px) {
+  html:has([data-app-header]) {
+    scroll-padding-top: 4.5rem;
+  }
+}
+
+/* Estudio a pantalla completa: la página mide exactamente la ventana y cada columna desplaza por dentro.
+   El pie del sitio se oculta y sus enlaces legales se muestran dentro del estudio (aviso de prototipo o Ajustes).
+   Sin soporte de :has, el estudio crece con su contenido, la página desplaza y el pie vuelve a verse. */
+body:has([data-studio]) {
+  height: 100dvh;
+}
+body:has([data-studio]) > [data-site-footer] {
+  display: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

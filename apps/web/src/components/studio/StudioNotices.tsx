@@ -1,7 +1,7 @@
 "use client";
 
 import type { ChartPattern } from "@loopitalab/pattern-core";
-import { useDeferredValue, useEffect, useMemo, useRef } from "react";
+import { useDeferredValue, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { noticeReserve } from "@/lib/studio/a11y.ts";
 import { applicableLimitations } from "@/lib/studio/preview-plan.ts";
 import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
@@ -11,12 +11,15 @@ const T = STUDIO_TEXTS;
 /**
  * Aviso fijo de prototipo digital (CA-F10, regla de oro 8): visible en todo el estudio, sin botón para cerrarlo.
  * Mantiene `data-zone="prototype-notice"`.
+ *
+ * Es la última franja del estudio a pantalla completa: ocupa su propio espacio debajo de las columnas (que desplazan
+ * por dentro), así nunca tapa contenido ni el foco (WCAG 2.4.11). `sticky` queda como respaldo cuando la ventana es
+ * tan baja que la página sí desplaza; para ese caso su alto real se publica en `--aviso-alto`, que globals.css usa
+ * como `scroll-padding-bottom` de la página.
+ * `aside`: contenido extra a la derecha (los enlaces legales en escritorio, donde el pie del sitio no se ve).
  */
-export function PrototypeNotice() {
-  const ref = useRef<HTMLParagraphElement>(null);
-  // WCAG 2.4.11: el aviso queda pegado abajo, en el flujo (al final de la página no tapa nada). Su alto real (cambia
-  // con el ancho de la pantalla) se publica en `--aviso-alto`; globals.css lo usa como `scroll-padding-bottom` de la
-  // página, así el navegador deja ese espacio libre al desplazar hacia un elemento que recibe el foco.
+export function PrototypeNotice({ aside }: { aside?: ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -31,11 +34,14 @@ export function PrototypeNotice() {
     };
   }, []);
   return (
-    <p ref={ref} data-zone="prototype-notice" className="sticky bottom-0 z-10 shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-2 text-sm">
-      <span className="mx-auto block max-w-[1600px]">
-        <strong>{T.prototipo.etiqueta}.</strong> {T.prototipo.aviso}
-      </span>
-    </p>
+    <div ref={ref} data-zone="prototype-notice" className="sticky bottom-0 z-10 shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-1.5 text-sm">
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+        <p className="min-w-0">
+          <strong>{T.prototipo.etiqueta}.</strong> {T.prototipo.aviso}
+        </p>
+        {aside}
+      </div>
+    </div>
   );
 }
 

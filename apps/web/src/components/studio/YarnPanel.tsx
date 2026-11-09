@@ -8,9 +8,11 @@ import { compositionSum, newYarnFor, normalizeNote, paletteByFamily, toolSuggest
 import { STUDIO_TEXTS, yarnAddedText, yarnButtonLabel, yarnMovedText, yarnRemovedText, yarnTitle } from "@/lib/studio-texts.ts";
 
 const T = STUDIO_TEXTS;
-const BTN = "rounded-full border-2 border-marino px-3 py-1.5 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
+const BTN = "rounded-full border-2 border-marino px-2.5 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 const FIELD = "rounded-xl border-2 border-borde bg-superficie px-3 py-1.5";
 const FAMILIES = paletteByFamily();
+const [QUITAR_VERBO, ...QUITAR_REST] = T.lanas.quitar.split(" ");
+const QUITAR_RESTO = QUITAR_REST.join(" ");
 /** El editor agrupa los cambios continuos (arrastrar el color, escribir un porcentaje) en un solo paso de deshacer. */
 const CHANGE_IDLE_MS = 600;
 
@@ -101,9 +103,9 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
   }
 
   return (
-    <section aria-label={T.lanas.titulo} data-zone="yarns" className="grid gap-3 rounded-2xl border-2 border-linea bg-superficie p-4">
+    <section aria-label={T.lanas.titulo} data-zone="yarns" className="@container grid shrink-0 gap-2 rounded-2xl border-2 border-linea bg-superficie p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-lg font-bold">{T.lanas.titulo}</h2>
+        <h2 className="font-display text-base font-bold">{T.lanas.titulo}</h2>
         <button ref={addRef} type="button" onClick={add} disabled={atMax} className={BTN}>
           {T.lanas.agregar}
         </button>
@@ -113,18 +115,18 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
       </p>
       {atMax ? <p className="text-sm text-tinta-suave">{T.panelLanas.maximo}</p> : null}
       <p className="text-sm text-tinta-suave">{T.lanas.ayuda}</p>
-      <ul ref={listRef} className="grid gap-2">
+      <ul ref={listRef} className="grid gap-1.5">
         {yarns.map((y, i) => {
           const letter = yarnLetter(i);
           const active = y.id === activeId;
           return (
             <li key={y.id} data-yarn={letter} data-yarn-id={y.id} className={`rounded-xl border-2 ${active ? "border-marino" : "border-linea"}`}>
-              <div className="flex flex-wrap items-center gap-2 p-2">
+              <div className="flex flex-wrap items-center gap-1 p-1.5 @sm:gap-1.5">
                 <button
                   type="button"
                   onClick={() => onActiveChange(y.id)}
                   aria-pressed={active}
-                  className={`flex items-center gap-2 rounded-full border-2 px-2 py-1 font-bold ${active ? "border-marino bg-marino text-white" : "border-borde hover:border-marino"}`}
+                  className={`flex items-center gap-2 rounded-full border-2 px-2 py-0.5 font-bold ${active ? "border-marino bg-marino text-white" : "border-borde hover:border-marino"}`}
                 >
                   <span aria-hidden="true" className="inline-block size-6 rounded border-2 border-marino bg-clip-padding" style={{ backgroundColor: y.color.hex }} />
                   <span aria-hidden="true" className="min-w-5 text-center">
@@ -132,16 +134,18 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
                   </span>
                   <span className="sr-only">{T.panelLanas.activa}: {yarnTitle(letter)}</span>
                   {active ? (
-                    <span aria-hidden="true" className="text-xs font-normal">
+                    <span aria-hidden="true" className="hidden text-xs font-normal @md:inline">
                       ({T.panelLanas.activaEstado})
                     </span>
                   ) : null}
                 </button>
-                <span className="min-w-0 flex-1 truncate text-sm text-tinta-suave">{weightLabel(y.weight)}</span>
-                <button type="button" data-act="up" onClick={() => move(i, -1)} disabled={i === 0} aria-label={yarnButtonLabel(T.panelLanas.subir, letter, " en la lista")} className={BTN}>
+                {/* En un contenedor angosto (columna lateral) el grosor se ve al editar la lana: así la fila no se parte en dos. */}
+                <span className="hidden min-w-0 flex-1 truncate text-sm text-tinta-suave @sm:block">{weightLabel(y.weight)}</span>
+                <span aria-hidden="true" className="flex-1 @sm:hidden" />
+                <button type="button" data-act="up" onClick={() => move(i, -1)} disabled={i === 0} aria-label={yarnButtonLabel(T.panelLanas.subir, letter, " en la lista")} className={`${BTN} px-2`}>
                   <span aria-hidden="true">↑</span>
                 </button>
-                <button type="button" data-act="down" onClick={() => move(i, 1)} disabled={i === yarns.length - 1} aria-label={yarnButtonLabel(T.panelLanas.bajar, letter, " en la lista")} className={BTN}>
+                <button type="button" data-act="down" onClick={() => move(i, 1)} disabled={i === yarns.length - 1} aria-label={yarnButtonLabel(T.panelLanas.bajar, letter, " en la lista")} className={`${BTN} px-2`}>
                   <span aria-hidden="true">↓</span>
                 </button>
                 <button
@@ -162,9 +166,11 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
                   }}
                   disabled={yarns.length <= 1}
                   aria-label={yarnButtonLabel(T.lanas.quitar, letter)}
-                  className="rounded-full border-2 border-error px-3 py-1.5 text-sm font-bold text-error enabled:hover:bg-error enabled:hover:text-white disabled:opacity-40"
+                  className="rounded-full border-2 border-error px-2 py-1 text-sm font-bold text-error enabled:hover:bg-error enabled:hover:text-white disabled:opacity-40"
                 >
-                  {T.lanas.quitar}
+                  {/* Visible: "Quitar" en angosto. El nombre accesible sigue completo ("Quitar lana B", incluye el texto visible). */}
+                  {QUITAR_VERBO}
+                  <span className="hidden @md:inline"> {QUITAR_RESTO}</span>
                 </button>
               </div>
               {yarns.length <= 1 && i === 0 ? <p className="px-3 pb-2 text-sm text-tinta-suave">{T.lanas.noSeQuitaLaUnica}</p> : null}
@@ -267,7 +273,7 @@ function YarnEditor({ store, index, yarn, letter }: { store: DocumentStore; inde
 
   return (
     <div className="grid gap-4 border-t-2 border-linea p-3" onBlur={closeChange}>
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 @md:grid-cols-2">
         <div className="grid gap-1">
           <label htmlFor={`${uid}-palette`} className="font-bold">
             {T.lanas.colorPaleta}

@@ -31,7 +31,7 @@ function Choice({ name, legend, value, options }: { name: string; legend: string
 export function ProfileForm({ displayName, terminology, units, dominantHand, mirrorKnitting }: Props) {
   const [state, action] = useActionState<ProfileFormState, FormData>(updateProfile, {});
   return (
-    <form action={action} className="grid gap-8">
+    <form action={action} className="grid gap-6">
       <FormMessage message={state.error} tone="error" />
       <FormMessage message={state.ok} tone="ok" />
       <Field id="display_name" label="Nombre visible" defaultValue={displayName} maxLength={80} autoComplete="given-name" />

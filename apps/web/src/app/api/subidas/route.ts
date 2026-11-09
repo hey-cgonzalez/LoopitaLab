@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/server";
 import { beginOperation, endOperation } from "../_lib/operations";
 import { isSameSite, jsonError, jsonOk, readBody } from "../_lib/request";
 import { Semaphore } from "../_lib/semaphore";
+import { notFound, uploadsEnabled } from "./enabled";
 
 /**
  * Subida de imágenes por el servidor (M3).
@@ -122,7 +123,7 @@ async function processUpload(request: NextRequest, admin: Admin, userId: string,
   if (insertError || !row) {
     // Sin registro no debe quedar un archivo huérfano.
     const { error: removeError } = await admin.storage.from(UPLOADS_BUCKET).remove([path]);
-    if (removeError) console.error("subidas: no se pudo borrar el archivo huérfano", path, removeError.message);
+    if (removeError) console.error("subidas: no se pudo borrar el archivo huérfano (sin ruta: lleva el uid)");
     if (insertError?.code === "54000") return jsonError(429, "daily_limit", { "Retry-After": "3600" });
     console.error("subidas: error al registrar", insertError?.message);
     return jsonError(500, "insert_failed");
@@ -132,6 +133,7 @@ async function processUpload(request: NextRequest, admin: Admin, userId: string,
 }
 
 export async function POST(request: NextRequest) {
+  if (!uploadsEnabled()) return notFound();
   if (!isSameSite(request)) return jsonError(403, "cross_site");
 
   const supabase = await createClient();
