@@ -1,6 +1,6 @@
 # ADR 0008: Lanas del diseño: selector, vista previa al pasar el cursor, aspecto por fibra, lanas guardadas y metraje estimado
 
-- Estado: propuesto (2026-11-09, `arquitecto`). Requiere la aprobación de la usuaria (T0 de la fase 3). Las constantes de dominio (factores de metraje, niveles por fibra, umbral de color cercano) se confirman con `experto-tejido` (T1) y `catalogo-lanas` antes de implementarse.
+- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Las constantes de dominio (factores de metraje, niveles por fibra, umbral de color cercano) se confirman con `experto-tejido` (T1) y `catalogo-lanas` antes de implementarse.
 - Fecha: 2026-11-09
 - Paquetes: `packages/yarn-catalog`, `packages/pattern-core`, `packages/stitch-render`, `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md) (modelo de `yarns`), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md) (muestra supuesta, `validateYarn`, E11, E16), [ADR 0004](0004-render-de-puntos-2d.md) (E4: `fiberEffects`; `setPreviewOverride`; presupuesto de 100 ms)

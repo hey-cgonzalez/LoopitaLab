@@ -928,9 +928,11 @@ Abierta:
 
 - **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7. Las páginas `/terminos` y `/privacidad` existen como borrador con marcadores por completar y requieren revisión legal. **Se vuelve urgente en la fase 3**: la ley entra en vigencia en tres semanas, y validar "Tejiendo" con tejedoras usando cuentas en la plataforma (T1b) sería una beta con personas externas. Alternativa sin cuentas: validar con la hoja y capturas.
 
-### Pendientes de aprobación (fase 3)
+### Decisiones de la fase 3 (aprobadas el 2026-11-09)
 
-Propuestas de `arquitecto` (2026-11-09). Cada una indica la opción recomendada.
+La usuaria revisó una por una y aprobó las opciones recomendadas de los puntos 1 a 8 (T0 hecha). Punto 9 (validación con tejedoras): **con cuentas propias en la plataforma**, lo que es una beta con personas externas: antes de invitarlas hay que completar y revisar legalmente `/privacidad` y `/terminos` (Ley 21.719, vigente desde el 1 de diciembre de 2026) y resolver los requisitos de seguridad previos a una beta (`docs/seguridad.md`, riesgo aceptado de OAuth y lista "antes de beta").
+
+Propuestas de `arquitecto` (2026-11-09); quedó aprobada la opción marcada como recomendada en cada una.
 
 1. **Aprobar los ADR 0007, 0008 y 0009** (hoy "propuesto"), sin cambiar `schemaVersion`.
 2. **Borrar un diseño que tiene proyectos**: (a) impedirlo con un mensaje que lista los proyectos (**recomendada**; protege el avance); (b) borrar también los proyectos; (c) conservar la versión aunque se borre el diseño (descartada en el ADR 0009 por la RLS).

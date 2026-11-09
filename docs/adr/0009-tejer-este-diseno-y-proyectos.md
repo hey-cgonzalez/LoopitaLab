@@ -1,6 +1,6 @@
 # ADR 0009: "Tejer este diseño": proyecto con versión fijada, puntero y sincronización entre dispositivos
 
-- Estado: propuesto (2026-11-09, `arquitecto`). Requiere la aprobación de la usuaria (T0 de la fase 3). La migración y las funciones pasan por `revisor-seguridad`.
+- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). La migración y las funciones pasan por `revisor-seguridad`.
 - Fecha: 2026-11-09
 - Paquetes: `supabase/`, `apps/web`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0006](0006-guardado-de-disenos.md) (E10: tejer exige `valid` verificado en el servidor; E11: concurrencia con `updated_at`), [ADR 0007](0007-follow-secuencia-de-colorwork.md) (puntero), [docs/seguridad.md](../seguridad.md) ("la base es la única barrera")

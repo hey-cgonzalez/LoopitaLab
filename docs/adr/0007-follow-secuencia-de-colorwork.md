@@ -1,6 +1,6 @@
 # ADR 0007: `packages/follow`, secuencia de filas de un gráfico y puntero de avance
 
-- Estado: propuesto (2026-11-09, `arquitecto`). Requiere la aprobación de la usuaria (T0 de la fase 3) y la revisión de dominio de `experto-tejido` (T1) antes de implementarse.
+- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Queda pendiente la revisión de dominio de `experto-tejido` (T1) antes de implementarse.
 - Fecha: 2026-11-09
 - Paquete: `packages/follow` (nuevo)
 - Relacionado: [ADR 0001](0001-modelo-canonico.md) (el progreso es un puntero), [ADR 0003](0003-colorwork-en-esquema-v1.md) (orden de lectura, espejo, `top_down`, E10, E18), [ADR 0004](0004-render-de-puntos-2d.md) (`setHighlightRow`), [ADR 0009](0009-tejer-este-diseno-y-proyectos.md) (persistencia del puntero)
