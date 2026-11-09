@@ -9,7 +9,7 @@ Plataforma web para diseñar patrones de colorwork y amigurumi, seguir el avance
 | 1. Base: modelo canónico y validador | Listo (`packages/pattern-core`, `packages/yarn-catalog`) |
 | 1. Base: Supabase (esquema, RLS, storage) | Listo; aplicar migraciones según [docs/puesta-en-marcha.md](docs/puesta-en-marcha.md) |
 | 1. Base: web con registro, ingreso, proyectos y cuenta | Listo (`apps/web`) |
-| 2. Estudio de colorwork (plano, tubo y círculo) | Listo en código (`/disenos`): editor, vista previa realista, guardado y E2E. Cierre pendiente de la validación con tejedoras (T1b/T16), la medición en el equipo de referencia (CA-P6) y una prueba con lector de pantalla. Ver [docs/qa-fase-2.md](docs/qa-fase-2.md) |
+| 2. Estudio de colorwork (plano, tubo y círculo) | Listo en código (`/disenos`): editor, vista previa realista, guardado y E2E. Cierre pendiente de la validación con tejedoras (T1b/T16), la medición en el equipo de referencia (CA-P6). Probado con VoiceOver y NVDA el 2026-11-09. Ver [docs/qa-fase-2.md](docs/qa-fase-2.md) |
 | 3. Lanas por grosor y composición, y seguimiento de colorwork fila a fila | Pendiente |
 | 4. Estudio amigurumi 3D | Pendiente |
 | 5. Imagen → patrón (IA) | Pendiente |

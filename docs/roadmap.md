@@ -1,14 +1,14 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-06, agente `arquitecto` (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-09, agente `arquitecto` (planificación de la fase 3: [sección "Fase 3 en detalle"](#fase-3-en-detalle) y ADR 0007 a 0009 propuestos). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
 | Fase | Nombre | Estado | Complejidad global |
 |---|---|---|---|
 | 1 | Base: modelo canónico, validador, lanas, Supabase con RLS, acceso, proyectos y cuenta | Lista | — |
-| 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Planificada; ADR 0003 a 0006 aceptados | Alta |
-| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Pendiente | Media |
+| 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Lista en código; ADR 0003 a 0006 aceptados. Faltan CA-P6, T1b, T16 y el E2E con sesión | Alta |
+| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Planificada; ADR 0007 a 0009 propuestos | Media-alta |
 | 4 | Estudio amigurumi 3D | Pendiente | Alta |
 | 5 | Imagen → patrón (IA) | Pendiente | Alta |
 | 6 | Modo tejiendo completo (amigurumi punto a punto, contadores, tiempo) | Pendiente | Media |
@@ -76,6 +76,8 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 
 ## Fase 3: Lanas por grosor y composición, y seguimiento de colorwork
 
+Detalle completo en la [sección de la fase 3](#fase-3-en-detalle) más abajo (ADR [0007](adr/0007-follow-secuencia-de-colorwork.md), [0008](adr/0008-lanas-selector-aspecto-y-metraje.md) y [0009](adr/0009-tejer-este-diseno-y-proyectos.md), propuestos). Donde el detalle precisa este resumen, manda el detalle.
+
 - **Objetivo**: que cada lana del diseño se elija por grosor CYC, composición y color (paleta o personalizado), con su efecto en el render y en las recomendaciones. Que un diseño de colorwork se pueda tejer fila a fila.
 - **Entregables**:
   - **3A. Lanas**:
@@ -97,16 +99,21 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 
   | Agente | Responsabilidad |
   |---|---|
-  | `catalogo-lanas` | Datos, metraje, rasgos visuales por fibra |
-  | `render-puntos` | Aspecto por fibra y vista previa al pasar el cursor |
-  | `frontend-editor` | Selector de lanas |
+  | `arquitecto` | ADR 0007 a 0009 y revisión de contratos |
+  | `catalogo-lanas` | Datos, conversión a metros, búsqueda de grosores, color cercano, rasgos visuales por fibra |
+  | `motor-patrones` | `yarnUsage` (conteos para el metraje) en `pattern-core` |
+  | `render-puntos` | Aspecto por fibra, vista previa al pasar el cursor y presupuesto de 100 ms |
+  | `frontend-editor` | Selector de lanas, "Mis lanas" y panel de metraje |
   | `modo-tejiendo` | `follow` y pantalla "Tejiendo" |
-  | `backend-supabase` | Lanas guardadas y fijar la versión al crear el proyecto |
+  | `backend-supabase` | Lanas guardadas, migración de proyectos con versión fijada y acciones de avance |
   | `experto-tejido` | Muestras por grosor, lectura de gráficos, metraje |
   | `ux-accesibilidad` | Uso con una mano y pantalla siempre encendida |
+  | `documentador` | Textos |
+  | `devops` | E2E con sesión en la CI |
   | `qa-tester` | Pruebas |
+  | `revisor-seguridad` | Obligatorio: migración, funciones del servidor, acciones y almacenamiento local |
 
-- **Dependencias**: fase 2.
+- **Dependencias**: fase 2 (en código; T1b de la fase 2 y el E2E con sesión se cierran dentro de la fase 3, ver el detalle). Aprobación de los ADR 0007 a 0009.
 - **Criterios de salida**:
   - la vista previa al pasar el cursor cumple p95 < 100 ms con el mismo escenario de la fase 2;
   - la composición inválida no se puede guardar;
@@ -592,6 +599,281 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 ---
 
+## Fase 3 en detalle
+
+Planificada el 2026-11-09 por `arquitecto` sobre `main` (fase 2 completa en código). Decisiones en el [ADR 0007](adr/0007-follow-secuencia-de-colorwork.md) (`follow`), el [ADR 0008](adr/0008-lanas-selector-aspecto-y-metraje.md) (lanas) y el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) (proyectos y avance), los tres **propuestos**. En esta sección, "T*n*" son las tareas de la fase 3; las de la fase 2 se citan como "T1b de la fase 2".
+
+### Alcance
+
+**Dentro**
+
+- **3A. Lanas del diseño, versión completa** (ADR 0008):
+  - **grosor** CYC 0 a 7 con el nombre de LoopitaLab, los nombres en inglés y los alias (los de tienda, como equivalencia aproximada y sin nombrar la tienda), con búsqueda por cualquiera de ellos; sugerencia de agujas, crochet y muestra inicial, marcada "supuesto" hasta que la usuaria ingrese la suya;
+  - **composición** con fibras del catálogo y porcentajes, validada (no entra al documento si no suma 100 %);
+  - **color**: paleta propia de 8 × 6 como cuadrícula navegable, o personalizado con el color de la paleta más cercano (CIEDE2000) como sugerencia;
+  - **vista previa al pasar el cursor o el foco** por un color o una lana guardada, sin tocar el documento, en menos de 100 ms;
+  - **aspecto por fibra** (`fiberEffects`) activado por defecto, tras calibrarlo y medirlo; interruptor "Colores planos" (deseable);
+  - **lanas guardadas** ("Mis lanas", tabla `user_yarns`): guardar desde el diseño, usar en un diseño (copia por valor), editar y borrar; marca solo como nota privada (regla de oro 9);
+  - **metraje estimado por lana** en metros, con rango y la lista de supuestos, siempre rotulado "estimación".
+- **3B. Seguimiento de colorwork fila a fila** (ADR 0007 y 0009):
+  - paquete `packages/follow`, primera versión (gráficos);
+  - **"Tejer este diseño"**: crea un proyecto con la versión fijada (solo diseños propios y `valid`, verificado en el servidor);
+  - pantalla **"Tejiendo"**: fila actual resaltada en el gráfico y en la vista previa; número, lado, sentido de lectura (con espejo opcional), puntos, tramos de color por repetición, disminuciones y aumentos; avanzar y retroceder por fila y, opcionalmente, por repetición; avance en filas y en puntos;
+  - **uso con una mano**: botones grandes en la zona del pulgar, del lado de la mano dominante (`profiles.dominant_hand`, que aquí sí aplica: es ubicación de controles, no espejo), teclado y pasapáginas (Espacio, Enter, flechas, Re Pág y Av Pág);
+  - **pantalla encendida** con la API Wake Lock mientras "Tejiendo" está visible, con interruptor y aviso si el navegador no la admite;
+  - **sincronización entre dispositivos** con concurrencia optimista y conflictos explícitos; **cortes de conexión** con la página abierta;
+  - "Pasar a la versión actual" del diseño, con reubicación del puntero y aviso de qué cambia (deseable dentro de la fase);
+  - `/proyectos` muestra el diseño, la versión y el avance; `/proyectos/[id]` como detalle.
+- **Pendientes de la fase 2 que se cierran aquí** (ver más abajo): E2E con sesión, T1b de la fase 2, mapeo de topes (54000) en proyectos.
+
+**Fuera** (fase en que entra)
+
+| Tema | Fase |
+|---|---|
+| Seguir patrones escritos (amigurumi) punto a punto, 3D parcial | 6 |
+| Contadores personalizados, temporizador, tiempo estimado, notas del proyecto en "Tejiendo" | 6 |
+| Abrir "Tejiendo" sin conexión (service worker, PWA) | 6 |
+| Avance punto a punto en colorwork (el contrato ya lo admite) | 6 |
+| Gramos, ovillos necesarios y metros por ovillo de la lana propia | 6 o 7, como dato privado del proyecto (decisión abierta) |
+| Metraje en crochet (no hay factores validados) | Con el crochet tapestry, después de la fase 4 |
+| Proyectos sobre patrones públicos ajenos | 7 |
+| Historial de versiones (ver, comparar, restaurar) | 7. En la fase 3 solo se muestra "versión N" y si hay una más nueva |
+| Tiempo real entre dispositivos (Realtime, CRDT) | No previsto (ADR 0009) |
+| Paquete `glossary` | 4. Los textos de la fase 3 usan el glosario pendiente, provisional |
+| Marcas, códigos o fotos de productos | Nunca (regla de oro 9) |
+
+### Historias de usuaria
+
+| ID | Historia |
+|---|---|
+| HU3-01 | Como tejedora, busco el grosor por el nombre que conozco ("aran", "DK", "mediano") y veo las agujas, el crochet y una muestra sugerida marcada como supuesto. |
+| HU3-02 | Defino la composición con fibras y porcentajes, y la plataforma no me deja usar una que no suma 100 %. |
+| HU3-03 | Elijo un color de la paleta o uno propio, y veo qué color de la paleta se le parece más. |
+| HU3-04 | Paso el cursor (o el foco) por los colores y veo al instante cómo quedaría el tejido, sin cambiar mi diseño hasta que elijo. |
+| HU3-05 | Veo el halo del mohair, el brillo de la seda y la definición del algodón en la vista previa, y puedo volver a colores planos. |
+| HU3-06 | Guardo mis lanas y las reutilizo en otros diseños; anoto la marca o dónde la compré en una nota que solo yo veo. |
+| HU3-07 | Veo cuántos metros necesito, más o menos, de cada lana, con lo que se supuso para calcularlo. |
+| HU3-08 | Pulso "Tejer este diseño" y empiezo un proyecto que no cambia aunque siga editando el diseño. |
+| HU3-09 | En "Tejiendo" veo la fila actual resaltada en el gráfico y en la vista previa, con su número, el lado, el sentido de lectura, los puntos, los colores y las disminuciones. |
+| HU3-10 | Avanzo y retrocedo con un toque y con una sola mano, con el teclado o con un pasapáginas, y llevo la cuenta de las repeticiones dentro de la vuelta. |
+| HU3-11 | La pantalla no se apaga mientras tejo. |
+| HU3-12 | Retomo en otro dispositivo donde quedé; si avancé en dos a la vez, se me pregunta con cuál sigo. |
+| HU3-13 | Si se corta la conexión, sigo avanzando y el avance se guarda cuando vuelve. |
+| HU3-14 | Si tengo activado "tejer en espejo", las filas se me indican en el sentido en que tejo. |
+| HU3-15 | Si cambié el diseño después de empezar, puedo pasar a la versión nueva sabiendo qué cambia en la fila donde voy. |
+
+### Criterios de aceptación medibles
+
+**Rendimiento (regla de oro 7)**. Mismo escenario y método que la fase 2 (ADR 0004): Playwright en Chromium, CPU ×4, motivo de 20 × 20 con repeticiones de 10 × 10 (40.000 puntos), plano, tubo, círculo y copa; **con `fiberEffects` activado**.
+
+| ID | Criterio |
+|---|---|
+| CA3-P1 | Vista previa al pasar el cursor por 50 colores distintos: p95 de `hover-to-paint` < 100 ms en las cuatro formas |
+| CA3-P2 | Con `fiberEffects` activado, CA-P1 a CA-P4 de la fase 2 se siguen cumpliendo (sin regresión) |
+| CA3-P3 | "Tejiendo": 50 avances de fila, p95 desde la entrada hasta que la fila resaltada se pinta en la cuadrícula y en la vista previa < 100 ms |
+| CA3-P4 | La vista previa al pasar el cursor no cambia el documento (misma referencia), no agrega pasos de deshacer, no dispara autoguardado ni validación (E2E y unitaria) |
+| CA3-P5 | Metraje y validación corren diferidos (`paintGate`): 0 cálculos dentro de la ventana de una edición o de una vista previa (extiende CA-P7) |
+| CA3-P6 | `follow` en Node: `stepAt` con un motivo de 200 de ancho < 1 ms; `planChart` no depende de `repeat.y` (guardia en la CI, como CA-P5) |
+
+**Lanas (3A)**
+
+| ID | Criterio |
+|---|---|
+| CA3-L1 | El selector muestra las 8 categorías con nombre, nombres en inglés y alias. Buscar "aran", "worsted", "dk", "fingering", "mediano" y "grueso" encuentra la categoría correcta; los alias de tienda se rotulan como equivalencia aproximada y no nombran la tienda |
+| CA3-L2 | Una composición que no suma 100 ± 0,01, con un porcentaje ≤ 0 o con más de 10 fibras no entra al documento ni a `user_yarns`; el servidor la rechaza aunque se llame directo (prueba de la acción y de la base) |
+| CA3-L3 | La paleta muestra las 48 muestras en 8 × 6 con su nombre accesible; se recorre con flechas; el seleccionado se distingue sin depender del color |
+| CA3-L4 | Con un color personalizado se muestra el más cercano de la paleta con su nombre (de `nearestPaletteColor`); "Usarlo" deja `paletteId`; un hex fuera de la paleta nunca lleva `paletteId` |
+| CA3-L5 | Al salir, perder el foco o pulsar Esc, la vista previa vuelve al diseño; elegir crea exactamente un paso de deshacer |
+| CA3-L6 | Con `fiberEffects`: halo visible en mohair y alpaca, brillo en seda, viscosa, bambú y lurex, definición en algodón y acrílico, ponderados por porcentaje; cambiar solo un porcentaje actualiza el aspecto. Capturas de Playwright de las cuatro formas en el PR |
+| CA3-L7 | La muestra sugerida por el grosor se rotula "supuesto" y no se escribe en el documento hasta que la usuaria ingresa la suya (CA-F4 sigue vigente) |
+| CA3-L8 | Mis lanas: guardar, usar en un diseño (un paso de deshacer), editar y borrar. La nota no se copia al diseño salvo que se marque. El tope de 500 se informa con un mensaje claro |
+| CA3-L9 | El metraje se muestra siempre como "≈ N m (entre L y H m), estimación" con sus supuestos visibles, y dice "supuesto" si la muestra es supuesta. Revisión de código: ninguna cifra de metraje se calcula en `apps/web` (solo `yarnUsage` y `estimateYarnLength`) |
+| CA3-L10 | Las propiedades de `yarnUsage` y `estimateYarnLength` del ADR 0008 pasan con tres semillas |
+| CA3-L11 | Ningún dato nuevo de `yarn-catalog` contiene marcas ni nombres de tienda fuera del campo de fuente (prueba automática sobre los JSON) |
+
+**Seguimiento (3B)**
+
+| ID | Criterio |
+|---|---|
+| CA3-T1 | "Tejer este diseño" está en el estudio y en "Mis diseños". Con errores de tejido aparece deshabilitado con el motivo. El servidor rechaza con `NOT_KNITTABLE` un diseño no `valid` aunque se llame directo, y con `CONFLICT` si el diseño cambió entre la validación y la fijación |
+| CA3-T2 | Empezar un segundo proyecto con el mismo diseño sin cambios reutiliza la versión (no crea otra fila en `pattern_versions`); con cambios, crea una |
+| CA3-T3 | La fila resaltada es la misma en la cuadrícula y en la vista previa, en las cuatro formas y en `top_down`. Numeración y flecha de lectura iguales a las del editor y del SVG (ADR 0003, E18), con y sin espejo |
+| CA3-T4 | Avanzar y retroceder funcionan con botones, Espacio, Enter, flechas, Re Pág y Av Pág, y por repetición; el último avance se puede deshacer |
+| CA3-T5 | El puntero sobrevive a recargar y a cambiar de dispositivo: E2E con sesión con dos contextos de navegador |
+| CA3-T6 | Avance concurrente en dos contextos: nunca se pisa en silencio. Con punteros iguales no hay aviso; con punteros distintos se pregunta y la elección se respeta. Cambiar de versión en un contexto hace que el otro reciba `VERSION_CHANGED` y recargue |
+| CA3-T7 | Sin conexión con la página abierta: se sigue avanzando, el estado lo dice, y al volver la conexión el avance se guarda. El avance local se guarda bajo la clave de la usuaria, se borra al cerrar sesión y al eliminar la cuenta, y caduca a los 14 días |
+| CA3-T8 | Editar el diseño después de empezar no cambia el proyecto (E2E). El proyecto avisa que hay una versión más nueva; pasar a ella mantiene el número de fila acotado y avisa si la fila cambió |
+| CA3-T9 | Un diseño con proyectos no se puede borrar (también por PostgREST directo) y el mensaje lo explica; borrar la cuenta con diseños y proyectos sigue funcionando (`10_rls_check.sql`) |
+| CA3-T10 | Wake Lock: se pide al mostrar "Tejiendo", se vuelve a pedir al volver a la pestaña, se suelta al salir; interruptor visible; aviso si no está disponible |
+| CA3-T11 | En 390 px de ancho, avanzar, retroceder y la repetición están en el 40 % inferior de la pantalla, con objetivos táctiles de al menos 56 × 56 px, del lado de `dominant_hand` |
+| CA3-T12 | Las propiedades P1 a P15 de `follow` (ADR 0007) pasan con tres semillas |
+| CA3-T13 | Revisión de código: los puntos, cambios, tramos y avances de "Tejiendo" salen de `follow` y `pattern-core`; ninguno se calcula en `apps/web` |
+| CA3-T14 | El cliente no puede escribir `pattern_id`, `pattern_version` ni `pattern_version_id` de un proyecto (check de RLS) |
+
+**Accesibilidad**
+
+| ID | Criterio |
+|---|---|
+| CA3-A1 | "Tejiendo" se usa entero con teclado y con lector de pantalla. Cada cambio de fila se anuncia (`aria-live`): número, lado, sentido, puntos y lanas |
+| CA3-A2 | El selector de color y "Mis lanas" se usan solo con teclado; cada muestra tiene el nombre del color y la letra de la lana que se edita |
+| CA3-A3 | "Tejiendo" se lee con el texto al 200 % sin perder controles; respeta `prefers-reduced-motion`; contraste WCAG 2.2 AA, incluida la fila resaltada |
+
+### Cambios al modelo canónico (`pattern-core`)
+
+- **Sin cambio de forma del documento: `schemaVersion` sigue en 1.** Nada de la fase 3 lo necesita: el puntero vive en `project_progress`, la versión fijada en `pattern_versions`, las lanas guardadas en `user_yarns`, y el metraje y la secuencia son derivados. Agregar un nombre o una marca de lana, o enlazar con `user_yarns`, sí exigiría `schemaVersion: 2` y se descarta (ADR 0008).
+- **Derivado nuevo**: `yarnUsage(chart, yarnCount): { stitches, floatStitches }` (ADR 0008, sección 6), con propiedades. `stitches` es igual a `yarnTotals`.
+- **Regla para el futuro** (ADR 0007, sección 5): toda migración que cambie la secuencia de filas de un documento viene con su migración de puntero en `follow`.
+
+### Paquetes nuevos y su contrato
+
+| Paquete | Qué hace | Depende de | Contrato |
+|---|---|---|---|
+| `packages/follow` | Secuencia de pasos del modo tejiendo derivada del modelo. Fase 3: filas de un gráfico. Fase 6: patrones escritos | Solo `pattern-core`. Sin terceros | `planChart`, `stepAt`, `position`, `startPointer`, `clampPointer`, `isFinished`, `nextRow`, `prevRow`, `nextRepeat`, `prevRepeat`, `remapPointer`; tipos `ChartPlan`, `ChartStep`, `ColorRun`, `ChartPointer`, `ChartPosition`, `RemapResult` ([ADR 0007](adr/0007-follow-secuencia-de-colorwork.md), sección 3) |
+
+Puntero (lo único que se guarda del avance):
+
+```ts
+export interface ChartPointer {
+  /** Filas terminadas, 0 … totalRows. La fila actual es rowsDone; rowsDone === totalRows es "terminado". */
+  rowsDone: number;
+  /** Puntos tejidos de la fila actual, 0 … stitches − 1. En la fase 3, múltiplos de stitchesPerRepeat. */
+  stitchesDone: number;
+}
+```
+
+Misma convención que el núcleo: TypeScript sin compilar, `exports` a `src/index.ts`, `node:test`, generador de propiedades con semilla. Se agrega al job "Núcleo" de la CI y a `transpilePackages` de `apps/web`.
+
+**Funciones nuevas en paquetes existentes**:
+
+| Paquete | Agrega | ADR |
+|---|---|---|
+| `pattern-core` | `yarnUsage`, `YarnUsage` | 0008 |
+| `yarn-catalog` | `findWeights`, `WeightMatch`, `nearestPaletteColors`, `NEAR_COLOR_DELTA_E`, `YARN_LENGTH_ASSUMPTIONS`, `estimateYarnLength`, `LengthEstimate`, `LengthAssumption`; primeras pruebas de propiedades del paquete | 0008 |
+| `stitch-render` | Sin cambio de contrato: se activa `fiberEffects` y se calibran los niveles. `setPreviewOverride` y `setHighlightRow` ya existen | 0004 (E4), 0008 |
+| `apps/web` (aplicación) | `PreviewEngine.previewYarn(index, candidate)`; clave de aspectos con grosor y porcentajes; códec del puntero (`lib/projects/progress-codec.ts`); cola local del avance; mapeo fila ↔ `Yarn` de `user_yarns` (`lib/yarns/`) | 0008, 0009 |
+
+### Pantallas de `apps/web`
+
+| Ruta | Contenido |
+|---|---|
+| `/disenos/[id]` | Estudio: selector de lanas completo (grosor con búsqueda, composición, paleta 8 × 6, personalizado con color cercano, pestaña "Mis lanas"), vista previa al pasar el cursor, aspecto por fibra, panel "Metraje estimado" por lana y total, botón "Tejer este diseño" |
+| `/disenos` | "Tejer" por diseño y cuántos proyectos tiene. Borrar un diseño con proyectos explica por qué no se puede |
+| `/lanas` | "Mis lanas": lista (muestra de color, grosor, composición, extracto de la nota), editar, borrar, tope |
+| `/proyectos` | Lista: título, diseño, "versión N", "Vuelta 34 de 120" (total con `fullSize` de `pattern-core` a partir de rutas JSON de la versión, sin leer el documento completo), estado. Los proyectos sin patrón siguen como hoy |
+| `/proyectos/[id]` | Detalle: diseño y versión, avance, "Seguir tejiendo", "Pasar a la versión actual" (si hay una más nueva), estado, borrar |
+| `/proyectos/[id]/tejer` | "Tejiendo" (abajo) |
+
+**"Tejiendo"** (`modo-tejiendo` con `frontend-editor`; revisa `ux-accesibilidad`):
+
+- **Tarjeta de la fila actual**: "Vuelta 34 de 120" (o "Fila" en ida y vuelta, glosario), lado ("por el derecho" o "por el revés"), flecha y texto del sentido de lectura, puntos ("80 pts"), cambio ("−8, 1 por repetición") y dónde se pierde un punto, lanas de la fila, tramos ("3 A · 2 B · 3 A, 8 veces"), fila del motivo y repetición vertical.
+- **Gráfico**: el gráfico completo en una ventana centrada en la fila actual, con la fila 1 abajo como en el editor, la fila resaltada, las terminadas atenuadas y la repetición horizontal en curso marcada si se usa el contador. Mismo dibujo que el editor, en modo de solo lectura.
+- **Vista previa** (`stitch-render`) con `setHighlightRow(step.row)`, con el aviso de prototipo digital (regla de oro 8).
+- En teléfono, gráfico y vista previa en pestañas; la tarjeta y los botones siempre visibles.
+- **Controles en la zona del pulgar**: "Fila terminada" (grande), "Atrás", "Repetición hecha" (si la fila tiene más de una repetición), aviso "Deshacer" tras cada avance. Del lado de `dominant_hand`.
+- **Avance**: barra de filas y "2.680 de 9.600 pts" (de `position`). Al terminar, propone marcar el proyecto como terminado.
+- **Estado del guardado** del avance (guardado, guardando, sin conexión, conflicto) y diálogo de conflicto (ADR 0009, sección 4).
+- **Pantalla encendida**: interruptor, activado por defecto (decisión 6 abajo).
+
+Lo que vive en cada capa:
+
+| Capa | Contenido |
+|---|---|
+| Dominio | `follow`, `pattern-core` (`yarnUsage`), `yarn-catalog` (búsqueda, color cercano, metros), `stitch-render/layout` y `look` |
+| Aplicación | Códec del puntero, cola del avance y su resolución de conflictos, almacén del estudio con `previewYarn`, mapeo de `user_yarns`, Server Actions |
+| Infraestructura | Supabase (tablas, funciones `start_chart_project` y `repin_project`), `localStorage`, canvas, Wake Lock |
+
+### Persistencia en Supabase
+
+Detalle en el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) y el [ADR 0008](adr/0008-lanas-selector-aspecto-y-metraje.md), sección 5.
+
+- **Lanas guardadas**: `user_yarns` sin cambios de esquema (ya tiene grosor, composición validada, color, `palette_id` y nota ≤ 200, RLS y tope de 500). Server Actions que validan con `validateYarn` y normalizan la nota. Copia por valor; la nota no pasa al diseño salvo que se pida.
+- **Fijar la versión** (migración nueva):
+  - `projects.pattern_version_id → pattern_versions(id)` con `on delete no action`: un diseño con proyectos no se borra; borrar la cuenta sigue funcionando;
+  - consistencia versión ↔ `pattern_id`;
+  - el cliente ya no escribe `pattern_id`, `pattern_version` ni `pattern_version_id`; `pattern_version` (entero) queda en desuso o se elimina tras comprobar la base real;
+  - `start_chart_project` (bloquea el diseño, exige dueña, `kind = 'chart'` y `updated_at` exacto, reutiliza la última versión idéntica o crea una con los topes de `snapshot_pattern()`, crea el proyecto y su avance inicial) y `repin_project`;
+  - las dos funciones entran en la lista permitida del check.
+- **Puntero en `project_progress`**: `round_number = rowsDone + 1` (`totalRows + 1` = terminado), `stitch_index = stitchesDone`, `part_id = null`; CHECK de cotas generales; la cota exacta la aplica `clampPointer` al leer. `device` no se usa.
+- **Sincronización entre dispositivos**: concurrencia optimista con `project_progress.updated_at` (como el autoguardado, ADR 0006 E11); escritura agrupada (una en vuelo, el último puntero, 800 ms o al ocultarse la página); conflicto explícito salvo punteros iguales; relectura al volver a la pantalla; `VERSION_CHANGED` si otro dispositivo cambió la versión fijada.
+- **Sin conexión**: cola local de un solo puntero por proyecto (`loopitalab:<uid>:avance:<projectId>`), con las reglas del respaldo del estudio (T15 de la fase 2).
+- **Qué exige `valid`**: empezar y cambiar de versión, verificado en el servidor sobre el documento leído de la base (ADR 0006, E10). Abrir un proyecto exige `savable`; guardar el avance no depende del documento.
+- **Cuotas**: empezar un proyecto puede gastar una versión (200 por diseño, 5000 por usuaria) y un proyecto (1000); la reutilización de la versión idéntica evita gastar versiones de más. Los 54000 se traducen a mensajes.
+
+### Pendientes de la fase 2 que afectan a la fase 3
+
+| Pendiente | Impacto en la fase 3 | Dónde se resuelve |
+|---|---|---|
+| E2E con sesión (T13 de la fase 2) | Sin él no se verifican CA3-T5, CA3-T6, CA3-T8 ni CA3-T9 | T2 |
+| CA-P6 en el equipo de referencia | El margen de latencia es de unos 10 ms y la fase 3 agrega carga (fibras, vista previa, resaltado). La medición manual incluye los escenarios nuevos | T15 (la usuaria mide) |
+| T1b de la fase 2 (tejedoras) | La lectura con y sin espejo, la numeración de casillas (E18) y los nombres de grosores que muestra el selector vienen de ahí | T1b |
+| T16 de la fase 2 (`experto-tejido`) | Espera a T1b; sus correcciones de lectura afectan a `follow` | Antes de T4, si llega a tiempo; si no, en T18 |
+| `fiberEffects` apagado por defecto (ADR 0004, E4) | Se activa en esta fase, después de calibrar y medir | T6, T8 |
+| Proporciones de filas en crochet (1,2 y 0,6) por validar | No bloquea: la fase 3 es palillo. El selector las muestra como supuesto y el metraje en crochet queda fuera | T1b |
+| Umbrales provisionales (`ringDistortion`, cuñas, 1,35) | La vista de "Tejiendo" reutiliza los avisos del estudio; no se agregan umbrales nuevos sin constante con nombre | T1b |
+| Topes 54000 sin mensaje en `app/proyectos/actions.ts` y migración `20261107010000` en el proyecto real | Empezar un proyecto puede chocar con los topes | T3 |
+| ADR 0006, E10: tejer exige `valid` en el servidor | Se implementa en `startProjectFromDesign` y `start_chart_project` | T7, T11 |
+
+### Qué depende de `experto-tejido` o de T1b
+
+- **`experto-tejido` antes de implementar (T1)**: orden de la secuencia (siempre desde la fila 0, también en `top_down`); lado y sentido con y sin espejo; tramos por repetición sin fusionar; "terminado" y la propuesta de marcar el proyecto; factor 3,8, holgura 10 %, margen 10 %, rango 0,85 a 1,2 y regla de las hebras de orillo a orillo del metraje; niveles de halo, brillo y definición de `fibras.json`; alias de tienda como equivalencia aproximada; textos de "Tejiendo". Produce `docs/casos-dominio-fase-3.md` con casos numerados para QA.
+- **Tejedoras (T1b)**: lectura en "Tejiendo" con y sin espejo, utilidad del contador de repeticiones, tramos ("3 A · 2 B"), metraje comparado con 2 o 3 proyectos reales, realismo del halo y el brillo, nombres de grosores y alias.
+- **`experto-tejido` al cierre (T18)**: aprobación final de la lógica de tejido con las respuestas de T1b.
+
+### Riesgos
+
+| ID | Riesgo | Mitigación |
+|---|---|---|
+| R3-1 | `fiberEffects` y la vista previa al pasar el cursor superan los 100 ms en el círculo de 40.000 puntos (margen actual de unos 10 ms) | Medición temprana en T8 antes de construir la interfaz; baldosas y niveles de detalle del backend; criterio de WebGL2 del ADR 0004 con enmienda si hace falta |
+| R3-2 | La API Wake Lock no está en todos los navegadores o el sistema la suelta (batería baja) | Se vuelve a pedir al volver a la pestaña; estado visible; aviso si no hay soporte; nunca se promete |
+| R3-3 | Los conflictos de avance confunden | Sin aviso cuando los punteros coinciden; texto con las dos posiciones y la hora; pruebas E2E con dos contextos |
+| R3-4 | El metraje estimado se aleja del real | Rango y supuestos visibles, margen, "estimación" siempre; comparación con proyectos reales en T1b; constantes con nombre |
+| R3-5 | No poder borrar un diseño con proyectos frustra | Mensaje con la cantidad de proyectos y enlace a ellos; decisión 2 abajo |
+| R3-6 | La fase 2 deja pendientes que bloquean (E2E con sesión, T1b, CA-P6) | T2, T1b y T3 en el grupo A, al inicio |
+| R3-7 | La Ley 21.719 entra en vigencia el 1 de diciembre de 2026; validar con tejedoras usando cuentas en la plataforma es una beta con personas externas | Decisión abierta heredada (abajo): política de privacidad antes de cualquier cuenta externa, o validar con la hoja y capturas, sin cuentas |
+| R3-8 | Cuotas: empezar proyectos gasta versiones | Reutilización de la versión idéntica; mensajes claros de tope |
+| R3-9 | La lectura o los tramos no coinciden con lo que esperan las tejedoras (en especial con espejo) | `experto-tejido` antes (T1) y al cierre (T18); T1b; datos de `follow` independientes de los textos |
+| R3-10 | El avance local en `localStorage` no está cifrado | Solo contiene números y la clave del proyecto; mismas reglas de limpieza que el respaldo del estudio (riesgo ya aceptado en BAJO-2 de T15) |
+| R3-11 | Paquete nuevo en TypeScript sin compilar en Next 16 | Igual que `stitch-render` y `pattern-render` (`transpilePackages`); prueba al inicio de T12 |
+
+### Desglose de tareas
+
+El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir en paralelo. Complejidad y modelo según la tabla de `CLAUDE.md`. QA y seguridad van al final (grupo E); `experto-tejido` revisa la lógica de tejido antes (T1) y al cierre (T18).
+
+| # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
+|---|---|---|---|---|---|
+| T0 | A | La usuaria aprueba los ADR 0007 a 0009 y las [decisiones pendientes de la fase 3](#pendientes-de-aprobación-fase-3) | (usuaria) | — | — |
+| T1 | A | Revisión de dominio de la fase 3 (lista en "Qué depende de `experto-tejido` o de T1b"). Produce `docs/casos-dominio-fase-3.md`. Las correcciones se aplican como enmiendas a los ADR 0007 y 0008 (`arquitecto`) | `experto-tejido` | Media (sonnet) | — |
+| T1b | A | Ampliar `docs/validacion-tejedoras.md` con los temas de la fase 3 y cerrar, junto con T1b de la fase 2, antes de T18. Si se usa la plataforma con cuentas externas, después de la decisión de privacidad | `experto-tejido` con la usuaria | Media (sonnet) | T1 |
+| T2 | A | E2E con sesión: Supabase local (Docker) en la CI con todas las migraciones y usuarias de prueba, o un proyecto de pruebas; sesión reutilizable de Playwright; dos contextos de navegador. Sin claves en el repositorio | `devops` | Media (sonnet) | — |
+| T3 | A | Pendientes de la fase 2: aplicar `20261107010000` en el proyecto real y repetir `10_rls_check.sql`; mapear 54000 en `app/proyectos/actions.ts`; comprobar en la base real que `projects.pattern_version` no tiene datos | `backend-supabase` | Baja (haiku) | — |
+| T4 | B | `packages/follow` (ADR 0007): API, propiedades P1 a P15, guardia de rendimiento, README, job de CI y `transpilePackages` | `modo-tejiendo` | Alta (opus) | T0, T1 |
+| T5 | B | `pattern-core`: `yarnUsage` con sus propiedades (ADR 0008, sección 6) y README | `motor-patrones` | Media (sonnet) | T0, T1 |
+| T6 | B | `yarn-catalog`: `findWeights`, `nearestPaletteColors`, `NEAR_COLOR_DELTA_E`, `YARN_LENGTH_ASSUMPTIONS`, `estimateYarnLength`, soporte de propiedades y propiedades; revisión de los niveles de `fibras.json` con lo que dicte T1; prueba de marcas en los JSON (CA3-L11) | `catalogo-lanas` | Media (sonnet) | T0, T1 |
+| T7 | B | Migración de proyectos con versión fijada (ADR 0009, secciones 1 y 2): columna, `no action`, consistencia, permisos por columna, cotas, `start_chart_project`, `repin_project`, lista permitida y verificaciones en `10_rls_check.sql` (incluidos borrar un diseño con proyectos y borrar la cuenta) | `backend-supabase` | Alta (opus) | T0, T3 |
+| T8 | C | `stitch-render` y `PreviewEngine`: calibrar `fiberEffects` con los niveles de T6, activarlo, clave de aspectos con grosor y porcentajes, `previewYarn` con instrumentación `hover-to-paint`. **Primero** una medición de CA3-P1, CA3-P2 y CA3-P3 en el círculo con CPU ×4; si falla, enmienda del ADR 0004 (WebGL2) antes de seguir | `render-puntos` | Alta (opus) | T0, T6 |
+| T9 | C | Selector de lanas completo (ADR 0008, secciones 2 a 4), panel de metraje e interruptor "Colores planos" | `frontend-editor` | Media (sonnet) | T5, T6, T8 |
+| T10 | C | Lanas guardadas: Server Actions de `user_yarns` (`backend-supabase`) y pestaña "Mis lanas" más `/lanas` (`frontend-editor`) | `backend-supabase` y `frontend-editor` | Media (sonnet) | T6; la interfaz, también T9 |
+| T11 | C | Server Actions de proyectos (ADR 0009, sección 3): `startProjectFromDesign`, `loadProject`, `saveProgress` (con `VERSION_CHANGED`), `repinProject`; códec del puntero; `deletePattern` con 23503 | `backend-supabase` | Media (sonnet) | T4, T7 |
+| T12 | D | "Tejer este diseño" en el estudio y en "Mis diseños"; `/proyectos` con avance; `/proyectos/[id]`; `/proyectos/[id]/tejer` con cola de avance, conflictos, estado sin conexión, Wake Lock, teclado y pasapáginas, "Pasar a la versión actual" | `modo-tejiendo` (con `frontend-editor` para los componentes compartidos del gráfico) | Media (sonnet) | T4, T8, T11 |
+| T13 | D | Accesibilidad: una mano y `dominant_hand`, Wake Lock, anuncios de fila, paleta y "Mis lanas" con teclado, texto al 200 %, movimiento reducido, 390 px (CA3-A1 a CA3-A3, CA3-T11) | `ux-accesibilidad` | Media (sonnet) | T9, T12 |
+| T14 | D | Textos: selector, alias aproximados, metraje como estimación y sus supuestos, "Tejiendo" (lado, sentido, tramos, terminado), conflictos, sin conexión, pantalla encendida, borrar un diseño con proyectos. Con el glosario pendiente (provisional hasta T1b) | `documentador` | Baja (haiku) | T1 |
+| T15 | D | E2E de latencia extendida (CA3-P1 a CA3-P3) en la CI; guía para que la usuaria mida CA-P6 y los escenarios nuevos en el equipo de referencia | `render-puntos` con `devops` | Alta (opus) | T2, T9, T12 |
+| T16 | E | QA: propiedades (P1 a P15, `yarnUsage`, `estimateYarnLength`), casos de `docs/casos-dominio-fase-3.md`, E2E con sesión (CA3-T5 a CA3-T9), latencia, matriz de criterios en `docs/qa-fase-3.md`. Revisión con opus de T4, T7, T8 y T15 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10 a T15 |
+| T17 | E | Seguridad: migración y funciones `security definer` de T7 (permisos, `search_path`, `updated_at` exacto, cascadas, lista permitida), acciones de T10 y T11 (validación en el servidor, `valid` sin confiar en el cliente, notas privadas, topes), cola local del avance. Con opus, porque T7 es de complejidad alta | `revisor-seguridad` | Alta (opus) | T7, T10, T11, T12 |
+| T18 | E | Revisión final de la lógica de tejido: `follow`, metraje, aspecto por fibra y textos. Espera las respuestas de T1b | `experto-tejido` | Media (sonnet) | T1b, T16 |
+| T19 | E | README, este roadmap y los ADR 0007 a 0009 a "aceptado" con sus enmiendas | `arquitecto` + `documentador` | Baja (haiku) | T17, T18 |
+
+### Criterios de salida de la fase 3
+
+- CA3-P1 a CA3-P6, CA3-L1 a CA3-L11, CA3-T1 a CA3-T14 y CA3-A1 a CA3-A3 cumplidos, con la evidencia en el PR (mediciones, capturas de las cuatro formas con fibras, informe de QA).
+- `pnpm test` y `pnpm typecheck` en verde, incluido `follow`; la CI corre el E2E con sesión.
+- CA-P6 medido en el equipo de referencia, con los escenarios de la fase 2 y los nuevos.
+- T1b cerrada (fase 2 y fase 3): lo marcado "validar con tejedora" está confirmado o corregido.
+- `experto-tejido`, `qa-tester` y `revisor-seguridad` aprueban.
+- Los ADR 0007 a 0009 quedan "aceptado" o enmendados.
+
+---
+
 ## Glosario pendiente
 
 Estas son decisiones de terminología de la revisión de `experto-tejido` (2026-11-05). **Todas deben validarse con tejedoras reales** antes de publicarse (regla de oro 5).
@@ -644,4 +926,17 @@ Aprobadas por la usuaria el 2026-11-05:
 
 Abierta:
 
-- **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7. Las páginas `/terminos` y `/privacidad` existen como borrador con marcadores por completar y requieren revisión legal.
+- **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7. Las páginas `/terminos` y `/privacidad` existen como borrador con marcadores por completar y requieren revisión legal. **Se vuelve urgente en la fase 3**: la ley entra en vigencia en tres semanas, y validar "Tejiendo" con tejedoras usando cuentas en la plataforma (T1b) sería una beta con personas externas. Alternativa sin cuentas: validar con la hoja y capturas.
+
+### Pendientes de aprobación (fase 3)
+
+Propuestas de `arquitecto` (2026-11-09). Cada una indica la opción recomendada.
+
+1. **Aprobar los ADR 0007, 0008 y 0009** (hoy "propuesto"), sin cambiar `schemaVersion`.
+2. **Borrar un diseño que tiene proyectos**: (a) impedirlo con un mensaje que lista los proyectos (**recomendada**; protege el avance); (b) borrar también los proyectos; (c) conservar la versión aunque se borre el diseño (descartada en el ADR 0009 por la RLS).
+3. **Avance tejido en dos dispositivos a la vez**: preguntar con cuál seguir cuando los punteros difieren (**recomendada**) o que gane el último que guardó.
+4. **Aspecto por fibra activado por defecto**, después de calibrarlo y medirlo, con un interruptor "Colores planos" (**recomendada**), o dejarlo como opción apagada.
+5. **Metraje**: metros con rango y margen del 10 %, siempre como estimación, sin gramos ni ovillos en la fase 3 (**recomendada**). Ovillos y metros por ovillo de la lana propia, en la fase 6 o 7 como dato privado del proyecto.
+6. **Pantalla encendida activada por defecto** en "Tejiendo", con interruptor (**recomendada**), o apagada por defecto.
+7. **Nota de una lana guardada**: no se copia al diseño salvo que se marque "copiar también la nota" (**recomendada**), porque suele llevar la marca.
+8. **Sin conexión en la fase 3**: solo cortes con la página ya abierta (**recomendada**); abrir "Tejiendo" sin conexión, en la fase 6.
