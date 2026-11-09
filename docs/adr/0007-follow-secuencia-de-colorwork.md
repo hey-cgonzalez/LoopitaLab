@@ -1,6 +1,6 @@
 # ADR 0007: `packages/follow`, secuencia de filas de un gráfico y puntero de avance
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Queda pendiente la revisión de dominio de `experto-tejido` (T1) antes de implementarse.
+- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Revisión de dominio de `experto-tejido` (T1) hecha el 2026-11-09: ver [Enmiendas tras la revisión de dominio T1](#enmiendas-tras-la-revisión-de-dominio-t1-2026-11-09) y los casos F3-1 a F3-13 de [casos-dominio-fase-3.md](../casos-dominio-fase-3.md).
 - Fecha: 2026-11-09
 - Paquete: `packages/follow` (nuevo)
 - Relacionado: [ADR 0001](0001-modelo-canonico.md) (el progreso es un puntero), [ADR 0003](0003-colorwork-en-esquema-v1.md) (orden de lectura, espejo, `top_down`, E10, E18), [ADR 0004](0004-render-de-puntos-2d.md) (`setHighlightRow`), [ADR 0009](0009-tejer-este-diseno-y-proyectos.md) (persistencia del puntero)
@@ -48,7 +48,7 @@ Paso = **opción 1**; puntero = **opción A**. Paquete puro, sin I/O, que depend
 - **Lado** (`side`): en redondo, siempre `"right"`; en ida y vuelta, `y` par es `"right"` y `y` impar es `"wrong"` (ADR 0003: la fila 1 es por el derecho).
 - **Sentido de lectura**: `readingDirection(chart, y, { mirror })` de `pattern-core`. No se reimplementa.
 - **Espejo**: viene de la preferencia `profiles.mirror_knitting` (desactivada por defecto). Nunca de `dominant_hand`. Cambia el sentido de lectura y el orden de los tramos de color, nunca los conteos (propiedad P5).
-- **Tramos de color** (`runs`): la fila **de una repetición horizontal** del motivo, en el orden en que se teje (de derecha a izquierda o al revés, según el sentido), sin las casillas `NO_STITCH`, agrupada en tramos `{ yarn, count }`. La interfaz los muestra como "3 A · 2 B · 3 A, 8 veces". Los tramos **no se fusionan** entre repeticiones (si el motivo empieza y termina con la misma lana, la tejedora ve el borde de la repetición, que es como se lee un gráfico). Pendiente de `experto-tejido`: confirmar esa presentación (T1).
+- **Tramos de color** (`runs`): la fila **de una repetición horizontal** del motivo, en el orden en que se teje (de derecha a izquierda o al revés, según el sentido), sin las casillas `NO_STITCH`, agrupada en tramos `{ yarn, count }`, con los colores **como se ven por el derecho** también en las filas por el revés (enmienda T1-3). La interfaz los muestra como "3 A · 2 B · 3 A, 8 veces". Los tramos **no se fusionan** entre repeticiones (si el motivo empieza y termina con la misma lana, la tejedora ve el borde de la repetición, que es como se lee un gráfico). Pendiente de `experto-tejido`: confirmar esa presentación (T1).
 - **Forma**: `stitches`, `change` y `perRepeat` salen de `rowStitchCount` y `shaping`; las columnas donde se pierde o se gana un punto, de `rowShapingColumns`. `follow` no cuenta nada que `pattern-core` ya cuente.
 - **Filas sin puntos**: un proyecto solo empieza con un documento `valid` (ADR 0009), así que no debería haberlas. Si una regla nueva del validador hace inválida una versión ya fijada, `follow` igual funciona: acepta todo documento `savable` (como los derivados, ADR 0003, E10) y un paso de 0 puntos se informa con `stitches: 0`.
 
@@ -59,21 +59,21 @@ Paso = **opción 1**; puntero = **opción A**. Paquete puro, sin I/O, que depend
 export interface ChartPointer {
   /** Filas terminadas, de 0 a `totalRows`. La fila actual es `rowsDone` (0-based). `rowsDone === totalRows` = terminado. */
   rowsDone: number;
-  /** Puntos tejidos de la fila actual, de 0 a `stitches − 1`. Siempre 0 cuando la fila tiene 0 puntos o el proyecto está terminado. */
+  /** Casillas producidas de la fila actual (no puntos que salen de la aguja; enmienda T1-5), de 0 a `stitches − 1`. Siempre 0 cuando la fila tiene 0 puntos o el gráfico está terminado. */
   stitchesDone: number;
 }
 ```
 
 - **Un entero por eje, sin redundancia.** La fila del motivo, la repetición vertical y la repetición horizontal en curso se **derivan** (`position`), no se guardan: guardarlas duplicaría datos que se pueden contradecir (opción B descartada).
 - **Dominio cerrado**: `rowsDone ∈ [0, totalRows]` y `stitchesDone ∈ [0, max(stitches − 1, 0)]`. Completar la última repetición de una fila no deja `stitchesDone = stitches`: pasa a `{ rowsDone + 1, 0 }`. Así cada posición tiene una sola representación.
-- **"Terminado"** es `rowsDone === totalRows`. No se agrega un estado aparte. Llegar ahí **propone** marcar el proyecto como `finished` (`projects.status`), no lo fuerza: son datos distintos (la usuaria puede tejer dos piezas iguales con el mismo gráfico).
+- **"Terminado"** es `rowsDone === totalRows`: terminado **el gráfico**, no la pieza (enmienda T1-4). No se agrega un estado aparte. Llegar ahí **propone** marcar el proyecto como `finished` (`projects.status`), no lo fuerza: son datos distintos (la usuaria puede tejer dos piezas iguales con el mismo gráfico).
 - **Fase 3**: la interfaz avanza por fila y, opcionalmente, por repetición horizontal (un toque = una repetición). `stitchesDone` siempre queda en múltiplos de `stitchesPerRepeat`. **Fase 6**: el mismo campo permite avanzar punto a punto sin cambiar el tipo.
 - **Datos no confiables**: todo puntero que viene de la base o del almacenamiento local pasa por `clampPointer`, que nunca lanza y devuelve un puntero del dominio. Un puntero dañado solo afecta la vista de su dueña (ADR 0009).
 
 ### 3. API (contrato que implementa `modo-tejiendo`)
 
 ```ts
-import type { ChartPattern, ReadingDirection } from "@loopitalab/pattern-core";
+import type { ChartPattern, ReadingDirection, Technique } from "@loopitalab/pattern-core";
 
 export interface FollowOptions {
   /** Preferencia `mirror_knitting` del perfil. Por defecto false. */
@@ -90,6 +90,8 @@ export interface ChartPlan {
   readonly repeatX: number;
   readonly repeatY: number;
   readonly workedIn: "rounds" | "rows";
+  /** Copiado de `pattern.technique` (enmienda T1-3): la interfaz decide el tipo de punto y los textos. */
+  readonly technique: Technique;
   readonly mirror: boolean;
 }
 
@@ -161,7 +163,7 @@ export function remapPointer(from: ChartPlan, to: ChartPlan, p: ChartPointer): R
 ```
 
 - **Todas puras**: no mutan, no lanzan, no leen el reloj ni el almacenamiento.
-- **Lo que no está en `follow`**: el códec a columnas de la base (`round_number`, `stitch_index`) vive en la capa de aplicación de `apps/web` (ADR 0009), porque el dominio no conoce nombres de columnas. Los textos ("Vuelta 12, por el derecho, de derecha a izquierda") los arma la interfaz con el glosario; `follow` entrega datos.
+- **Lo que no está en `follow`**: el códec a columnas de la base (`round_number`, `stitch_index`) vive en la capa de aplicación de `apps/web` (ADR 0009), porque el dominio no conoce nombres de columnas. Los textos ("Vuelta 12, por el derecho, de derecha a izquierda" en redondo; "Fila 12, por el revés, de izquierda a derecha" en ida y vuelta: ver enmiendas T1-2 y T1-3) los arma la interfaz con el glosario; `follow` entrega datos.
 - **Dependencias**: solo `@loopitalab/pattern-core`. Sin `yarn-catalog` (los nombres de color los inyecta quien llama, como `DescribeOptions` en `pattern-render`). Misma convención que el núcleo: TypeScript sin compilar, `exports` a `src/index.ts`, `node:test`, generador de propiedades con semilla (ADR 0002). `apps/web` lo agrega a `transpilePackages`.
 
 ### 4. Propiedades obligatorias (CLAUDE.md: toda función de `follow` tiene propiedades)
@@ -216,3 +218,20 @@ Rendimiento (guardia en Node, como CA-P5): `stepAt` en un motivo de 200 de ancho
 - Ningún conteo del modo tejiendo se calcula en `apps/web` (extiende CA-F2).
 - `modo-tejiendo` implementa el paquete con las propiedades P1 a P15; `qa-tester` las revisa con opus (complejidad alta).
 - `experto-tejido` revisa (T1) y aprueba (cierre): orden de lectura con y sin espejo, presentación de los tramos por repetición, la regla de "terminado", y los textos de lado y sentido. Las tejedoras lo validan (T1b de la fase 3).
+
+## Enmiendas tras la revisión de dominio T1 (2026-11-09)
+
+Revisión de `experto-tejido`; los casos de prueba están en [casos-dominio-fase-3.md](../casos-dominio-fase-3.md) (F3-1 a F3-13). La revisión confirma el orden de la secuencia (siempre desde la fila 0, también en `top_down`), el lado y el sentido con y sin espejo, y los tramos por repetición sin fusionar. Lo que cambia:
+
+**T1-2. "Vuelta" o "fila" según `workedIn`** (C2, caso F3-9). Todo texto de la interfaz que nombre un paso dice "vuelta" con `workedIn: "rounds"` y "fila" con `workedIn: "rows"`, con la misma regla que `rowWord` de `pattern-core` (`validate.ts`). Aplica a la tarjeta de la fila, al avance ("Fila 34 de 120"), a los anuncios `aria-live`, a los mensajes de conflicto (ADR 0009) y al texto de "terminado". Nunca "vuelta" para una fila plana. `follow` no cambia: entrega `plan.workedIn` y la interfaz elige la palabra con el glosario.
+
+**T1-3. Colores por el derecho y tipo de punto** (C3, casos F3-3 y F3-10).
+- El gráfico y los tramos (`runs`) muestran los colores **como se ven por el derecho**. En una fila por el revés (`side: "wrong"`, ida y vuelta) los tramos van en el orden en que se tejen (de izquierda a derecha sin espejo), y **los colores no se invierten**. La interfaz dice "por el revés, de izquierda a derecha" y aclara que los colores del gráfico son los del derecho; no dice que se invierten.
+- `follow` entrega `side`, no el tipo de punto. Si una fila por el revés se teje "al revés" (palillo) o de otra forma lo decide la interfaz según `technique`; en crochet no se afirma "punto revés".
+- **Contrato**: `ChartPlan` agrega `readonly technique: Technique` (copiado de `pattern.technique`, no derivado), para que la interfaz arme los textos con el plan sin volver a leer el documento. Propiedad nueva **P16**: `plan.technique === pattern.technique` y `plan.workedIn === pattern.chart.workedIn`; ningún paso cambia con `technique` (como P7).
+
+**T1-4. "Terminado" es del gráfico** (caso F3-7). `rowsDone === totalRows` significa que se tejieron todas las filas del gráfico, no que la pieza esté lista. La interfaz dice "Gráfico terminado" (nunca "Pieza terminada") y recuerda que falta rematar o cerrar. Si la forma es `bottom_up` y la última fila tiene N puntos, menciona los N puntos que quedan (`stepAt(plan, totalRows − 1).stitches`, de `follow`; no se cuenta en `apps/web`). La propuesta de marcar el proyecto como `finished` se mantiene.
+
+**T1-5. `stitchesDone` cuenta casillas** (caso F3-6). En filas con disminuciones, `stitchesDone` y `stitches` cuentan **casillas producidas** de la fila actual, no puntos que salen de la aguja (un "2 juntos" consume dos puntos de la fila anterior y produce una casilla). La interfaz rotula "casilla N de M" (no "puntos tejidos") en el contador dentro de la fila cuando `change < 0`; el avance total en puntos (`position.stitchesDone`) mantiene su definición (P13). Queda para las tejedoras de qué lana se teje un "2 juntos" de dos lanas distintas (el modelo toma la casilla de la fila actual).
+
+**Pendiente de validar por tejedora** (sin cambio de contrato): orientación de la vista en "Tejiendo" para `top_down`, la lana de un "2 juntos" de dos lanas y la presentación "3 A · 2 B" frente a casillas.

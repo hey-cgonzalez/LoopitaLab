@@ -1141,7 +1141,8 @@ end $$;
 -- Funciones de public ejecutables por anon o authenticated: SOLO las de la lista permitida.
 -- Una función nueva hereda EXECUTE de PUBLIC (valor global de PostgreSQL que no se revoca, ver
 -- 20261106035626_sin_truncate.sql): si su migración olvida el `revoke`, este check falla.
--- Las funciones de trigger no cuentan: no se pueden invocar por /rpc.
+-- Las funciones de trigger no cuentan aquí: no se pueden invocar por /rpc. Tienen su propia
+-- verificación, más abajo (ninguna debe ser ejecutable por anon ni authenticated).
 -- Para exponer una función nueva: grant explícito en su migración y agregarla aquí.
 do $$
 declare
@@ -1184,6 +1185,42 @@ do $$ begin
   raise notice 'ok - una función nueva sin revoke quedaría expuesta: la lista permitida la detecta';
 end $$;
 drop function public.__funcion_futura();
+
+-- Funciones de trigger de public: ninguna es ejecutable por anon ni authenticated (docs/seguridad.md,
+-- "Limpieza menor: EXECUTE en funciones de trigger", 20261110010000_revocar_execute_triggers.sql).
+-- No son invocables por /rpc, pero un trigger nuevo con EXECUTE vía PUBLIC sería exposición innecesaria.
+-- Los disparadores siguen funcionando sin EXECUTE: las pruebas de arriba disparan patterns_quota,
+-- patterns_guard_origin y projects_check_pattern como authenticated.
+do $$
+declare
+  f record;
+  n integer := 0;
+begin
+  for f in
+    select p.oid, replace(p.oid::regprocedure::text, 'public.', '') as firma
+    from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+    where s.nspname = 'public' and p.prorettype = 'trigger'::regtype
+  loop
+    n := n + 1;
+    if has_function_privilege('anon', f.oid, 'execute') or has_function_privilege('authenticated', f.oid, 'execute') then
+      raise exception 'FALLO: la función de trigger % es ejecutable por anon o authenticated', f.firma;
+    end if;
+  end loop;
+  assert n >= 14, 'se revisaron las funciones de trigger de public';
+  assert not has_function_privilege('anon', 'public.patterns_quota()', 'execute'), 'patterns_quota no es para anon';
+  assert not has_function_privilege('authenticated', 'public.pattern_reports_quota()', 'execute'), 'pattern_reports_quota no es para authenticated';
+  raise notice 'ok - ninguna función de trigger de public es ejecutable por anon ni authenticated';
+end $$;
+
+-- Y la prueba en negativo: una función de trigger nueva sin revoke sería detectada.
+create function public.__trigger_futura() returns trigger language plpgsql as $f$ begin return new; end; $f$;
+do $$ begin
+  -- Hereda EXECUTE de PUBLIC, así que la búsqueda de arriba la marcaría (salvo que PUBLIC ya no lo tenga).
+  assert has_function_privilege('anon', 'public.__trigger_futura()', 'execute')
+      or not has_function_privilege('public', 'public.__trigger_futura()', 'execute'), 'una función de trigger nueva sin revoke quedaría expuesta';
+  raise notice 'ok - una función de trigger nueva sin revoke quedaría expuesta: la verificación la detecta';
+end $$;
+drop function public.__trigger_futura();
 
 -- Secuencias: anon y authenticated no tienen USAGE, SELECT ni UPDATE sobre ninguna secuencia de
 -- public (hoy solo existe la de rate_events.id, identity, que escribe el servidor). Si una tabla

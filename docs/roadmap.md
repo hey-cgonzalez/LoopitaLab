@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-09, agente `arquitecto` (planificación de la fase 3: [sección "Fase 3 en detalle"](#fase-3-en-detalle) y ADR 0007 a 0009 propuestos). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | Base: modelo canónico, validador, lanas, Supabase con RLS, acceso, proyectos y cuenta | Lista | — |
 | 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Lista en código; ADR 0003 a 0006 aceptados. Faltan CA-P6, T1b, T16 y el E2E con sesión | Alta |
-| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Planificada; ADR 0007 a 0009 propuestos | Media-alta |
+| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Planificada; ADR 0007 a 0009 aceptados y enmendados (T1); T0, T1 y T3 hechas | Media-alta |
 | 4 | Estudio amigurumi 3D | Pendiente | Alta |
 | 5 | Imagen → patrón (IA) | Pendiente | Alta |
 | 6 | Modo tejiendo completo (amigurumi punto a punto, contadores, tiempo) | Pendiente | Media |
@@ -76,7 +76,7 @@ Detalle completo en la [sección de la fase 2](#fase-2-en-detalle) más abajo.
 
 ## Fase 3: Lanas por grosor y composición, y seguimiento de colorwork
 
-Detalle completo en la [sección de la fase 3](#fase-3-en-detalle) más abajo (ADR [0007](adr/0007-follow-secuencia-de-colorwork.md), [0008](adr/0008-lanas-selector-aspecto-y-metraje.md) y [0009](adr/0009-tejer-este-diseno-y-proyectos.md), propuestos). Donde el detalle precisa este resumen, manda el detalle.
+Detalle completo en la [sección de la fase 3](#fase-3-en-detalle) más abajo (ADR [0007](adr/0007-follow-secuencia-de-colorwork.md), [0008](adr/0008-lanas-selector-aspecto-y-metraje.md) y [0009](adr/0009-tejer-este-diseno-y-proyectos.md), aceptados). Donde el detalle precisa este resumen, manda el detalle.
 
 - **Objetivo**: que cada lana del diseño se elija por grosor CYC, composición y color (paleta o personalizado), con su efecto en el render y en las recomendaciones. Que un diseño de colorwork se pueda tejer fila a fila.
 - **Entregables**:
@@ -601,7 +601,7 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 ## Fase 3 en detalle
 
-Planificada el 2026-11-09 por `arquitecto` sobre `main` (fase 2 completa en código). Decisiones en el [ADR 0007](adr/0007-follow-secuencia-de-colorwork.md) (`follow`), el [ADR 0008](adr/0008-lanas-selector-aspecto-y-metraje.md) (lanas) y el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) (proyectos y avance), los tres **propuestos**. En esta sección, "T*n*" son las tareas de la fase 3; las de la fase 2 se citan como "T1b de la fase 2".
+Planificada el 2026-11-09 por `arquitecto` sobre `main` (fase 2 completa en código). Decisiones en el [ADR 0007](adr/0007-follow-secuencia-de-colorwork.md) (`follow`), el [ADR 0008](adr/0008-lanas-selector-aspecto-y-metraje.md) (lanas) y el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) (proyectos y avance), los tres **aceptados** el 2026-11-09 y enmendados tras la revisión de dominio T1 (sección "Enmiendas tras la revisión de dominio T1" de cada ADR). Los casos de prueba de dominio están en [casos-dominio-fase-3.md](casos-dominio-fase-3.md). En esta sección, "T*n*" son las tareas de la fase 3; las de la fase 2 se citan como "T1b de la fase 2".
 
 ### Alcance
 
@@ -687,7 +687,7 @@ Planificada el 2026-11-09 por `arquitecto` sobre `main` (fase 2 completa en cód
 | CA3-L6 | Con `fiberEffects`: halo visible en mohair y alpaca, brillo en seda, viscosa, bambú y lurex, definición en algodón y acrílico, ponderados por porcentaje; cambiar solo un porcentaje actualiza el aspecto. Capturas de Playwright de las cuatro formas en el PR |
 | CA3-L7 | La muestra sugerida por el grosor se rotula "supuesto" y no se escribe en el documento hasta que la usuaria ingresa la suya (CA-F4 sigue vigente) |
 | CA3-L8 | Mis lanas: guardar, usar en un diseño (un paso de deshacer), editar y borrar. La nota no se copia al diseño salvo que se marque. El tope de 500 se informa con un mensaje claro |
-| CA3-L9 | El metraje se muestra siempre como "≈ N m (entre L y H m), estimación" con sus supuestos visibles, y dice "supuesto" si la muestra es supuesta. Revisión de código: ninguna cifra de metraje se calcula en `apps/web` (solo `yarnUsage` y `estimateYarnLength`) |
+| CA3-L9 | El metraje se muestra siempre como "≈ N m (entre L y H m), estimación" con sus supuestos visibles, dice "supuesto" si la muestra es supuesta y aclara "solo del gráfico: no incluye elástico, montaje ni remate" (ADR 0008, enmienda T1-6). Revisión de código: ninguna cifra de metraje se calcula en `apps/web` (solo `yarnUsage` y `estimateYarnLength`) |
 | CA3-L10 | Las propiedades de `yarnUsage` y `estimateYarnLength` del ADR 0008 pasan con tres semillas |
 | CA3-L11 | Ningún dato nuevo de `yarn-catalog` contiene marcas ni nombres de tienda fuera del campo de fuente (prueba automática sobre los JSON) |
 
@@ -706,9 +706,11 @@ Planificada el 2026-11-09 por `arquitecto` sobre `main` (fase 2 completa en cód
 | CA3-T9 | Un diseño con proyectos no se puede borrar (también por PostgREST directo) y el mensaje lo explica; borrar la cuenta con diseños y proyectos sigue funcionando (`10_rls_check.sql`) |
 | CA3-T10 | Wake Lock: se pide al mostrar "Tejiendo", se vuelve a pedir al volver a la pestaña, se suelta al salir; interruptor visible; aviso si no está disponible |
 | CA3-T11 | En 390 px de ancho, avanzar, retroceder y la repetición están en el 40 % inferior de la pantalla, con objetivos táctiles de al menos 56 × 56 px, del lado de `dominant_hand` |
-| CA3-T12 | Las propiedades P1 a P15 de `follow` (ADR 0007) pasan con tres semillas |
+| CA3-T12 | Las propiedades P1 a P16 de `follow` (ADR 0007; P16 de la enmienda T1-3) pasan con tres semillas |
 | CA3-T13 | Revisión de código: los puntos, cambios, tramos y avances de "Tejiendo" salen de `follow` y `pattern-core`; ninguno se calcula en `apps/web` |
-| CA3-T14 | El cliente no puede escribir `pattern_id`, `pattern_version` ni `pattern_version_id` de un proyecto (check de RLS) |
+| CA3-T14 | El cliente no puede escribir `pattern_id` ni `pattern_version_id` de un proyecto (check de RLS); `pattern_version` ya no existe (ADR 0009, enmienda T1-9) |
+| CA3-T15 | "Tejer este diseño" muestra la pantalla previa (ADR 0009, enmienda T1-7; caso F3-39) con muestra, metraje por lana (solo palillo), advertencias, forma de trabajo, lo que no está en el gráfico y aviso de prototipo; ninguna cifra se calcula en `apps/web` |
+| CA3-T16 | Los textos de "Tejiendo", conflictos y `/proyectos` dicen "vuelta" en redondo y "fila" en ida y vuelta; al terminar dicen "Gráfico terminado" y recuerdan rematar o cerrar; en filas con disminuciones el contador dice "casilla N de M" (ADR 0007, enmiendas T1-2 a T1-5) |
 
 **Accesibilidad**
 
@@ -810,13 +812,13 @@ Detalle en el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) y el [ADR 00
 | `fiberEffects` apagado por defecto (ADR 0004, E4) | Se activa en esta fase, después de calibrar y medir | T6, T8 |
 | Proporciones de filas en crochet (1,2 y 0,6) por validar | No bloquea: la fase 3 es palillo. El selector las muestra como supuesto y el metraje en crochet queda fuera | T1b |
 | Umbrales provisionales (`ringDistortion`, cuñas, 1,35) | La vista de "Tejiendo" reutiliza los avisos del estudio; no se agregan umbrales nuevos sin constante con nombre | T1b |
-| Topes 54000 sin mensaje en `app/proyectos/actions.ts` y migración `20261107010000` en el proyecto real | Empezar un proyecto puede chocar con los topes | T3 |
+| Topes 54000 sin mensaje en `app/proyectos/actions.ts` y migración `20261109024823` en el proyecto real | Empezar un proyecto puede chocar con los topes | T3 (hecha el 2026-11-09; queda aplicar `20261110010000_revocar_execute_triggers.sql` en el proyecto real) |
 | ADR 0006, E10: tejer exige `valid` en el servidor | Se implementa en `startProjectFromDesign` y `start_chart_project` | T7, T11 |
 
 ### Qué depende de `experto-tejido` o de T1b
 
-- **`experto-tejido` antes de implementar (T1)**: orden de la secuencia (siempre desde la fila 0, también en `top_down`); lado y sentido con y sin espejo; tramos por repetición sin fusionar; "terminado" y la propuesta de marcar el proyecto; factor 3,8, holgura 10 %, margen 10 %, rango 0,85 a 1,2 y regla de las hebras de orillo a orillo del metraje; niveles de halo, brillo y definición de `fibras.json`; alias de tienda como equivalencia aproximada; textos de "Tejiendo". Produce `docs/casos-dominio-fase-3.md` con casos numerados para QA.
-- **Tejedoras (T1b)**: lectura en "Tejiendo" con y sin espejo, utilidad del contador de repeticiones, tramos ("3 A · 2 B"), metraje comparado con 2 o 3 proyectos reales, realismo del halo y el brillo, nombres de grosores y alias.
+- **`experto-tejido` antes de implementar (T1, hecha el 2026-11-09)**: casos en [casos-dominio-fase-3.md](casos-dominio-fase-3.md) y correcciones registradas como enmiendas en los ADR 0007 (T1-2 a T1-5), 0008 (T1-1, T1-6 y T1-8) y 0009 (T1-2, T1-7 y T1-9). Temas revisados: orden de la secuencia (siempre desde la fila 0, también en `top_down`); lado y sentido con y sin espejo; tramos por repetición sin fusionar; "terminado" y la propuesta de marcar el proyecto; factor 3,8, holgura 10 %, margen 10 %, rango 0,85 a 1,2 y regla de las hebras de orillo a orillo del metraje; niveles de halo, brillo y definición de `fibras.json`; alias de tienda como equivalencia aproximada; textos de "Tejiendo". Produce `docs/casos-dominio-fase-3.md` con casos numerados para QA.
+- **Tejedoras (T1b, con cuentas propias en la plataforma; después de T1c)**: la lista "Pendiente de validar por tejedora" de [casos-dominio-fase-3.md](casos-dominio-fase-3.md#pendiente-de-validar-por-tejedora), más lectura en "Tejiendo" con y sin espejo, utilidad del contador de repeticiones, tramos ("3 A · 2 B"), metraje comparado con 2 o 3 proyectos reales, realismo del halo y el brillo, nombres de grosores y alias.
 - **`experto-tejido` al cierre (T18)**: aprobación final de la lógica de tejido con las respuestas de T1b.
 
 ### Riesgos
@@ -829,7 +831,7 @@ Detalle en el [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md) y el [ADR 00
 | R3-4 | El metraje estimado se aleja del real | Rango y supuestos visibles, margen, "estimación" siempre; comparación con proyectos reales en T1b; constantes con nombre |
 | R3-5 | No poder borrar un diseño con proyectos frustra | Mensaje con la cantidad de proyectos y enlace a ellos; decisión 2 abajo |
 | R3-6 | La fase 2 deja pendientes que bloquean (E2E con sesión, T1b, CA-P6) | T2, T1b y T3 en el grupo A, al inicio |
-| R3-7 | La Ley 21.719 entra en vigencia el 1 de diciembre de 2026; validar con tejedoras usando cuentas en la plataforma es una beta con personas externas | Decisión abierta heredada (abajo): política de privacidad antes de cualquier cuenta externa, o validar con la hoja y capturas, sin cuentas |
+| R3-7 | La Ley 21.719 entra en vigencia el 1 de diciembre de 2026; validar con tejedoras usando cuentas en la plataforma es una beta con personas externas | Decidido (punto 9 de las decisiones de la fase 3): validar con cuentas propias, después de T1c (privacidad, términos, revisión legal y lista "antes de beta" de `docs/seguridad.md`). T1b depende de T1c |
 | R3-8 | Cuotas: empezar proyectos gasta versiones | Reutilización de la versión idéntica; mensajes claros de tope |
 | R3-9 | La lectura o los tramos no coinciden con lo que esperan las tejedoras (en especial con espejo) | `experto-tejido` antes (T1) y al cierre (T18); T1b; datos de `follow` independientes de los textos |
 | R3-10 | El avance local en `localStorage` no está cifrado | Solo contiene números y la clave del proyecto; mismas reglas de limpieza que el respaldo del estudio (riesgo ya aceptado en BAJO-2 de T15) |
@@ -841,31 +843,32 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 | # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
 |---|---|---|---|---|---|
-| T0 | A | La usuaria aprueba los ADR 0007 a 0009 y las [decisiones pendientes de la fase 3](#pendientes-de-aprobación-fase-3) | (usuaria) | — | — |
-| T1 | A | Revisión de dominio de la fase 3 (lista en "Qué depende de `experto-tejido` o de T1b"). Produce `docs/casos-dominio-fase-3.md`. Las correcciones se aplican como enmiendas a los ADR 0007 y 0008 (`arquitecto`) | `experto-tejido` | Media (sonnet) | — |
-| T1b | A | Ampliar `docs/validacion-tejedoras.md` con los temas de la fase 3 y cerrar, junto con T1b de la fase 2, antes de T18. Si se usa la plataforma con cuentas externas, después de la decisión de privacidad | `experto-tejido` con la usuaria | Media (sonnet) | T1 |
+| T0 | A | **Hecha (2026-11-09)**. La usuaria aprueba los ADR 0007 a 0009 y las [decisiones de la fase 3](#decisiones-de-la-fase-3-aprobadas-el-2026-11-09) | (usuaria) | — | — |
+| T1 | A | **Hecha (2026-11-09)**. Revisión de dominio de la fase 3 (lista en "Qué depende de `experto-tejido` o de T1b"). Produjo [casos-dominio-fase-3.md](casos-dominio-fase-3.md). Las correcciones quedaron como enmiendas a los ADR 0007, 0008 y 0009 (`arquitecto`) | `experto-tejido` | Media (sonnet) | — |
+| T1c | A | Preparar la beta con tejedoras: completar `/privacidad` y `/terminos` con los datos de la responsable y pasar la revisión legal; resolver la lista "antes de beta" de [`docs/seguridad.md`](seguridad.md) | usuaria + `documentador` + `revisor-seguridad` | Media (sonnet) | T0 |
+| T1b | A | Ampliar `docs/validacion-tejedoras.md` con los temas de la fase 3 (incluida la lista "Pendiente de validar por tejedora" de [casos-dominio-fase-3.md](casos-dominio-fase-3.md#pendiente-de-validar-por-tejedora)) y cerrar, junto con T1b de la fase 2, antes de T18. Se hace **con cuentas propias en la plataforma** (punto 9 de las decisiones de la fase 3): es una beta con personas externas y exige la revisión legal previa de T1c | `experto-tejido` con la usuaria | Media (sonnet) | T1, T1c |
 | T2 | A | E2E con sesión: Supabase local (Docker) en la CI con todas las migraciones y usuarias de prueba, o un proyecto de pruebas; sesión reutilizable de Playwright; dos contextos de navegador. Sin claves en el repositorio | `devops` | Media (sonnet) | — |
-| T3 | A | Pendientes de la fase 2: aplicar `20261107010000` en el proyecto real y repetir `10_rls_check.sql`; mapear 54000 en `app/proyectos/actions.ts`; comprobar en la base real que `projects.pattern_version` no tiene datos | `backend-supabase` | Baja (haiku) | — |
-| T4 | B | `packages/follow` (ADR 0007): API, propiedades P1 a P15, guardia de rendimiento, README, job de CI y `transpilePackages` | `modo-tejiendo` | Alta (opus) | T0, T1 |
-| T5 | B | `pattern-core`: `yarnUsage` con sus propiedades (ADR 0008, sección 6) y README | `motor-patrones` | Media (sonnet) | T0, T1 |
-| T6 | B | `yarn-catalog`: `findWeights`, `nearestPaletteColors`, `NEAR_COLOR_DELTA_E`, `YARN_LENGTH_ASSUMPTIONS`, `estimateYarnLength`, soporte de propiedades y propiedades; revisión de los niveles de `fibras.json` con lo que dicte T1; prueba de marcas en los JSON (CA3-L11) | `catalogo-lanas` | Media (sonnet) | T0, T1 |
-| T7 | B | Migración de proyectos con versión fijada (ADR 0009, secciones 1 y 2): columna, `no action`, consistencia, permisos por columna, cotas, `start_chart_project`, `repin_project`, lista permitida y verificaciones en `10_rls_check.sql` (incluidos borrar un diseño con proyectos y borrar la cuenta) | `backend-supabase` | Alta (opus) | T0, T3 |
+| T3 | A | **Hecha (2026-11-09)**: mensajes de los 54000 en proyectos (`app/proyectos/actions.ts`, `lib/project-messages.ts`), migración de cuotas aplicada y `projects.pattern_version` sin datos (2 proyectos, 0 con valor). Nueva migración `20261110010000_revocar_execute_triggers.sql`, **pendiente de aplicar en el proyecto real**. Encargo original: aplicar `20261109024823` en el proyecto real y repetir `10_rls_check.sql`; mapear 54000 en `app/proyectos/actions.ts`; comprobar en la base real que `projects.pattern_version` no tiene datos | `backend-supabase` | Baja (haiku) | — |
+| T4 | B | `packages/follow` (ADR 0007 con sus enmiendas): API (con `ChartPlan.technique`), propiedades P1 a P16, casos F3-1 a F3-13, guardia de rendimiento, README, job de CI y `transpilePackages` | `modo-tejiendo` | Alta (opus) | T0, T1 |
+| T5 | B | `pattern-core`: `yarnUsage` con la regla de flotantes por `workedIn` y sus propiedades (ADR 0008, sección 6 y enmienda T1-1; casos F3-14 a F3-20) y README | `motor-patrones` | Media (sonnet) | T0, T1 |
+| T6 | B | `yarn-catalog` (ADR 0008 con las enmiendas T1-6 y T1-8): `findWeights`, `weightQueryHint`, `nearestPaletteColors`, `NEAR_COLOR_DELTA_E`, `YARN_LENGTH_ASSUMPTIONS`, `estimateYarnLength`, soporte de propiedades y propiedades; revisión de los niveles de `fibras.json` con lo que dicte T1; prueba de marcas en los JSON (CA3-L11) | `catalogo-lanas` | Media (sonnet) | T0, T1 |
+| T7 | B | Migración de proyectos con versión fijada (ADR 0009, secciones 1 y 2, y enmienda T1-9): columna, eliminar `projects.pattern_version` (sin datos), `no action`, consistencia, permisos por columna, cotas, `start_chart_project`, `repin_project`, lista permitida y verificaciones en `10_rls_check.sql` (incluidos borrar un diseño con proyectos y borrar la cuenta) | `backend-supabase` | Alta (opus) | T0, T3 |
 | T8 | C | `stitch-render` y `PreviewEngine`: calibrar `fiberEffects` con los niveles de T6, activarlo, clave de aspectos con grosor y porcentajes, `previewYarn` con instrumentación `hover-to-paint`. **Primero** una medición de CA3-P1, CA3-P2 y CA3-P3 en el círculo con CPU ×4; si falla, enmienda del ADR 0004 (WebGL2) antes de seguir | `render-puntos` | Alta (opus) | T0, T6 |
 | T9 | C | Selector de lanas completo (ADR 0008, secciones 2 a 4), panel de metraje e interruptor "Colores planos" | `frontend-editor` | Media (sonnet) | T5, T6, T8 |
 | T10 | C | Lanas guardadas: Server Actions de `user_yarns` (`backend-supabase`) y pestaña "Mis lanas" más `/lanas` (`frontend-editor`) | `backend-supabase` y `frontend-editor` | Media (sonnet) | T6; la interfaz, también T9 |
 | T11 | C | Server Actions de proyectos (ADR 0009, sección 3): `startProjectFromDesign`, `loadProject`, `saveProgress` (con `VERSION_CHANGED`), `repinProject`; códec del puntero; `deletePattern` con 23503 | `backend-supabase` | Media (sonnet) | T4, T7 |
-| T12 | D | "Tejer este diseño" en el estudio y en "Mis diseños"; `/proyectos` con avance; `/proyectos/[id]`; `/proyectos/[id]/tejer` con cola de avance, conflictos, estado sin conexión, Wake Lock, teclado y pasapáginas, "Pasar a la versión actual" | `modo-tejiendo` (con `frontend-editor` para los componentes compartidos del gráfico) | Media (sonnet) | T4, T8, T11 |
+| T12 | D | "Tejer este diseño" en el estudio y en "Mis diseños", con su pantalla previa (ADR 0009, enmienda T1-7); `/proyectos` con avance; `/proyectos/[id]`; `/proyectos/[id]/tejer` con cola de avance, conflictos, estado sin conexión, Wake Lock, teclado y pasapáginas, "Pasar a la versión actual" | `modo-tejiendo` (con `frontend-editor` para los componentes compartidos del gráfico) | Media (sonnet) | T4, T8, T11 |
 | T13 | D | Accesibilidad: una mano y `dominant_hand`, Wake Lock, anuncios de fila, paleta y "Mis lanas" con teclado, texto al 200 %, movimiento reducido, 390 px (CA3-A1 a CA3-A3, CA3-T11) | `ux-accesibilidad` | Media (sonnet) | T9, T12 |
-| T14 | D | Textos: selector, alias aproximados, metraje como estimación y sus supuestos, "Tejiendo" (lado, sentido, tramos, terminado), conflictos, sin conexión, pantalla encendida, borrar un diseño con proyectos. Con el glosario pendiente (provisional hasta T1b) | `documentador` | Baja (haiku) | T1 |
+| T14 | D | Textos: selector, alias aproximados, metraje como estimación y sus supuestos, "Tejiendo" (lado, sentido, tramos, "Gráfico terminado", "casilla N de M", "vuelta" o "fila" según `workedIn`, colores del derecho en filas por el revés), pantalla previa de "Tejer este diseño", búsqueda de grosores sin resultado ("ply"), conflictos, sin conexión, pantalla encendida, borrar un diseño con proyectos. Con el glosario pendiente (provisional hasta T1b) | `documentador` | Baja (haiku) | T1 |
 | T15 | D | E2E de latencia extendida (CA3-P1 a CA3-P3) en la CI; guía para que la usuaria mida CA-P6 y los escenarios nuevos en el equipo de referencia | `render-puntos` con `devops` | Alta (opus) | T2, T9, T12 |
-| T16 | E | QA: propiedades (P1 a P15, `yarnUsage`, `estimateYarnLength`), casos de `docs/casos-dominio-fase-3.md`, E2E con sesión (CA3-T5 a CA3-T9), latencia, matriz de criterios en `docs/qa-fase-3.md`. Revisión con opus de T4, T7, T8 y T15 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10 a T15 |
+| T16 | E | QA: propiedades (P1 a P16, `yarnUsage`, `estimateYarnLength`), casos de `docs/casos-dominio-fase-3.md`, E2E con sesión (CA3-T5 a CA3-T9), latencia, matriz de criterios en `docs/qa-fase-3.md`. Revisión con opus de T4, T7, T8 y T15 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10 a T15 |
 | T17 | E | Seguridad: migración y funciones `security definer` de T7 (permisos, `search_path`, `updated_at` exacto, cascadas, lista permitida), acciones de T10 y T11 (validación en el servidor, `valid` sin confiar en el cliente, notas privadas, topes), cola local del avance. Con opus, porque T7 es de complejidad alta | `revisor-seguridad` | Alta (opus) | T7, T10, T11, T12 |
 | T18 | E | Revisión final de la lógica de tejido: `follow`, metraje, aspecto por fibra y textos. Espera las respuestas de T1b | `experto-tejido` | Media (sonnet) | T1b, T16 |
 | T19 | E | README, este roadmap y los ADR 0007 a 0009 a "aceptado" con sus enmiendas | `arquitecto` + `documentador` | Baja (haiku) | T17, T18 |
 
 ### Criterios de salida de la fase 3
 
-- CA3-P1 a CA3-P6, CA3-L1 a CA3-L11, CA3-T1 a CA3-T14 y CA3-A1 a CA3-A3 cumplidos, con la evidencia en el PR (mediciones, capturas de las cuatro formas con fibras, informe de QA).
+- CA3-P1 a CA3-P6, CA3-L1 a CA3-L11, CA3-T1 a CA3-T16 y CA3-A1 a CA3-A3 cumplidos, con la evidencia en el PR (mediciones, capturas de las cuatro formas con fibras, informe de QA).
 - `pnpm test` y `pnpm typecheck` en verde, incluido `follow`; la CI corre el E2E con sesión.
 - CA-P6 medido en el equipo de referencia, con los escenarios de la fase 2 y los nuevos.
 - T1b cerrada (fase 2 y fase 3): lo marcado "validar con tejedora" está confirmado o corregido.
@@ -907,6 +910,14 @@ Estas son decisiones de terminología de la revisión de `experto-tejido` (2026-
 | Cuñas del círculo | Rango habitual de 4 a 12 cuñas (6, 8, 10 y 12 son comunes); fuera de él, aviso informativo `CHART_CIRCLE_REPEATS` | Umbral provisional de `experto-tejido`: validar con tejedoras |
 | Cuña angosta | Cuña de al menos 4 puntos en su fila más ancha; con menos, aviso informativo `CHART_WEDGE_TOO_NARROW` | Umbral provisional: validar con tejedoras |
 | Comienzo del círculo a palillo | "montaje inicial de 8 a 12 puntos" (en crochet, "anillo mágico de 6 a 12 puntos"), en `CHART_CIRCLE_START` | Validar el término "montaje inicial" y el rango con tejedoras |
+| Fin del gráfico (fase 3) | "Gráfico terminado", con el recordatorio de rematar o cerrar (y los N puntos que quedan en una copa `bottom_up`) | Nunca "Pieza terminada" (ADR 0007, T1-4) |
+| Contador dentro de la fila (fase 3) | "casilla N de M" en filas con disminuciones | No "puntos tejidos": cuenta casillas producidas (ADR 0007, T1-5) |
+| Fila por el revés (fase 3) | "por el revés, de izquierda a derecha"; los colores del gráfico son los del derecho | No decir que los colores se invierten; en crochet no afirmar "punto revés" (ADR 0007, T1-3) |
+| Metraje (fase 3) | "≈ N m (entre L y H m), estimación", "solo del gráfico: no incluye elástico, montaje ni remate" | Holgura de las flotantes y rango por validar con proyectos reales (ADR 0008, T1-6) |
+| "Light" y "Fino (Light DK)" (fase 3) | "light" encuentra la cat. 2 (alias aproximado) y la cat. 3 ("Light Worsted") | Validar con tejedoras |
+| "4 ply" y "8 ply" (fase 3) | Sin equivalencia: la búsqueda no devuelve categoría y explica que el nombre varía por país | Pendiente de tejedora; no se mapea sin fuente (ADR 0008, T1-8) |
+
+Lista completa de lo pendiente de validar por tejedora en la fase 3 (orientación de `top_down` en "Tejiendo", lana de un "2 juntos" de dos lanas, tramos frente a casillas, holgura y rango del metraje, aspecto por fibra, "light", "4 ply" y "8 ply"): [casos-dominio-fase-3.md](casos-dominio-fase-3.md#pendiente-de-validar-por-tejedora). Se valida en T1b de la fase 3.
 
 ---
 
@@ -924,13 +935,13 @@ Aprobadas por la usuaria el 2026-11-05:
 4. **Equipo de referencia** para medir "notebook de gama media": 4 núcleos, 8 GB, GPU integrada, Chrome estable.
 5. **Sin Turborepo por ahora**: el monorepo usa `pnpm -r`. Se reevalúa si el build o la CI se vuelven lentos.
 
-Abierta:
+Abierta (resuelta el 2026-11-09 por el punto 9 de las decisiones de la fase 3: validación con cuentas propias, preparada en T1c antes de T1b):
 
 - **Política de privacidad antes de cualquier beta con personas externas**, por la vigencia de la Ley 21.719 el 1 de diciembre de 2026, sin esperar a la fase 7. Las páginas `/terminos` y `/privacidad` existen como borrador con marcadores por completar y requieren revisión legal. **Se vuelve urgente en la fase 3**: la ley entra en vigencia en tres semanas, y validar "Tejiendo" con tejedoras usando cuentas en la plataforma (T1b) sería una beta con personas externas. Alternativa sin cuentas: validar con la hoja y capturas.
 
 ### Decisiones de la fase 3 (aprobadas el 2026-11-09)
 
-La usuaria revisó una por una y aprobó las opciones recomendadas de los puntos 1 a 8 (T0 hecha). Punto 9 (validación con tejedoras): **con cuentas propias en la plataforma**, lo que es una beta con personas externas: antes de invitarlas hay que completar y revisar legalmente `/privacidad` y `/terminos` (Ley 21.719, vigente desde el 1 de diciembre de 2026) y resolver los requisitos de seguridad previos a una beta (`docs/seguridad.md`, riesgo aceptado de OAuth y lista "antes de beta").
+La usuaria revisó una por una y aprobó las opciones recomendadas de los puntos 1 a 8 (T0 hecha). Punto 9 (validación con tejedoras): **con cuentas propias en la plataforma**, lo que es una beta con personas externas: antes de invitarlas hay que completar y revisar legalmente `/privacidad` y `/terminos` (Ley 21.719, vigente desde el 1 de diciembre de 2026) y resolver los requisitos de seguridad previos a una beta (`docs/seguridad.md`, riesgo aceptado de OAuth y lista "antes de beta"). Ese trabajo es la tarea T1c, y T1b depende de ella.
 
 Propuestas de `arquitecto` (2026-11-09); quedó aprobada la opción marcada como recomendada en cada una.
 

@@ -1,6 +1,6 @@
 # ADR 0008: Lanas del diseño: selector, vista previa al pasar el cursor, aspecto por fibra, lanas guardadas y metraje estimado
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Las constantes de dominio (factores de metraje, niveles por fibra, umbral de color cercano) se confirman con `experto-tejido` (T1) y `catalogo-lanas` antes de implementarse.
+- Estado: aceptado (aprobado por la usuaria el 2026-11-09 con las decisiones recomendadas 2 a 8 del roadmap). Las constantes de dominio (factores de metraje, niveles por fibra, umbral de color cercano) se confirman con `experto-tejido` (T1) y `catalogo-lanas` antes de implementarse. Revisión T1 hecha el 2026-11-09: ver [Enmiendas tras la revisión de dominio T1](#enmiendas-tras-la-revisión-de-dominio-t1-2026-11-09) y los casos F3-14 a F3-36 de [casos-dominio-fase-3.md](../casos-dominio-fase-3.md); los niveles por fibra siguen a cargo de `catalogo-lanas` en T6.
 - Fecha: 2026-11-09
 - Paquetes: `packages/yarn-catalog`, `packages/pattern-core`, `packages/stitch-render`, `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md) (modelo de `yarns`), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md) (muestra supuesta, `validateYarn`, E11, E16), [ADR 0004](0004-render-de-puntos-2d.md) (E4: `fiberEffects`; `setPreviewOverride`; presupuesto de 100 ms)
@@ -31,7 +31,7 @@ Todo lo de esta fase cabe en `Yarn` tal como está: `schemaVersion` sigue en 1. 
 
     ```ts
     export interface WeightMatch { cat: number; matched: string; kind: "name" | "english" | "alias"; approximate: boolean }
-    /** Categorías que coinciden con el texto (normalizado sin tildes ni mayúsculas), ordenadas por categoría. */
+    /** Categorías que coinciden con el texto (normalizado sin tildes ni mayúsculas), ordenadas por categoría. Reglas precisadas en la enmienda T1-8. */
     export function findWeights(query: string): WeightMatch[];
     ```
   - Al elegir el grosor se muestran agujas y crochet sugeridos (`agujasMm`, `crochetMm`) y la muestra inicial (`suggestedGauge`), siempre marcada "supuesto" hasta que la usuaria ingrese la suya (CA-F4 de la fase 2 sigue vigente: la muestra supuesta nunca se escribe en el documento). La categoría 7 mantiene el aviso de baja confianza.
@@ -108,7 +108,7 @@ export function yarnUsage(chart: Chart, yarnCount: number): YarnUsage;
 
 // yarn-catalog
 export const YARN_LENGTH_ASSUMPTIONS = {
-  /** Largo de la lazada de un punto jersey ≈ 3,8 × su ancho (relación de Munden, tejido en reposo). Supuesto. */
+  /** Largo de la lazada de un punto jersey ≈ 3,8 × su ancho: Munden Kw = 3,8 (lana, punto liso, seco-relajado). Supuesto; fuente en la enmienda T1-6. */
   knitLoopFactor: 3.8,
   /** La hebra flotante se deja un poco floja: 10 % más que el ancho que cruza. Supuesto. */
   floatSlack: 1.1,
@@ -117,7 +117,7 @@ export const YARN_LENGTH_ASSUMPTIONS = {
   /** Rango que se muestra alrededor de la estimación. */
   rangeLow: 0.85,
   rangeHigh: 1.2,
-  /** Redondeo hacia arriba, en metros. */
+  /** Paso del redondeo, en metros: `meters` y `high` hacia arriba, `low` hacia abajo (enmienda T1-6). */
   roundToMeters: 5,
 } as const;
 export type LengthAssumption = "assumed_gauge" | "low_confidence_weight" | "loop_factor" | "float_slack" | "waste_margin";
@@ -144,18 +144,20 @@ cm = (puntos × knitLoopFactor × w + flotantes × floatSlack × w) × (1 + wast
 metros = ceil(cm / 100 / roundToMeters) × roundToMeters
 ```
 
-- **Regla de las hebras flotantes** (`yarnUsage`): en cada fila del gráfico completo donde hay **dos o más** lanas, cada lana presente en esa fila viaja a lo ancho de toda la fila; su flotante es `rowStitchCount(fila) − sus puntos en la fila`. Una lana ausente de la fila no suma (se sube por el revés o se corta). Se calcula sobre las filas del motivo multiplicadas por las repeticiones, en `O(celdas del motivo)`.
+(Rango `low` y `high`: ver la enmienda T1-6.)
+
+- **Regla de las hebras flotantes** (`yarnUsage`): ~~en cada fila del gráfico completo donde hay **dos o más** lanas, cada lana presente en esa fila viaja a lo ancho de toda la fila; su flotante es `rowStitchCount(fila) − sus puntos en la fila`.~~ **Corregida en la enmienda T1-1**: la regla depende de `workedIn` (en redondo, toda la vuelta; en ida y vuelta, del primer al último punto de la lana). Una lana ausente de la fila no suma (se sube por el revés o se corta). Se calcula sobre las filas del motivo multiplicadas por las repeticiones, en `O(celdas del motivo)`.
 - **Siempre "estimación"**: la interfaz rotula cada cifra "≈ N m (entre L y H m), estimación" y lista los supuestos (`assumptions`): muestra supuesta si el documento no tiene `gauge`, factor de la lazada, holgura de las hebras, margen y, en la categoría 7, baja confianza. Nunca se muestran gramos ni ovillos: dependen de metros por gramo de una lana concreta (dato de etiqueta) que el modelo no tiene.
 - **Muestra usada**: la del documento o la supuesta (`gaugeInUse`), igual que las medidas.
 - **Fuera del camino caliente**: se calcula diferido, dentro de `paintGate` (como la validación, CA-P7).
-- **Pendiente de `experto-tejido` (T1)**: el factor 3,8 en colorwork a hebras (la tensión cambia), la holgura del 10 %, el margen, si en ida y vuelta las hebras viajan de orillo a orillo, y el rango mostrado. Pendiente de tejedoras (T1b de la fase 3): comparar con el metraje real de 2 o 3 proyectos terminados.
+- **Pendiente de `experto-tejido` (T1)** (resuelto en las enmiendas T1-1 y T1-6; lo que queda para tejedoras está al final): el factor 3,8 en colorwork a hebras (la tensión cambia), la holgura del 10 %, el margen, si en ida y vuelta las hebras viajan de orillo a orillo, y el rango mostrado. Pendiente de tejedoras (T1b de la fase 3): comparar con el metraje real de 2 o 3 proyectos terminados.
 
 **Propiedades** (`pattern-core` y `yarn-catalog`):
 
 - `yarnUsage(chart, n).stitches` es igual a `yarnTotals(chart, n)`; su suma es `stitchTotal`.
 - Con una sola lana por fila, `floatStitches` es 0 en todas las lanas.
-- `floatStitches[i] + stitches[i]` de las filas donde aparece `i` (con dos o más lanas) es igual a la suma de `rowStitchCount` de esas filas.
-- Duplicar `repeat.x` o `repeat.y` duplica `stitches` y `floatStitches`.
+- ~~`floatStitches[i] + stitches[i]` de las filas donde aparece `i` (con dos o más lanas) es igual a la suma de `rowStitchCount` de esas filas.~~ Vale solo en redondo; en ida y vuelta se reemplaza (enmienda T1-1).
+- ~~Duplicar `repeat.x` o `repeat.y` duplica `stitches` y `floatStitches`.~~ Precisada en la enmienda T1-1: `repeat.y` duplica siempre; `repeat.x` duplica en redondo y es monótona en ida y vuelta.
 - `estimateYarnLength` es monótona en puntos y flotantes, decrece al subir `stitchesPer10cm`, cumple `low ≤ meters ≤ high`, devuelve múltiplos de `roundToMeters` e incluye `"assumed_gauge"` si y solo si `gaugeAssumed`.
 
 ## Alternativas descartadas
@@ -177,3 +179,63 @@ metros = ceil(cm / 100 / roundToMeters) × roundToMeters
 - `frontend-editor` construye el selector, la pestaña "Mis lanas" y el panel de metraje; `backend-supabase` las Server Actions de `user_yarns`.
 - `revisor-seguridad` revisa las acciones de `user_yarns` (validación en el servidor, notas privadas, tope).
 - La ayuda del estudio explica que el metraje es una estimación y que conviene comprar con margen y tejer una muestra.
+
+## Enmiendas tras la revisión de dominio T1 (2026-11-09)
+
+Revisión de `experto-tejido`; los casos de prueba están en [casos-dominio-fase-3.md](../casos-dominio-fase-3.md) (F3-14 a F3-36). Se mantienen el reparto de capas (el motor cuenta, el catálogo convierte, `apps/web` muestra), la holgura de 1,1, el margen del 10 %, el rango 0,85 a 1,2, `NEAR_COLOR_DELTA_E = 2,3` y los alias de tienda como equivalencia aproximada. Lo que cambia:
+
+### T1-1. Hebras flotantes según el modo de trabajo (C1, casos F3-14 a F3-20)
+
+La hebra de una lana no siempre recorre la fila entera. Regla corregida de `yarnUsage`, por fila del gráfico completo, para cada lana `i` presente en ella con `k_i` puntos:
+
+- **Solo filas con 2 o más lanas**. En una fila de una sola lana, `floatStitches` no suma para ninguna (F3-17).
+- **En redondo** (`workedIn: "rounds"`): `floatStitches[i] += N − k_i`, con `N = rowStitchCount(fila)`. La hebra da la vuelta completa.
+- **En ida y vuelta** (`workedIn: "rows"`): `floatStitches[i] += (último_i − primero_i + 1) − k_i`, donde `primero_i` y `último_i` son las posiciones del primer y el último punto de `i` en la fila, **contadas en puntos tejidos** (sin las casillas `NO_STITCH`) y a lo ancho de todas las repeticiones horizontales. La hebra no viaja de orillo a orillo: queda donde se usó por última vez.
+- **Cálculo** en `O(celdas del motivo)`: por fila del motivo y lana, `k`, `primero` y `último` dentro de la repetición (en puntos tejidos, con `s` = puntos de la fila del motivo); en la fila completa con `R = repeat.x`, `primero = primero_motivo` y `último = (R − 1) × s + último_motivo`. Multiplicado por `repeat.y`.
+
+**Propiedades** (reemplazan la tercera y la cuarta de la sección 6):
+
+- En redondo: `floatStitches[i] + stitches[i]`, sumados sobre las filas con 2 o más lanas donde aparece `i`, es igual a la suma de `rowStitchCount` de esas filas.
+- En ida y vuelta: esa misma suma es igual a `Σ (último_i − primero_i + 1)` de esas filas, y nunca supera a `Σ rowStitchCount` de esas filas.
+- Para toda lana y fila, `0 ≤` flotante de la fila `≤ N − k_i` (la de ida y vuelta nunca supera a la de redondo).
+- Duplicar `repeat.y` duplica `stitches` y `floatStitches` en los dos modos.
+- Duplicar `repeat.x` duplica `stitches` en los dos modos y `floatStitches` en redondo. En ida y vuelta `floatStitches` es **monótona** (no decrece), pero puede crecer más que el doble: el hueco entre repeticiones de una misma lana cuenta como flotante (nota de F3-19).
+
+El contrato `YarnUsage` no cambia de forma. `yarnUsage` lee `chart.workedIn`.
+
+### T1-6. Constante de la lazada, redondeo y rótulo (casos F3-21 a F3-27)
+
+- **Cita**: `knitLoopFactor = 3,8` es **Munden Kw = 3,8 (lana, punto liso, seco-relajado)**. Fuente: Munden, D. L., *The geometry and dimensional properties of plain-knit fabrics*, J. Text. Inst. 50(7), 1959, 448-471, citado vía resumen secundario (https://journal.uitm.edu.my/ojs/index.php/JOA/article/download/5292/2841; no se abrió el original). En húmedo-relajado Kw = 4,1. El README de `yarn-catalog` y el comentario de la constante citan la fuente así.
+- **Redondeo** (precisa la fórmula de la sección 6), con `m` = metros crudos con margen (`cm / 100`) y `r = roundToMeters`:
+  - `meters = ceil(m / r) × r`;
+  - `low = floor(m × rangeLow / r) × r`, con un mínimo de `r` cuando `m > 0`;
+  - `high = ceil(m × rangeHigh / r) × r`;
+  - si `m = 0` (la lana no tiene puntos), los tres son 0.
+  - Los tres son múltiplos de `r` y se cumple `low ≤ meters ≤ high`. El rango se calcula sobre `m`, no sobre `meters` (sin doble redondeo).
+- **Rótulo**: además de "≈ N m (entre L y H m), estimación" y los supuestos, la interfaz aclara **"solo del gráfico: no incluye elástico, montaje ni remate"** y sugiere tejer la muestra con las lanas del diseño (F3-27).
+- Propiedad nueva: `low`, `meters` y `high` son múltiplos de `roundToMeters` (además de `low ≤ meters ≤ high`).
+
+### T1-8. Búsqueda de grosores (casos F3-28 a F3-33)
+
+Reglas de `findWeights` (sin cambio de firma):
+
+- **Normalización**: sin tildes (NFD), minúsculas, sin espacios al inicio o al final, espacios repetidos a uno, y paréntesis, barras y guiones como espacios.
+- **Mínimo 2 caracteres** tras normalizar; con menos, devuelve `[]` (F3-33).
+- **Coincidencia**: el texto es prefijo de alguna palabra (o de una secuencia de palabras) del nombre, de un nombre en inglés o de un alias. Una entrada por categoría, con la mejor coincidencia (`name` antes que `english` antes que `alias`). Orden: primero las coincidencias exactas del término completo y después las parciales; dentro de cada grupo, por categoría. Así "dk" da primero la cat. 3 ("DK") y después la cat. 2 ("Fino (Light DK)", aproximada), y "grueso" da primero la cat. 5 y después la 6.
+- **`approximate: true` en toda coincidencia por alias** (`kind: "alias"`), tenga o no entrada en `fuentesAlias`. El selector rotula "equivalencia aproximada" sin nombrar la tienda. Los nombres en inglés del CYC y el nombre de LoopitaLab no son aproximados.
+- **"light"** devuelve la cat. 2 (alias "Fino (Light DK)", aproximada) y la cat. 3 ("Light Worsted", nombre en inglés), cada una con su rótulo (F3-30, validar con tejedora).
+- **"4 ply" y "8 ply"** (y cualquier texto con la palabra "ply") devuelven `[]`: el nombre varía por país y no se mapea sin fuente (F3-32, pendiente de tejedora). La ayuda la da una función aparte, para no cambiar la firma de `findWeights`:
+
+  ```ts
+  // yarn-catalog
+  export type WeightQueryHint = "too_short" | "ply_varies_by_country";
+  /** Ayuda para una búsqueda sin resultados útiles. `undefined` si no hay nada que explicar. */
+  export function weightQueryHint(query: string): WeightQueryHint | undefined;
+  ```
+
+  La interfaz traduce el código a texto ("Los nombres en 'ply' cambian según el país: busca por el nombre del grosor o por la muestra") con el glosario.
+- **Propiedades**: `findWeights` no distingue tildes ni mayúsculas (`findWeights(q)` igual a `findWeights(variante de q)`); nunca devuelve dos entradas de la misma categoría; toda entrada con `kind: "alias"` tiene `approximate: true` y toda otra, `false`; con menos de 2 caracteres normalizados, `[]`.
+
+### Pendiente de validar por tejedora (sin cambio de contrato)
+
+Holgura de las flotantes (1,1), rango del metraje y comparación con 2 o 3 proyectos terminados; brillo del acrílico, halo de la lana, definición de la alpaca y ponderación de mezclas con mohair o lurex; el alias "Fino (Light DK)" y la búsqueda "light"; los nombres "4 ply" y "8 ply".
