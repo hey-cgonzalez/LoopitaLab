@@ -196,7 +196,7 @@ No hay fallas en `main`.
 - **O2. Sin guardia automática de CA-P2 y CA-P4**: el trazo continuo y los fps de zoom solo se midieron a mano en T10. Una regresión no la detecta la CI.
 - **O3. El margen de latencia sigue corto**: con CPU ×4, 82,8 a 89,2 ms al cambiar repeticiones. CA-P6 en el equipo de referencia es decisivo.
 - **O4. Sin auditoría automática de contraste de toda la interfaz (CA-A2)**.
-- **O5. Fuera de `main`: falla una verificación RLS sin commit.** En el árbol de trabajo hay una migración nueva sin commit (`20261107010000_cuotas_proyectos_lanas.sql`) y 148 líneas nuevas en `10_rls_check.sql`, de otro agente. Con ellas, la verificación falla:
+- **O5. Fuera de `main`: falla una verificación RLS sin commit.** En el árbol de trabajo hay una migración nueva sin commit (`20261109024823_cuotas_proyectos_lanas.sql`) y 148 líneas nuevas en `10_rls_check.sql`, de otro agente. Con ellas, la verificación falla:
   - **Pasos**: stubs, todas las migraciones del árbol y después `10_rls_check.sql`.
   - **Esperado**: "RLS: todas las verificaciones pasaron".
   - **Obtenido**: `ERROR: insert or update on table "projects" violates foreign key constraint "projects_owner_id_fkey"`, porque la clave `22222222-…` (Bea) no está en `users`. El error sale de `10_rls_check.sql:1273`.
