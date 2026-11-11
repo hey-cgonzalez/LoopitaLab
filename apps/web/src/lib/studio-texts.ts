@@ -426,6 +426,64 @@ export const STUDIO_TEXTS = {
     recuperacionEditando:
       "Ya empezaste a editar. Tus cambios nuevos se guardan en el diseño, pero este respaldo se conserva hasta que decidas. Recuperar lo reemplaza por el respaldo.",
   },
+
+  /** Metraje estimado por lana (ADR 0008 §6, T1-6). Siempre "estimación"; nunca gramos ni ovillos. */
+  metraje: {
+    seccion: "Metraje estimado",
+    lista: "Metraje por lana",
+    lana: "Lana",
+    calculando: "Calculando el metraje…",
+    seActualiza: "Se actualiza un momento después de que dejas de editar.",
+    total: "Total de las lanas",
+    supuestos: "Supuestos",
+    sinMuestra: "No hay una muestra con la que estimar: ingresa la tuya en la sección Muestra.",
+    sinEstimacion: "Sin estimación",
+    // Crochet: no hay factores validados (F3-25); no se inventa una cifra.
+    sinEstimacionCrochet: "Sin estimación en crochet todavía: aún no hay factores validados para este punto.", // validar con tejedora
+  },
+
+  /** Selector de lanas (por lana del diseño). */
+  selectorLanas: {
+    pestanaAjustar: "Ajustar la lana",
+    pestanaMisLanas: "Mis lanas",
+    pestanas: "Elegir el aspecto de la lana",
+    buscarGrosor: "Buscar grosor por nombre",
+    buscarGrosorAyuda: "Por ejemplo «aran», «dk», «fino» o «mediano». No distingue tildes ni mayúsculas.",
+    grosorLista: "Grosor",
+    aproximada: "equivalencia aproximada",
+    nombresAyudaTitulo: "Sobre los nombres de los grosores",
+    nombresAyuda:
+      "Los nombres en español son los de LoopitaLab y los que están entre paréntesis son los del Craft Yarn Council. Algunos nombres de uso común («mediano», «grueso») son equivalencias aproximadas: no siempre significan lo mismo en todas partes. Ante la duda, mira la muestra.", // validar con tejedora
+    muestraSupuesta: "Muestra supuesta",
+    muestraSupuestaAyuda: "hasta que ingreses la tuya en la sección Muestra",
+    paleta: "Paleta",
+    paletaAyuda: "Pasa el cursor o el foco por un color para verlo en la vista previa. Enter o clic lo elige.",
+    personalizado: "Color personalizado",
+    hexEtiqueta: "Código del color (#RRGGBB)",
+    hexInvalido: "El color debe tener el formato #RRGGBB, por ejemplo #A63D40.",
+    masCercano: "El color más cercano de la paleta",
+    practicamenteIgual: "prácticamente igual",
+    usarColor: "Usar",
+    seleccionado: "elegido",
+    coloresPlanosActivo: "Colores planos está activado: la vista previa muestra solo el color, sin el halo de la fibra.",
+    coloresPlanosApagar: "Apagar colores planos",
+    coloresPlanosEncender: "Activar colores planos",
+    cerrar: "Cerrar el selector (Esc)",
+    fibraAviso: "Aviso",
+    // Mis lanas
+    misLanasIntro: "Lanas que guardaste en tu cuenta. Al usar una, se copia su grosor, su composición y su color a la lana del diseño.",
+    misLanasCargando: "Cargando tus lanas…",
+    misLanasVacia: "Todavía no guardaste lanas.",
+    misLanasIrA: "Administrar mis lanas",
+    misLanasSinSesion: "Inicia sesión para usar tus lanas guardadas.",
+    misLanasActualizar: "Actualizar la lista",
+    copiarNota: "Copiar también la nota privada de la lana guardada",
+    copiarNotaAyuda: "La nota suele llevar la marca o dónde la compraste. Déjala sin marcar si vas a compartir el diseño.",
+    usarEn: "Usar en la lana",
+    agregarNueva: "Agregar como lana nueva",
+    usada: "Listo",
+    noValida: "Esta lana guardada no se puede usar en el diseño:",
+  },
 } as const;
 
 /** Nombre de la forma (plano, tubo, círculo, canesú). */

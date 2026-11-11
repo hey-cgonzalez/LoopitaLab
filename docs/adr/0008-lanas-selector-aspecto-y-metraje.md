@@ -239,3 +239,14 @@ Reglas de `findWeights` (sin cambio de firma):
 ### Pendiente de validar por tejedora (sin cambio de contrato)
 
 Holgura de las flotantes (1,1), rango del metraje y comparación con 2 o 3 proyectos terminados; brillo del acrílico, halo de la lana, definición de la alpaca y ponderación de mezclas con mohair o lurex; el alias "Fino (Light DK)" y la búsqueda "light"; los nombres "4 ply" y "8 ply".
+
+## Enmiendas tras implementar T8 (2026-11-11)
+
+Registro de lo que implementó `render-puntos` (aspecto por fibra y vista previa al pasar el cursor). Las mediciones completas y el criterio de WebGL2 están en el [ADR 0004](0004-render-de-puntos-2d.md), "Enmiendas tras implementar T8". No reescribe lo anterior.
+
+- **`fiberEffects` activado y medido** (resuelve la alternativa descartada "sin medir"): con fibras, el círculo de 40.000 puntos, CPU ×4, da p95 de 91 a 96 ms (repeticiones y pintar), con paridad respecto a sin fibras. Hover: p95 de 20,7 a 80,9 ms según la forma. CA3-P1 a CA3-P3 se cumplen. Margen corto en ese círculo; sigue pendiente CA-P6.
+- **Fibra desconocida**: cambia de "se excluye" a "aporta el aspecto neutro con su porcentaje" (50 % mohair + 50 % desconocida da halo 0,5). Las mezclas son lineales por porcentaje. El grosor no cambia el aspecto: el tamaño sale de la muestra. **A validar con tejedora**: porcentajes chicos de mohair y lurex.
+- **API de `stitch-render`**: `lookInputKey`, `lookKey`, `fillTone`, `FIBER_LEVELS`, `YarnLookInput`; `yarnLook` acepta lanas parciales (corrige la clave de aspectos de `PreviewEngine`, prevista en Consecuencias).
+- **`PreviewEngine`**: `previewYarn(index, candidate | null)` no toca el documento (medida `loopita:hover-to-paint`, como pedía la alternativa descartada de la vista previa sin edición), `setFlatColors` y `setHighlightRow` (`loopita:row-to-paint`). `previewControls(store)` por estudio. "Colores planos" vive en `localStorage` (`loopita:vista:colores-planos`), nunca en el documento.
+- **Instrumentación**: `pointerout`, `pointerover` y `focusin` son entradas débiles del recolector (caducan a los 50 ms y solo originan mediciones `hover`), porque React sintetiza `onPointerEnter` desde el `pointerout` previo y daba 300 a 600 ms falsos.
+- **Limitaciones**: CA3-P3 mide solo la vista previa (el resaltado en la cuadrícula llega con T12). En el nivel de detalle sin V (círculo con más de 15.000 puntos visibles o puntos de menos de 3 px) la fibra solo se nota en el tono.

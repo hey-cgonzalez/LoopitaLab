@@ -1,20 +1,20 @@
 "use client";
 
-import { EDIT_LIMITS, LIMITS, yarnLetter, type Yarn } from "@loopitalab/pattern-core";
-import { FIBERS, PALETTE, WEIGHTS, weightLabel } from "@loopitalab/yarn-catalog";
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { EDIT_LIMITS, yarnLetter, type Yarn } from "@loopitalab/pattern-core";
+import { weightLabel } from "@loopitalab/yarn-catalog";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { selectAssumedGauge, selectTechnique } from "@/lib/studio/select.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
-import { compositionSum, newYarnFor, normalizeNote, paletteByFamily, toolSuggestion, unusedFibers, withColor, withNote, yarnProblems } from "@/lib/studio/yarn-edit.ts";
+import { newYarnFor } from "@/lib/studio/yarn-edit.ts";
 import { STUDIO_TEXTS, yarnAddedText, yarnButtonLabel, yarnMovedText, yarnRemovedText, yarnTitle } from "@/lib/studio-texts.ts";
+import { YarnPicker } from "./YarnPicker.tsx";
+import { FIELD } from "./yarn-picker-ui.ts";
+import { useStoreSelector } from "./useStoreSelector.ts";
 
 const T = STUDIO_TEXTS;
 const BTN = "rounded-full border-2 border-marino px-2.5 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
-const FIELD = "rounded-xl border-2 border-borde bg-superficie px-3 py-1.5";
-const FAMILIES = paletteByFamily();
 const [QUITAR_VERBO, ...QUITAR_REST] = T.lanas.quitar.split(" ");
 const QUITAR_RESTO = QUITAR_REST.join(" ");
-/** El editor agrupa los cambios continuos (arrastrar el color, escribir un porcentaje) en un solo paso de deshacer. */
-const CHANGE_IDLE_MS = 600;
 
 interface PanelProps {
   store: DocumentStore;
@@ -37,6 +37,8 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
   /** Dónde va el foco cuando las lanas ya se dibujaron con el cambio (el botón que se usó puede cambiar de lugar o desaparecer). */
   const pendingFocus = useRef<{ kind: "move"; id: string; dir: -1 | 1 } | { kind: "editor"; id: string } | { kind: "add" } | null>(null);
   const atMax = yarns.length >= EDIT_LIMITS.maxYarns;
+  const technique = useStoreSelector(store, selectTechnique);
+  const gaugeAssumed = useStoreSelector(store, selectAssumedGauge);
 
   useEffect(() => {
     const p = pendingFocus.current;
@@ -102,6 +104,15 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
     });
   }
 
+  /** Esc en el selector: se cierra y el foco vuelve al botón "Editar" de esa lana. */
+  function closeEditor(id: string) {
+    setOpenId(null);
+    window.requestAnimationFrame(() => {
+      const item = Array.from(listRef.current?.children ?? []).find((el) => (el as HTMLElement).dataset.yarnId === id);
+      item?.querySelector<HTMLElement>('[data-act="edit"]')?.focus();
+    });
+  }
+
   return (
     <section aria-label={T.lanas.titulo} data-zone="yarns" className="@container grid shrink-0 gap-2 rounded-2xl border-2 border-linea bg-superficie p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -150,6 +161,7 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
                 </button>
                 <button
                   type="button"
+                  data-act="edit"
                   onClick={() => setOpenId(openId === y.id ? null : y.id)}
                   aria-expanded={openId === y.id}
                   aria-label={yarnButtonLabel(openId === y.id ? T.panelLanas.cerrar : T.panelLanas.editar, letter)}
@@ -191,7 +203,20 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
                   <p className="basis-full text-sm text-tinta-suave">{T.lanas.eligeReemplazo}</p>
                 </RemoveConfirm>
               ) : null}
-              {openId === y.id ? <YarnEditor store={store} index={i} yarn={y} letter={letter} /> : null}
+              {openId === y.id ? (
+                <YarnPicker
+                  store={store}
+                  index={i}
+                  yarn={y}
+                  letter={letter}
+                  technique={technique}
+                  gaugeAssumed={gaugeAssumed}
+                  canAdd={!atMax}
+                  announce={setSpoken}
+                  onAdded={onActiveChange}
+                  onClose={() => closeEditor(y.id)}
+                />
+              ) : null}
             </li>
           );
         })}
@@ -220,212 +245,6 @@ function RemoveConfirm({ label, onCancel, children }: { label: string; onCancel(
       }}
     >
       {children}
-    </div>
-  );
-}
-
-function YarnEditor({ store, index, yarn, letter }: { store: DocumentStore; index: number; yarn: Yarn; letter: string }) {
-  const uid = useId();
-  const [draft, setDraft] = useState<Yarn>(yarn);
-  const [noteText, setNoteText] = useState(yarn.note ?? "");
-  const sent = useRef(JSON.stringify(yarn));
-  const idle = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Un cambio que no vino de aquí (deshacer, rehacer, recuperar) reemplaza el borrador.
-  useEffect(() => {
-    const now = JSON.stringify(yarn);
-    if (now !== sent.current) {
-      sent.current = now;
-      setDraft(yarn);
-      setNoteText(yarn.note ?? "");
-    }
-  }, [yarn]);
-
-  useEffect(
-    () => () => {
-      if (idle.current) clearTimeout(idle.current);
-    },
-    [],
-  );
-
-  function closeChange() {
-    if (idle.current) clearTimeout(idle.current);
-    idle.current = null;
-    store.endStroke();
-  }
-
-  /** Aplica un cambio al borrador y, si la lana es válida, al documento (un paso de deshacer por ráfaga de cambios). */
-  function change(next: Yarn) {
-    setDraft(next);
-    if (yarnProblems(next).errors.length > 0) return;
-    store.beginStroke();
-    if (idle.current) clearTimeout(idle.current);
-    idle.current = setTimeout(closeChange, CHANGE_IDLE_MS);
-    sent.current = JSON.stringify(next);
-    store.dispatch({ type: "updateYarn", index, yarn: next });
-  }
-
-  const problems = yarnProblems(draft);
-  const sum = compositionSum(draft.composition);
-  const suggestion = toolSuggestion(draft.weight);
-  const free = unusedFibers(draft.composition);
-  const paletteValue = draft.color.paletteId && PALETTE.some((c) => c.id === draft.color.paletteId) ? draft.color.paletteId : "";
-
-  return (
-    <div className="grid gap-4 border-t-2 border-linea p-3" onBlur={closeChange}>
-      <div className="grid gap-3 @md:grid-cols-2">
-        <div className="grid gap-1">
-          <label htmlFor={`${uid}-palette`} className="font-bold">
-            {T.lanas.colorPaleta}
-          </label>
-          <select
-            id={`${uid}-palette`}
-            value={paletteValue}
-            onChange={(e) => {
-              const c = PALETTE.find((p) => p.id === e.target.value);
-              if (c) change(withColor(draft, { hex: c.hex, paletteId: c.id }));
-              else change(withColor(draft, { hex: draft.color.hex }));
-            }}
-            className={FIELD}
-          >
-            <option value="">{T.panelLanas.paletaVacia}</option>
-            {FAMILIES.map((f) => (
-              <optgroup key={f.family} label={f.family}>
-                {f.colors.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.nombre}
-                  </option>
-                ))}
-              </optgroup>
-            ))}
-          </select>
-        </div>
-        <div className="grid gap-1">
-          <label htmlFor={`${uid}-custom`} className="font-bold">
-            {T.lanas.colorPersonalizado}
-          </label>
-          <div className="flex items-center gap-2">
-            <input id={`${uid}-custom`} type="color" value={draft.color.hex.toLowerCase()} onChange={(e) => change(withColor(draft, { hex: e.target.value }))} className="h-10 w-16 cursor-pointer rounded-lg border-2 border-borde bg-superficie p-0.5" />
-            <span className="font-mono text-sm">{draft.color.hex.toUpperCase()}</span>
-          </div>
-        </div>
-      </div>
-
-      <div className="grid gap-1">
-        <label htmlFor={`${uid}-weight`} className="font-bold">
-          {T.lanas.grosor}
-        </label>
-        <select id={`${uid}-weight`} value={draft.weight} onChange={(e) => change({ ...draft, weight: Number(e.target.value) as Yarn["weight"] })} className={FIELD}>
-          {WEIGHTS.map((w) => (
-            <option key={w.cat} value={w.cat}>
-              {w.cat} · {weightLabel(w.cat)}
-            </option>
-          ))}
-        </select>
-        {suggestion ? (
-          <p className="text-sm text-tinta-suave">
-            {T.panelLanas.sugerencia}: {T.panelLanas.agujas} {suggestion.needlesMm}; {T.panelLanas.crochet} {suggestion.crochetMm}. {T.panelLanas.muestraCyc}: {suggestion.stitchRange} en 10 cm.
-          </p>
-        ) : null}
-      </div>
-
-      <fieldset className="grid gap-2">
-        <legend className="font-bold">{T.lanas.composicion}</legend>
-        {draft.composition.map((f, k) => (
-          <div key={k} className="flex flex-wrap items-center gap-2">
-            <label className="sr-only" htmlFor={`${uid}-fiber-${k}`}>
-              {T.panelLanas.fibra} {k + 1}
-            </label>
-            <select
-              id={`${uid}-fiber-${k}`}
-              value={f.fiber}
-              onChange={(e) => change({ ...draft, composition: draft.composition.map((x, j) => (j === k ? { ...x, fiber: e.target.value } : x)) })}
-              className={FIELD}
-            >
-              {!FIBERS.some((x) => x.id === f.fiber) ? <option value={f.fiber}>{f.fiber}</option> : null}
-              {FIBERS.map((x) => (
-                <option key={x.id} value={x.id}>
-                  {x.nombre}
-                </option>
-              ))}
-            </select>
-            <label className="sr-only" htmlFor={`${uid}-pct-${k}`}>
-              {T.panelLanas.porcentaje} {k + 1}
-            </label>
-            <input
-              id={`${uid}-pct-${k}`}
-              type="number"
-              inputMode="decimal"
-              min={0}
-              max={100}
-              step="any"
-              value={Number.isFinite(f.percent) ? f.percent : ""}
-              onChange={(e) => change({ ...draft, composition: draft.composition.map((x, j) => (j === k ? { ...x, percent: e.target.value === "" ? Number.NaN : Number(e.target.value) } : x)) })}
-              className={`${FIELD} w-24`}
-            />
-            <span aria-hidden="true">%</span>
-            <button type="button" onClick={() => change({ ...draft, composition: draft.composition.filter((_, j) => j !== k) })} disabled={draft.composition.length <= 1} aria-label={`${T.panelLanas.quitarFibra} ${k + 1}`} className={BTN}>
-              <span aria-hidden="true">×</span>
-            </button>
-          </div>
-        ))}
-        <div className="flex flex-wrap items-center gap-3">
-          <button
-            type="button"
-            disabled={free.length === 0}
-            onClick={() => change({ ...draft, composition: [...draft.composition, { fiber: free[0] as string, percent: Math.max(0, Math.round((100 - sum) * 100) / 100) }] })}
-            className={BTN}
-          >
-            {T.panelLanas.agregarFibra}
-          </button>
-          <p role="status" className={`font-bold ${Math.abs(sum - 100) > 0.01 ? "text-error" : "text-exito"}`}>
-            <span aria-hidden="true">{Math.abs(sum - 100) > 0.01 ? "× " : "✓ "}</span>
-            {T.panelLanas.suma}: {sum.toLocaleString("es-CL")} %
-          </p>
-        </div>
-      </fieldset>
-
-      {problems.errors.length > 0 ? (
-        <div role="alert" className="grid gap-1 text-sm font-bold text-error">
-          <ul className="list-disc pl-5">
-            {problems.errors.slice(0, 4).map((i) => (
-              <li key={`${i.code}-${i.path}`}>{i.message}</li>
-            ))}
-          </ul>
-          <p>{T.panelLanas.noSeGuarda}</p>
-        </div>
-      ) : null}
-      {problems.warnings.length > 0 ? (
-        <ul className="list-disc pl-5 text-sm">
-          {problems.warnings.slice(0, 4).map((i) => (
-            <li key={`${i.code}-${i.path}`}>{i.message}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      <div className="grid gap-1">
-        <label htmlFor={`${uid}-note`} className="font-bold">
-          {T.panelLanas.notaEtiqueta}
-        </label>
-        <textarea
-          id={`${uid}-note`}
-          rows={2}
-          value={noteText}
-          maxLength={LIMITS.maxYarnNoteLength}
-          onChange={(e) => {
-            // El texto se normaliza al guardarlo (\\r\\n → \\n, sin caracteres de control); el campo conserva lo escrito.
-            setNoteText(e.target.value);
-            change(withNote(draft, e.target.value));
-          }}
-          onBlur={() => setNoteText(normalizeNote(noteText))}
-          aria-describedby={`${uid}-note-help`}
-          className={FIELD}
-        />
-        <p id={`${uid}-note-help`} className="text-sm text-tinta-suave">
-          <strong>{T.panelLanas.notaTitulo}.</strong> {T.panelLanas.notaAyuda}
-        </p>
-      </div>
-      <p className="sr-only">{yarnTitle(letter)}</p>
     </div>
   );
 }

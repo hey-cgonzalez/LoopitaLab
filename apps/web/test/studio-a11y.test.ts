@@ -45,10 +45,11 @@ describe("contraste de los tokens de color (WCAG 2.2 AA)", () => {
     for (const c of PALETTE) expect(contrastRatio(c.hex, inkFor(c.hex)), c.id).toBeGreaterThanOrEqual(4.5);
   });
   it("los campos del estudio usan el borde con contraste y no el separador decorativo", () => {
-    for (const f of ["../src/components/studio/YarnPanel.tsx", "../src/components/studio/StudioSidebar.tsx"]) {
+    // Los campos del selector de lanas comparten `FIELD` de yarn-picker-ui.ts (YarnPanel lo importa).
+    for (const f of ["../src/components/studio/yarn-picker-ui.ts", "../src/components/studio/StudioSidebar.tsx"]) {
       const line = read(f)
         .split("\n")
-        .find((l) => l.startsWith("const FIELD"));
+        .find((l) => l.replace(/^export /, "").startsWith("const FIELD"));
       expect(line, f).toBeDefined();
       expect(line).toContain("border-borde");
       expect(line).not.toContain("border-linea");

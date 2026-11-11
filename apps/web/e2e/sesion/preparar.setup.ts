@@ -10,11 +10,12 @@ import { ACCOUNTS_FILE, adminClient, SESSION_ENABLED, SKIP_REASON, stateFile, TE
  * de cada una (`storageState`), ingresando por el formulario real de /ingresar:
  *  - ana: diseños, autoguardado, versiones, conflicto, duplicar y borrar;
  *  - bea: aislamiento (no ve lo de ana) y preferencias de la cuenta;
- *  - cata: cerrar sesión (que revoca todas sus sesiones; por eso es una cuenta aparte).
+ *  - cata: cerrar sesión (que revoca todas sus sesiones; por eso es una cuenta aparte);
+ *  - dani: lanas guardadas usadas desde el estudio (T9 de la fase 3; cuenta aparte porque `lanas.spec.ts` espera que la lista de ana empiece vacía).
  * La limpieza (`limpiar.teardown.ts`) borra todas las cuentas del dominio de prueba.
  */
 
-const NAMES: Record<Who, string> = { ana: "Ana E2E", bea: "Bea E2E", cata: "Cata E2E" };
+const NAMES: Record<Who, string> = { ana: "Ana E2E", bea: "Bea E2E", cata: "Cata E2E", dani: "Dani E2E" };
 
 setup("crear las cuentas de prueba y sus sesiones", async ({ browser }) => {
   setup.skip(!SESSION_ENABLED, SKIP_REASON);

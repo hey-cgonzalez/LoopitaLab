@@ -305,3 +305,49 @@ Medición de `render-puntos` sobre `next build` + `next start` (`/dev/estudio?pe
 
 - **No avisa del rango de repeticiones del círculo.** El aviso es `CHART_CIRCLE_REPEATS` del validador (información fuera de 4 a 12, ADR 0005). Cualquier mención a "5 a 10" está superada.
 - **Limitaciones visibles** (pedido de `experto-tejido`, 2026-11-06): la vista previa no dibuja orillos ni el desfase de vuelta (*jog*), el punto tras una disminución toma el color de la fila `y`, y el canesú (`yoke`) se dibuja como tubo. La interfaz las dice junto a la vista previa, además del aviso de prototipo y de los huecos de "sin punto" (CA-F10, CA-F13). Lo implementa `frontend-editor` en T9 con los textos de `documentador` (T12); `stitch-render` no cambia.
+
+## Enmiendas tras implementar T8 (2026-11-11)
+
+Registro de lo que implementó `render-puntos` en T8 (aspecto por fibra, vista previa al pasar el cursor y resaltado de fila). No reescribe lo anterior; precisa E4 y E7.
+
+### T8-1. Mediciones con fibras
+
+Chromium, `/dev/estudio?perf=1`, CPU ×4, con `fiberEffects` activo. p50 / p95 en ms:
+
+| Forma | Pintar | Repeticiones | Hover | Fila resaltada |
+|---|---|---|---|---|
+| Plano | 11,7 / 28,2 | 28 / 45 | 9,8 / 20,7 | 13 / 14,7 |
+| Tubo | 14 / 31,4 | 33,7 / 64,4 | 11 / 22,9 | 12,3 / 14,8 |
+| Círculo de rombos (40.000) | 64,9 / 96,3 | 55,2 / 91,4 | 63,1 / 80,9 | 33,1 / 54,6 |
+| Copa | 14,1 / 25,6 | 28,6 / 35,4 | 16,5 / 23 | 19,8 / 23,6 |
+
+- **A/B en el círculo de 40.000**: hay paridad entre con y sin fibras (pintar, p95 65 a 67 ms con fibras frente a 64 a 72 sin ellas). Las fibras no cuestan latencia medible.
+- **Conclusión**: CA3-P1 a CA3-P3 se cumplen; **el criterio de WebGL2 (E7) no se activa**.
+- **Margen corto**: en el círculo de 40.000 el p95 es 91 a 96 ms, con la máquina ruidosa. **Sigue pendiente CA-P6** en el equipo de referencia.
+- **Descartado**: replegarse a dibujo completo cuando el redibujo parcial toca más de la mitad de las instancias. Empeoraba pintar (p95 95,9 ms frente a 73 ms).
+
+### T8-2. Fibra desconocida y mezclas (precisa E4)
+
+- Una fibra desconocida **ya no se excluye**: aporta el aspecto neutro con su porcentaje. Ejemplo: 50 % mohair + 50 % desconocida da halo 0,5.
+- Las mezclas son **lineales por porcentaje**.
+- El grosor no cambia el aspecto: el tamaño del punto sale de la muestra.
+- **Pendiente de tejedora**: validar la ponderación con porcentajes chicos de mohair y lurex.
+
+### T8-3. API
+
+- `stitch-render` agrega `lookInputKey`, `lookKey`, `fillTone`, `FIBER_LEVELS` y el tipo `YarnLookInput`; `yarnLook` acepta lanas parciales.
+- `PreviewEngine` agrega:
+  - `previewYarn(index, candidate | null)`: no toca el documento; su medida es `loopita:hover-to-paint`;
+  - `setFlatColors`;
+  - `setHighlightRow`: medida `loopita:row-to-paint`.
+- `previewControls(store)` existe por estudio.
+- "Colores planos" se guarda en `localStorage` (`loopita:vista:colores-planos`), nunca en el documento.
+
+### T8-4. Instrumentación
+
+`pointerout`, `pointerover` y `focusin` son **entradas débiles** del recolector: no tapan una tecla o un clic aún sin usar de menos de 50 ms, solo originan mediciones `hover` y caducan a los 50 ms. Motivo: React sintetiza `onPointerEnter` desde el `pointerout` anterior, y la medición quedaba atada a esa entrada previa (300 a 600 ms falsos).
+
+### T8-5. Limitaciones
+
+- CA3-P3 mide solo la vista previa; el resaltado en la cuadrícula llega con T12.
+- En el nivel de detalle sin V (círculo con más de 15.000 puntos visibles, o puntos de menos de 3 px; E6) la fibra solo se nota en el tono.
