@@ -174,17 +174,168 @@ export function deltaE2000(a: [number, number, number], b: [number, number, numb
 
 const paletteLab = PALETTE.map((c) => ({ color: c, lab: hexToLab(c.hex) }));
 
-/** Color de la paleta más cercano a un color cualquiera (usado por imagen → patrón). */
-export function nearestPaletteColor(hex: string): { color: PaletteColor; deltaE: number } {
+/**
+ * Umbral de diferencia CIEDE2000 por debajo del cual un color personalizado se rotula "prácticamente igual" a uno de la
+ * paleta: 2,3 es la diferencia apenas perceptible (JND) usual para CIEDE2000 (ADR 0008, F3-36).
+ * Un hex que no es de la paleta nunca lleva `paletteId`, aunque quede por debajo del umbral.
+ */
+export const NEAR_COLOR_DELTA_E = 2.3;
+
+/** Los `k` colores de la paleta más cercanos (CIEDE2000), de menor a mayor diferencia; empates por orden de la paleta. */
+export function nearestPaletteColors(hex: string, k: number): { color: PaletteColor; deltaE: number }[] {
   const lab = hexToLab(hex);
-  let best = paletteLab[0]!;
-  let bestD = Infinity;
-  for (const p of paletteLab) {
-    const d = deltaE2000(lab, p.lab);
-    if (d < bestD) {
-      bestD = d;
-      best = p;
+  const n = Number.isFinite(k) ? Math.floor(k) : 0;
+  if (n <= 0) return [];
+  return paletteLab
+    .map((p, i) => ({ color: p.color, deltaE: deltaE2000(lab, p.lab), i }))
+    .sort((a, b) => a.deltaE - b.deltaE || a.i - b.i)
+    .slice(0, n)
+    .map(({ color, deltaE }) => ({ color, deltaE }));
+}
+
+/** Color de la paleta más cercano a un color cualquiera (usado por imagen → patrón). Es el caso k = 1. */
+export function nearestPaletteColor(hex: string): { color: PaletteColor; deltaE: number } {
+  return nearestPaletteColors(hex, 1)[0]!;
+}
+
+// ------------------------------------------------------------ Búsqueda de grosores (ADR 0008, enmienda T1-8)
+
+export interface WeightMatch {
+  cat: number;
+  matched: string;
+  kind: "name" | "english" | "alias";
+  approximate: boolean;
+}
+
+export type WeightQueryHint = "too_short" | "ply_varies_by_country";
+
+/** Sin tildes, en minúsculas, paréntesis / barras / guiones como espacios y espacios colapsados. */
+function normalizeQuery(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/[()/\\\-\u2013\u2014]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+const MIN_QUERY_LENGTH = 2;
+const KIND_RANK = { name: 0, english: 1, alias: 2 } as const;
+
+const searchEntries = WEIGHTS.flatMap((w) => [
+  { cat: w.cat, text: w.nombre, kind: "name" as const },
+  ...w.ingles.map((text) => ({ cat: w.cat, text, kind: "english" as const })),
+  ...w.alias.map((text) => ({ cat: w.cat, text, kind: "alias" as const })),
+]).map((e) => ({ ...e, norm: normalizeQuery(e.text) }));
+
+function hasPlyWord(q: string): boolean {
+  return q.split(" ").includes("ply");
+}
+
+/**
+ * Categorías cuyo nombre, nombre en inglés o alias empieza con el texto en alguna palabra (o secuencia de palabras).
+ * Una entrada por categoría con su mejor coincidencia; primero las exactas (texto igual a la entrada completa) y luego
+ * las parciales, cada grupo por categoría. Toda coincidencia por alias es `approximate`. Cualquier "ply" y menos de 2
+ * caracteres devuelven `[]` (ver `weightQueryHint`).
+ */
+export function findWeights(query: string): WeightMatch[] {
+  const q = normalizeQuery(query);
+  if (q.length < MIN_QUERY_LENGTH || hasPlyWord(q)) return [];
+  const best = new Map<number, { entry: (typeof searchEntries)[number]; exact: boolean }>();
+  for (const entry of searchEntries) {
+    const exact = entry.norm === q;
+    if (!exact && !(entry.norm.startsWith(q) || entry.norm.includes(` ${q}`))) continue;
+    const cur = best.get(entry.cat);
+    if (!cur || (exact && !cur.exact) || (exact === cur.exact && KIND_RANK[entry.kind] < KIND_RANK[cur.entry.kind])) {
+      best.set(entry.cat, { entry, exact });
     }
   }
-  return { color: best.color, deltaE: bestD };
+  return [...best.entries()]
+    .sort(([ca, a], [cb, b]) => Number(b.exact) - Number(a.exact) || ca - cb)
+    .map(([cat, { entry }]) => ({ cat, matched: entry.text, kind: entry.kind, approximate: entry.kind === "alias" }));
+}
+
+/** Ayuda para una búsqueda sin resultados útiles; `undefined` si no hay nada que explicar. */
+export function weightQueryHint(query: string): WeightQueryHint | undefined {
+  const q = normalizeQuery(query);
+  if (q.length < MIN_QUERY_LENGTH) return "too_short";
+  if (hasPlyWord(q)) return "ply_varies_by_country";
+  return undefined;
+}
+
+// ------------------------------------------------------------ Metraje estimado (ADR 0008, sección 6)
+
+/**
+ * Supuestos de dominio del metraje. Todos son supuestos, no datos medidos: se rotulan en la interfaz.
+ * Pendiente de tejedoras (T1b): comparar con el metraje real de 2 o 3 proyectos terminados.
+ */
+export const YARN_LENGTH_ASSUMPTIONS = {
+  /**
+   * Largo de la lazada de un punto jersey ≈ 3,8 × su ancho: Munden Kw = 3,8 (lana, punto liso, seco-relajado;
+   * en húmedo-relajado Kw = 4,1). Fuente: Munden, D. L., "The geometry and dimensional properties of plain-knit fabrics",
+   * J. Text. Inst. 50(7), 1959, 448-471, citado vía resumen secundario (no se abrió el original).
+   * Validar con tejedora: en colorwork a hebras la tensión cambia.
+   */
+  knitLoopFactor: 3.8,
+  /** La hebra flotante se deja un poco floja: 10 % más que el ancho que cruza. Supuesto; validar con tejedora. */
+  floatSlack: 1.1,
+  /** Margen por colas, uniones y muestra: 10 %. Supuesto; validar con tejedora. */
+  wasteMargin: 0.1,
+  /** Rango mostrado alrededor de la estimación (sobre los metros crudos). Validar con tejedora. */
+  rangeLow: 0.85,
+  rangeHigh: 1.2,
+  /** Paso del redondeo, en metros: `meters` y `high` hacia arriba, `low` hacia abajo. */
+  roundToMeters: 5,
+} as const;
+
+export type LengthAssumption = "assumed_gauge" | "low_confidence_weight" | "loop_factor" | "float_slack" | "waste_margin";
+
+export interface LengthEstimate {
+  /** Metros estimados (con margen), redondeados hacia arriba a `roundToMeters`. */
+  meters: number;
+  low: number;
+  high: number;
+  /** Supuestos usados, para rotularlos. Nunca vacío. `float_slack` solo si hay flotantes. */
+  assumptions: LengthAssumption[];
+}
+
+const EPS = 1e-9;
+
+/**
+ * Convierte puntos y flotantes (en anchos de punto, salida de `yarnUsage`) a metros de una lana. Solo del gráfico: no
+ * incluye elástico, montaje ni remate. Nunca gramos ni ovillos. En crochet devuelve `undefined` (sin factores validados).
+ */
+export function estimateYarnLength(
+  usage: { stitches: number; floatStitches: number },
+  gauge: { stitchesPer10cm: number },
+  opts: { technique: "knit" | "crochet"; gaugeAssumed: boolean; lowConfidence?: boolean },
+): LengthEstimate | undefined {
+  if (opts.technique === "crochet") return undefined;
+  const { stitches, floatStitches } = usage;
+  if (!(Number.isFinite(stitches) && stitches >= 0 && Number.isFinite(floatStitches) && floatStitches >= 0)) {
+    throw new RangeError("Puntos y flotantes deben ser números finitos no negativos.");
+  }
+  if (!(Number.isFinite(gauge.stitchesPer10cm) && gauge.stitchesPer10cm > 0)) {
+    throw new RangeError("La muestra (puntos en 10 cm) debe ser un número positivo.");
+  }
+  const A = YARN_LENGTH_ASSUMPTIONS;
+  const r = A.roundToMeters;
+  const stitchWidthCm = 10 / gauge.stitchesPer10cm;
+  const raw = ((stitches * A.knitLoopFactor + floatStitches * A.floatSlack) * stitchWidthCm * (1 + A.wasteMargin)) / 100;
+
+  const assumptions: LengthAssumption[] = [];
+  if (opts.gaugeAssumed) assumptions.push("assumed_gauge");
+  if (opts.lowConfidence) assumptions.push("low_confidence_weight");
+  assumptions.push("loop_factor");
+  if (floatStitches > 0) assumptions.push("float_slack");
+  assumptions.push("waste_margin");
+
+  if (raw === 0) return { meters: 0, low: 0, high: 0, assumptions };
+  return {
+    meters: Math.ceil(raw / r - EPS) * r,
+    low: Math.max(r, Math.floor((raw * A.rangeLow) / r + EPS) * r),
+    high: Math.ceil((raw * A.rangeHigh) / r - EPS) * r,
+    assumptions,
+  };
 }

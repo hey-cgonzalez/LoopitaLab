@@ -235,3 +235,13 @@ Revisión de `experto-tejido`; los casos de prueba están en [casos-dominio-fase
 **T1-5. `stitchesDone` cuenta casillas** (caso F3-6). En filas con disminuciones, `stitchesDone` y `stitches` cuentan **casillas producidas** de la fila actual, no puntos que salen de la aguja (un "2 juntos" consume dos puntos de la fila anterior y produce una casilla). La interfaz rotula "casilla N de M" (no "puntos tejidos") en el contador dentro de la fila cuando `change < 0`; el avance total en puntos (`position.stitchesDone`) mantiene su definición (P13). Queda para las tejedoras de qué lana se teje un "2 juntos" de dos lanas distintas (el modelo toma la casilla de la fila actual).
 
 **Pendiente de validar por tejedora** (sin cambio de contrato): orientación de la vista en "Tejiendo" para `top_down`, la lana de un "2 juntos" de dos lanas y la presentación "3 A · 2 B" frente a casillas.
+
+## Enmiendas tras implementar T4 (2026-11-10)
+
+Aprobadas por el orquestador:
+
+1. **Tramos en el orden en que se teje**: confirmado lo que dice este ADR (en redondo, de derecha a izquierda). Los casos F3-1 y F3-2 de `docs/casos-dominio-fase-3.md` estaban escritos en el orden de las casillas y se corrigieron.
+2. **`remapPointer`**: si la fila del puntero se teje igual en el plan nuevo, conserva `stitchesDone` (así se cumple P14, `remapPointer(plan, plan, p) === p`); si cambió o se acotó, vuelve a 0.
+3. **Versión más corta**: si `rowsDone` queda fuera del plan nuevo, el puntero pasa a terminado con `clamped: true`; la interfaz avisa antes de confirmar. Validar con tejedora.
+4. **`ChartPlan`** agrega `motifWidth` y `pattern` (referencia al documento, no copia); el plan y los pasos salen congelados.
+

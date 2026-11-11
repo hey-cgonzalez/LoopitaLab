@@ -174,3 +174,13 @@ Reglas:
 ### T1-9. `projects.pattern_version` se elimina
 
 Verificado en el proyecto real el 2026-11-09 (T3 de la fase 3): 2 proyectos, 0 con `pattern_version`. La migración de T7 **elimina** la columna (no queda "en desuso"). `10_rls_check.sql` deja de comprobar su permiso por columna y comprueba que ya no existe; CA3-T14 se lee como "el cliente no puede escribir `pattern_id` ni `pattern_version_id`". Si al aplicar la migración aparecen filas con valor (por ejemplo, otro entorno), la migración falla en vez de borrarlas en silencio.
+
+## Enmiendas tras implementar T7 (2026-11-10)
+
+Aprobadas por el orquestador; la migración es `supabase/migrations/20261110020000_tejer_disenos.sql`.
+
+1. **Solo el servidor fija versiones.** `start_chart_project(p_owner_id, p_pattern_id, p_expected_updated_at, p_title)` y `repin_project(p_owner_id, p_project_id, p_expected_updated_at, p_expected_progress_updated_at, p_round_number, p_stitch_index)` las ejecuta **solo `service_role`**, no `authenticated`. La base no puede correr el validador: si la sesión pudiera llamarlas por `/rpc`, podría fijar un borrador con errores de tejido saltándose E10 del ADR 0006. La Server Action (T11) lee el documento desde la base, exige `valid` con `migratePattern` + `validatePattern`, y llama a la función con el cliente admin, pasando el `updated_at` leído con ese documento y `p_owner_id` de `auth.getUser()`. El `updated_at` exacto cierra la carrera entre validar y fijar.
+2. **`repin_project` escribe también el puntero** reubicado (`remapPointer`) en la misma transacción y exige el `updated_at` esperado del avance, para que otro dispositivo con la versión vieja reciba conflicto en vez de pisar en silencio.
+3. **Integridad**: `projects.pattern_version_id` con clave compuesta `(pattern_version_id, pattern_id)` hacia `pattern_versions(id, pattern_id)` (la versión es del patrón del proyecto); `pattern_versions` inmutable por disparador; un diseño con proyectos no se borra (23503, que `deletePattern` traduce). El cliente ya no escribe `pattern_id`, `pattern_version_id` ni `device`; escribe solo su puntero.
+4. **Códigos**: `PT409` conflicto (`detail` = `pattern` o `progress`, HTTP 409), `P0002` no encontrado o ajeno, `22023` argumentos o tipo, `54000` topes, `23514` título.
+

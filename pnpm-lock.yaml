@@ -78,6 +78,12 @@ importers:
 
   packages/ai-router: {}
 
+  packages/follow:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+
   packages/pattern-core: {}
 
   packages/pattern-render:
