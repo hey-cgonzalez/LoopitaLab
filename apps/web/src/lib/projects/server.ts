@@ -61,7 +61,7 @@ export async function readKnittableDesign(supabase: SessionClient, userId: strin
   if (document.kind !== "chart") return projectFailure("NOT_A_CHART");
 
   const result = validatePattern(document);
-  if (!result.savable) return projectFailure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error") });
+  if (!result.savable) return projectFailure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error"), ...(document.chart?.workedIn === "rows" || document.chart?.workedIn === "rounds" ? { workedIn: document.chart.workedIn } : {}) });
   if (!result.valid) return projectFailure("NOT_KNITTABLE", { issues: result.issues.filter((i) => i.severity === "error") });
   return { ok: true, document, updatedAt: data.updated_at, raw: data.document };
 }
@@ -109,7 +109,7 @@ export async function readPinnedVersion(supabase: SessionClient, userId: string,
   const document = migrated.document as Pattern;
   if (document.kind !== "chart") return projectFailure("NOT_A_CHART");
   const result = validatePattern(document);
-  if (!result.savable) return projectFailure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error") });
+  if (!result.savable) return projectFailure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error"), ...(document.chart?.workedIn === "rows" || document.chart?.workedIn === "rounds" ? { workedIn: document.chart.workedIn } : {}) });
 
   return {
     ok: true,

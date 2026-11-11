@@ -8,7 +8,7 @@ import { describeComposition } from "@/lib/yarns/form.ts";
 import type { SavedYarn } from "@/lib/yarns/saved.ts";
 import { colorName } from "@/lib/studio/yarn-picker.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
-import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, savedYarnUsedText } from "@/lib/studio-texts.ts";
 import { BTN, previewHandlers } from "./yarn-picker-ui.ts";
 
 const S = STUDIO_TEXTS.selectorLanas;
@@ -60,8 +60,9 @@ export function SavedYarnsTab({ store, index, letter, canAdd, onUse, onAdd }: Pr
   }, [refresh]);
 
   function run(saved: SavedYarn, add: boolean) {
+    const keptNote = !add && Boolean(store.doc.yarns[index]?.note) && !(copyNote && saved.note);
     const problem = (add ? onAdd : onUse)(saved, copyNote);
-    setMessage(problem ? { tone: "error", text: `${S.noValida} ${problem}` } : { tone: "ok", text: S.usada });
+    setMessage(problem ? { tone: "error", text: `${S.noValida} ${problem}` } : { tone: "ok", text: savedYarnUsedText(letter, keptNote) });
   }
 
   return (
@@ -83,7 +84,7 @@ export function SavedYarnsTab({ store, index, letter, canAdd, onUse, onAdd }: Pr
           <div className="grid gap-0.5">
             <label className="flex items-center gap-2 text-sm font-bold">
               <input type="checkbox" checked={copyNote} onChange={(e) => setCopyNote(e.target.checked)} aria-describedby={`${uid}-note-help`} data-testid="copy-note" className="size-5 accent-marino" />
-              {S.copiarNota}
+              {S.copiarNota(letter)}
             </label>
             <p id={`${uid}-note-help`} className="text-sm text-tinta-suave">
               {S.copiarNotaAyuda}

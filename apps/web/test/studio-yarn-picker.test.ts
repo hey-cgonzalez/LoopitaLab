@@ -81,6 +81,8 @@ describe("metraje por lana (F3-21 a F3-27)", () => {
     expect(html).toContain("Muestra supuesta");
     expect(html).not.toMatch(/gramos|ovillo/i);
     expect(swatchAdviceText(["A"])).toContain("la lana A");
+    expect(swatchAdviceText(["A"], "crochet")).toBe("Teje una muestra con la lana A del diseño para comprobar la tensión.");
+    expect(swatchAdviceText(["A", "B"], "crochet")).not.toContain("metraje");
     expect(swatchAdviceText(["A", "B", "C"])).toContain("A, B y C");
   });
 

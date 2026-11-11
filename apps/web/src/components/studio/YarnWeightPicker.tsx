@@ -3,7 +3,7 @@
 import { weightLabel } from "@loopitalab/yarn-catalog";
 import { useId, useMemo, useState } from "react";
 import { weightChoiceInfo, weightOptions } from "@/lib/studio/yarn-picker.ts";
-import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, gaugeStitchLabel } from "@/lib/studio-texts.ts";
 import { FIELD } from "./yarn-picker-ui.ts";
 
 const T = STUDIO_TEXTS;
@@ -94,7 +94,7 @@ export function YarnWeightPicker({ weight, technique, gaugeAssumed, onPick }: Pr
       </p>
       {info.gauge ? (
         <p className="text-sm text-tinta-suave" data-testid="weight-gauge">
-          {T.panelLanas.muestraCyc}: {info.gauge.stitchesPer10cm} puntos en 10 cm.{" "}
+          {T.panelLanas.muestraCyc}: {info.gauge.stitchesPer10cm} puntos en 10 cm ({gaugeStitchLabel(info.gauge.assumption)}).{" "}
           {gaugeAssumed ? (
             <strong>
               {S.muestraSupuesta} ({S.muestraSupuestaAyuda}).

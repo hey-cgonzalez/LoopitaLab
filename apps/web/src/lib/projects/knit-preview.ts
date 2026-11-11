@@ -1,7 +1,7 @@
 import { planChart } from "@loopitalab/follow";
 import { yarnUsage, type ChartPattern } from "@loopitalab/pattern-core";
 import { estimateYarnLength, type LengthEstimate } from "@loopitalab/yarn-catalog";
-import { gaugeInUse, validateForPanel } from "../studio/measures.ts";
+import { gaugeInUse, lengthLowConfidence, validateForPanel } from "../studio/measures.ts";
 import type { KnitPreview, KnitPreviewYarn } from "./types.ts";
 
 /**
@@ -17,7 +17,7 @@ export function buildKnitPreview(doc: ChartPattern, patternUpdatedAt: string): K
 
   const yarns: KnitPreviewYarn[] = doc.yarns.map((y, i) => {
     const u = { stitches: usage.stitches[i] ?? 0, floatStitches: usage.floatStitches[i] ?? 0 };
-    return { id: y.id, hex: y.color.hex, weight: y.weight, ...u, length: lengthOf(doc, u, gauge) };
+    return { id: y.id, hex: y.color.hex, weight: y.weight, ...u, length: lengthOf(doc, u, gauge, y.weight) };
   });
 
   return {
@@ -43,11 +43,11 @@ export function buildKnitPreview(doc: ChartPattern, patternUpdatedAt: string): K
   };
 }
 
-function lengthOf(doc: ChartPattern, usage: { stitches: number; floatStitches: number }, gauge: ReturnType<typeof gaugeInUse>): LengthEstimate | null {
+function lengthOf(doc: ChartPattern, usage: { stitches: number; floatStitches: number }, gauge: ReturnType<typeof gaugeInUse>, weight: number): LengthEstimate | null {
   if (!gauge) return null;
   try {
     return (
-      estimateYarnLength(usage, { stitchesPer10cm: gauge.gauge.stitchesPer10cm }, { technique: doc.technique, gaugeAssumed: gauge.assumed, lowConfidence: gauge.lowConfidence }) ?? null
+      estimateYarnLength(usage, { stitchesPer10cm: gauge.gauge.stitchesPer10cm }, { technique: doc.technique, gaugeAssumed: gauge.assumed, lowConfidence: lengthLowConfidence(gauge, weight) }) ?? null
     );
   } catch {
     // Muestra no utilizable: sin estimación, nunca un número inventado.

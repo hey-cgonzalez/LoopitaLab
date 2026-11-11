@@ -34,7 +34,7 @@ export const DESIGN_MESSAGES: Record<DesignErrorCode, string> = {
   NOT_FOUND: "No encontramos ese diseño. Puede que lo hayas borrado desde otro dispositivo.",
   // Los textos repetidos en el estudio viven en studio-texts.ts (una sola fuente).
   MAX_VERSIONS: maxVersionsText(MAX_VERSIONS_LIMIT),
-  HAS_PROJECTS: "Este diseño tiene proyectos. Bórralos antes de borrar el diseño.",
+  HAS_PROJECTS: "Este diseño tiene proyectos con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance.",
   QUOTA: quotaFullText(PATTERNS_QUOTA_LIMIT),
   AI_DUPLICATE_UNSUPPORTED: `${STUDIO_TEXTS.misDisenos.duplicarNoIa} Edita el original o empieza uno nuevo.`,
   REJECTED_BY_DATABASE: "No pudimos guardar el diseño porque tiene un carácter que no se puede guardar (por ejemplo, un carácter invisible pegado desde otro programa) o no cumple las reglas de almacenamiento. Revisa el título y las notas, quita lo que hayas pegado y vuelve a intentar.",

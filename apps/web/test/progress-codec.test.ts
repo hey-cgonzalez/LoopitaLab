@@ -131,5 +131,13 @@ describe("textos con «vuelta» o «fila» (C2)", () => {
     expect(rows).not.toContain("vuelta");
     expect(versionChangedMessage("rows", 100, a)).toContain("fila 40");
     expect(versionChangedMessage("rows", 100, a)).not.toContain("vuelta");
+    expect(versionChangedMessage("rows", 100, a)).toContain("Revisa que la fila coincida con tu tejido.");
+    expect(versionChangedMessage("rounds", 100, a)).toContain("Revisa que la vuelta coincida con tu tejido.");
+  });
+
+  it("si en el otro dispositivo ya terminó, lo dice así", () => {
+    expect(progressConflictMessage("rows", 10, { rowsDone: 10, stitchesDone: 0 }, { rowsDone: 1, stitchesDone: 0 })).toBe(
+      "En otro dispositivo ya terminaste el gráfico. Aquí vas en la fila 2. ¿Con cuál sigues?",
+    );
   });
 });

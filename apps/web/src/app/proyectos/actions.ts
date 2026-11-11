@@ -246,7 +246,7 @@ async function progressConflict(supabase: SessionClient, userId: string, project
   if (!found.ok) {
     // La versión no se pudo leer (por ejemplo, dejó de ser `savable`): el conflicto se da con las posiciones sin plan.
     if (found.code === "NOT_FOUND") return found;
-    return conflictFailure(undefined, 0, columnsToRawPointer(progress.row), progress.row?.updated_at ?? null, yours);
+    return conflictFailure(found.workedIn, 0, columnsToRawPointer(progress.row), progress.row?.updated_at ?? null, yours);
   }
   const plan = planChart(found.pinned.document, { mirror: await readMirror(supabase, userId) });
   const theirs = columnsToPointer(plan, progress.row);

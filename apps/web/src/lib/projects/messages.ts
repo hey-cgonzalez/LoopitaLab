@@ -69,13 +69,15 @@ export const PROGRESS_CONFLICT_FALLBACK = "El avance cambió en otro dispositivo
 /** Conflicto de avance: "En otro dispositivo vas en la vuelta 40. Aquí vas en la vuelta 36. ¿Con cuál sigues?". */
 export function progressConflictMessage(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, yours: ChartPointer | undefined): string {
   const other = positionText(workedIn, totalRows, theirs);
+  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
+  if (finished && yours) return `En otro dispositivo ya terminaste el gráfico. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
   if (!yours) return `El avance cambió en otro dispositivo: vas en ${other}. Recarga para seguir desde ahí.`;
   return `En otro dispositivo vas en ${other}. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
 }
 
 /** La versión fijada cambió en otro dispositivo (VERSION_CHANGED): el puntero que se enviaba era de otro plan. */
 export function versionChangedMessage(workedIn: WorkedIn | undefined, totalRows: number, current: ChartPointer): string {
-  return `Este proyecto cambió de versión del diseño en otro dispositivo. Recarga para seguir desde ${positionText(workedIn, totalRows, current)}.`;
+  return `Este proyecto cambió de versión del diseño en otro dispositivo. Recarga para seguir desde ${positionText(workedIn, totalRows, current)}. Revisa que la ${rowWord(workedIn)} coincida con tu tejido.`;
 }
 
 /** Fallo de una acción de proyectos. `error` es el texto para mostrar; `code` decide qué hace la interfaz. */

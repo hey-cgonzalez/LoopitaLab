@@ -11,7 +11,7 @@ import { FIBER_LEVELS, fillTone, lookInputKey, lookKey, neutralLook, yarnLook, t
 import { forAll, type Rng } from "./support/property.ts";
 
 const fx = { fiberEffects: true };
-const yarn = (composition: Yarn["composition"], weight = 4, hex = "#BA222C"): Yarn => ({ id: "A", weight, composition, color: { hex } });
+const yarn = (composition: Yarn["composition"], weight: Yarn["weight"] = 4, hex = "#BA222C"): Yarn => ({ id: "A", weight, composition, color: { hex } });
 const one = (fiber: string) => yarnLook(yarn([{ fiber, percent: 100 }]), FIBERS, fx);
 const close = (a: number, b: number, msg?: string) => assert.ok(Math.abs(a - b) < 1e-9, `${msg ?? ""} ${a} ≠ ${b}`);
 
@@ -106,7 +106,7 @@ test("propiedad: el orden de las fibras y escalar todos los porcentajes no cambi
 });
 
 test("propiedad: sin efectos de fibra el aspecto siempre es neutro; misma clave de entrada, mismo aspecto", () => {
-  forAll("neutro y clave", (r) => ({ a: genComposition(r), w: r.int(0, 7) }), ({ a, w }) => {
+  forAll("neutro y clave", (r) => ({ a: genComposition(r), w: r.int(0, 7) as Yarn["weight"] }), ({ a, w }) => {
     assert.deepEqual(yarnLook(yarn(a, w), FIBERS), neutralLook("#BA222C"));
     const twin = yarn(a.map((c) => ({ ...c })), w);
     assert.equal(lookInputKey(yarn(a, w), fx), lookInputKey(twin, fx));

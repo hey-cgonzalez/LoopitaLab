@@ -21,6 +21,7 @@ import {
   type YarnDraft,
 } from "@/lib/yarns/form";
 import { compositionSum, paletteByFamily, toolSuggestion } from "@/lib/studio/yarn-edit";
+import { STUDIO_TEXTS, gaugeStitchLabel } from "@/lib/studio-texts";
 import { saveUserYarn, updateUserYarn } from "./actions";
 
 const FAMILIES = paletteByFamily();
@@ -134,7 +135,7 @@ export function YarnForm({ editing, onSaved, onCancel }: { editing: SavedYarn | 
         </div>
         {tools && draft.weight !== null ? (
           <p className="text-sm text-tinta-suave" data-testid="weight-tools">
-            {weightInfo(draft.weight)?.nombre}: agujas de {tools.needlesMm}, crochet de {tools.crochetMm}; muestra de {tools.stitchRange} en 10 cm. Es una referencia: teje una muestra para comprobarla.
+            {weightInfo(draft.weight)?.nombre}: {STUDIO_TEXTS.panelLanas.agujas} de {tools.needlesMm}, crochet de {tools.crochetMm}; muestra en palillos de {tools.stitchRange} en 10 cm ({gaugeStitchLabel("stockinette")}). Es una referencia: teje una muestra para comprobarla.
           </p>
         ) : null}
         {errs("weight")}

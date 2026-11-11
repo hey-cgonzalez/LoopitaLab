@@ -1,6 +1,6 @@
 import { yarnLetter, yarnUsage, type ChartPattern } from "@loopitalab/pattern-core";
 import { YARN_LENGTH_ASSUMPTIONS, estimateYarnLength, type LengthAssumption, type LengthEstimate } from "@loopitalab/yarn-catalog";
-import { gaugeInUse } from "./measures.ts";
+import { gaugeInUse, lengthLowConfidence } from "./measures.ts";
 import { colorName } from "./yarn-picker.ts";
 
 /*
@@ -43,7 +43,7 @@ export function yarnLengthReport(doc: ChartPattern): YarnLengthReport {
     const stitches = usage.stitches[i] ?? 0;
     const floats = usage.floatStitches[i] ?? 0;
     const estimate = use
-      ? estimateYarnLength({ stitches, floatStitches: floats }, use.gauge, { technique, gaugeAssumed: use.assumed, lowConfidence: use.lowConfidence || y.weight === 7 })
+      ? estimateYarnLength({ stitches, floatStitches: floats }, use.gauge, { technique, gaugeAssumed: use.assumed, lowConfidence: lengthLowConfidence(use, y.weight) })
       : undefined;
     for (const a of estimate?.assumptions ?? []) lows.add(a);
     return { id: y.id, letter: yarnLetter(i), hex: y.color.hex, colorName: colorName(y.color), stitches, estimate };
@@ -69,11 +69,11 @@ export function assumptionText(a: LengthAssumption): string {
   const A = YARN_LENGTH_ASSUMPTIONS;
   switch (a) {
     case "assumed_gauge":
-      return "Muestra supuesta: no ingresaste la tuya, se usó la de referencia del grosor.";
+      return `Muestra supuesta: no ingresaste la tuya, se usó la de referencia del grosor de la lana principal (${yarnLetter(0)}).`;
     case "low_confidence_weight":
       return "Confianza baja: la muestra de referencia de este grosor (categoría 7) es poco precisa.";
     case "loop_factor":
-      return `Cada punto de jersey gasta una hebra de unas ${String(A.knitLoopFactor).replace(".", ",")} veces su ancho (supuesto, con lana).`;
+      return `Cada punto jersey gasta unas ${String(A.knitLoopFactor).replace(".", ",")} veces su ancho de hebra (supuesto para lana en punto liso; en colorwork la tensión puede cambiar).`; // validar con tejedora
     case "float_slack":
       return `Las hebras que cruzan por el revés se dejan ${pct(A.floatSlack - 1)} más largas que el ancho que cruzan (supuesto).`;
     case "waste_margin":
@@ -85,8 +85,9 @@ export function assumptionText(a: LengthAssumption): string {
 export const LENGTH_SCOPE_NOTE = "Solo del gráfico: no incluye elástico, montaje ni remate.";
 
 /** Sugerencia de tejer la muestra con las lanas del diseño ("A y B", "A, B y C"). */
-export function swatchAdviceText(letters: readonly string[]): string {
+export function swatchAdviceText(letters: readonly string[], technique: "knit" | "crochet" = "knit"): string {
   const list = letters.length <= 1 ? letters.join("") : `${letters.slice(0, -1).join(", ")} y ${letters[letters.length - 1]}`;
   const who = letters.length === 1 ? `la lana ${list}` : `las lanas ${list}`;
+  if (technique === "crochet") return `Teje una muestra con ${who} del diseño para comprobar la tensión.`;
   return `Teje una muestra con ${who} del diseño para comprobar la tensión y el metraje, y compra con margen.`;
 }

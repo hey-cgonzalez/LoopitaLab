@@ -334,7 +334,7 @@ export const STUDIO_TEXTS = {
     subir: "Subir",
     bajar: "Bajar",
     notaTitulo: "Nota privada",
-    notaAyuda: "Solo la ves tú: no se publica ni se comparte, aunque compartas el diseño. Sirve para anotar la marca o dónde la compraste.",
+    notaAyuda: "Solo la ves tú. Para compartir el diseño tendrás que borrar las notas de las lanas. Sirve para anotar la marca o dónde la compraste.",
     notaEtiqueta: "Mi lana (opcional)",
     paletaVacia: "Personalizado",
     fibra: "Fibra",
@@ -347,7 +347,7 @@ export const STUDIO_TEXTS = {
     reemplazoConfirmar: "Quitar y reemplazar",
     cancelar: "Cancelar",
     maximo: "Llegaste al máximo de lanas del diseño.",
-    sugerencia: "Para este grosor, suele usarse",
+    sugerencia: "Para este grosor, suelen usarse",
     agujas: "palillos", // "aguja" se acepta como alias (CLAUDE.md: tejido a palillo)
     crochet: "crochet",
     muestraCyc: "muestra de referencia",
@@ -361,7 +361,6 @@ export const STUDIO_TEXTS = {
     muestraSeccion: "Muestra",
     medidasSeccion: "Medidas y puntos",
     validacionSeccion: "Revisión del diseño",
-    puntosEnLaFila: "Puntos por vuelta",
     motivoTamano: "Tamaño del motivo",
     puntosMotivo: "Puntos (ancho)",
     filasMotivo: "Filas (alto)",
@@ -453,7 +452,7 @@ export const STUDIO_TEXTS = {
     aproximada: "equivalencia aproximada",
     nombresAyudaTitulo: "Sobre los nombres de los grosores",
     nombresAyuda:
-      "Los nombres en español son los de LoopitaLab y los que están entre paréntesis son los del Craft Yarn Council. Algunos nombres de uso común («mediano», «grueso») son equivalencias aproximadas: no siempre significan lo mismo en todas partes. Ante la duda, mira la muestra.", // validar con tejedora
+      "Los nombres en español son los de LoopitaLab y los que están entre paréntesis son nombres en inglés de uso común para ese grosor, según el Craft Yarn Council. Algunos nombres de uso común («mediano», «grueso») son equivalencias aproximadas: no siempre significan lo mismo en todas partes. Ante la duda, mira la muestra.", // validar con tejedora
     muestraSupuesta: "Muestra supuesta",
     muestraSupuestaAyuda: "hasta que ingreses la tuya en la sección Muestra",
     paleta: "Paleta",
@@ -465,7 +464,7 @@ export const STUDIO_TEXTS = {
     practicamenteIgual: "prácticamente igual",
     usarColor: "Usar",
     seleccionado: "elegido",
-    coloresPlanosActivo: "Colores planos está activado: la vista previa muestra solo el color, sin el halo de la fibra.",
+    coloresPlanosActivo: "Colores planos está activado: la vista previa muestra solo el color, sin el halo ni el brillo de la fibra.",
     coloresPlanosApagar: "Apagar colores planos",
     coloresPlanosEncender: "Activar colores planos",
     cerrar: "Cerrar el selector (Esc)",
@@ -477,14 +476,30 @@ export const STUDIO_TEXTS = {
     misLanasIrA: "Administrar mis lanas",
     misLanasSinSesion: "Inicia sesión para usar tus lanas guardadas.",
     misLanasActualizar: "Actualizar la lista",
-    copiarNota: "Copiar también la nota privada de la lana guardada",
-    copiarNotaAyuda: "La nota suele llevar la marca o dónde la compraste. Déjala sin marcar si vas a compartir el diseño.",
+    copiarNota: (letter: string) => `Copiar también la nota privada de la lana guardada (si no, la lana ${letter} conserva la suya)`,
+    copiarNotaAyuda: "La nota suele llevar la marca o dónde la compraste. Déjala sin marcar si vas a compartir el diseño: un diseño con notas en las lanas no se puede compartir.",
     usarEn: "Usar en la lana",
     agregarNueva: "Agregar como lana nueva",
     usada: "Listo",
+    usadaConservaNota: "conserva su nota anterior; revísala.",
     noValida: "Esta lana guardada no se puede usar en el diseño:",
   },
 } as const;
+
+/** Mensaje al usar una lana guardada; avisa si la lana del diseño conserva su nota anterior. */
+export function savedYarnUsedText(letter: string, keptOldNote: boolean): string {
+  return keptOldNote ? `Listo. La lana ${letter} ${STUDIO_TEXTS.selectorLanas.usadaConservaNota}` : STUDIO_TEXTS.selectorLanas.usada;
+}
+
+/** "Puntos por vuelta" o "Puntos por fila" según cómo se trabaja el diseño. */
+export function stitchesPerWorkedRowLabel(workedIn: "rows" | "rounds"): string {
+  return `Puntos por ${(workedIn === "rounds" ? STUDIO_TEXTS.unidades.vuelta : STUDIO_TEXTS.unidades.fila).toLowerCase()}`;
+}
+
+/** Rótulo del punto en que se supone la muestra de referencia. */
+export function gaugeStitchLabel(assumption: "stockinette" | "crochet-pb" | "crochet-pa"): string {
+  return assumption === "stockinette" ? "punto jersey" : assumption === "crochet-pa" ? "punto alto" : "punto bajo";
+}
 
 /** Nombre de la forma (plano, tubo, círculo, canesú). */
 export function shapeName(shape: "flat" | "tube" | "circle" | "yoke"): string {

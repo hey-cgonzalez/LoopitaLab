@@ -63,12 +63,15 @@ test.describe("Selector de lanas", () => {
     await expect.poll(async () => (await lengthValues(page)).join("|"), { timeout: 5000 }).toBe(before.join("|"));
   });
 
-  test("categoría 7: aviso de baja confianza en el selector y en el metraje", async ({ page }) => {
+  test("categoría 7: aviso de baja confianza en el selector; en el metraje solo con muestra supuesta", async ({ page }) => {
     await openStudio(page);
     await openPicker(page);
     await page.getByTestId("weight-search").fill("jumbo");
     await page.locator("[data-testid=weight-list] button").first().click();
     await expect(page.getByTestId("weight-low-confidence")).toBeVisible();
+    // Con la muestra propia del documento no hay baja confianza en el metraje (regla única del panel y de la pantalla previa).
+    await expect(page.locator("[data-assumption=low_confidence_weight]")).toHaveCount(0);
+    await clearGauge(page);
     await expect(page.locator("[data-assumption=low_confidence_weight]")).toBeVisible();
   });
 

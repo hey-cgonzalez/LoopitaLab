@@ -6,7 +6,7 @@ import type { DocumentStore } from "@/lib/studio/store.ts";
 import { nextYarnId, normalizeNote, withColor, withNote, yarnProblems } from "@/lib/studio/yarn-edit.ts";
 import { applySavedYarn, colorName, newYarnFromSaved } from "@/lib/studio/yarn-picker.ts";
 import type { SavedYarn } from "@/lib/yarns/saved.ts";
-import { STUDIO_TEXTS, yarnTitle } from "@/lib/studio-texts.ts";
+import { STUDIO_TEXTS, savedYarnUsedText, yarnTitle } from "@/lib/studio-texts.ts";
 import { previewControls } from "./preview-controls.ts";
 import { SavedYarnsTab } from "./SavedYarnsTab.tsx";
 import { YarnColorPicker } from "./YarnColorPicker.tsx";
@@ -105,7 +105,8 @@ export function YarnPicker({ store, index, yarn, letter, technique, gaugeAssumed
     const target = store.doc.yarns[index] ?? yarn;
     const r = applySavedYarn(target, saved, { copyNote });
     if (r.errors.length > 0) return r.errors[0] ?? "";
-    commit(r.yarn, `Lana ${letter}: se usó una lana guardada (${colorName(saved.color)}).`);
+    const kept = Boolean(target.note) && !(copyNote && saved.note);
+    commit(r.yarn, kept ? savedYarnUsedText(letter, true) : `Lana ${letter}: se usó una lana guardada (${colorName(saved.color)}).`);
     return null;
   }
 

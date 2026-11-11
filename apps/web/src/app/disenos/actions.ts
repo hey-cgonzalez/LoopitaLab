@@ -236,7 +236,7 @@ async function hasProjectsFailure(supabase: Awaited<ReturnType<typeof createClie
   const { count } = await supabase.from("projects").select("id", { count: "exact", head: true }).eq("pattern_id", patternId);
   if (typeof count !== "number" || count < 1) return failure("HAS_PROJECTS");
   const n = count === 1 ? "1 proyecto" : `${count} proyectos`;
-  return { ...failure("HAS_PROJECTS"), error: `Este diseño tiene ${n}. Bórralos antes de borrar el diseño.` };
+  return { ...failure("HAS_PROJECTS"), error: `Este diseño tiene ${n} con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance.` };
 }
 
 /**

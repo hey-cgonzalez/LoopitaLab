@@ -115,7 +115,7 @@ export function LengthView({ report, pending = false }: { report: YarnLengthRepo
           </p>
         </>
       ) : (
-        <p className="text-sm text-tinta-suave">{swatchAdviceText(letters)}</p>
+        <p className="text-sm text-tinta-suave">{swatchAdviceText(letters, "crochet")}</p>
       )}
     </div>
   );

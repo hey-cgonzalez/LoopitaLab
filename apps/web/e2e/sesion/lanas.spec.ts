@@ -1,4 +1,5 @@
 import { contextAs, expect, stateFile, test } from "./support.ts";
+import { STUDIO_TEXTS } from "../../src/lib/studio-texts.ts";
 
 // Mis lanas (T10, ADR 0008): crear, editar y borrar una lana guardada y aislamiento entre cuentas. Cuenta: ana.
 test.use({ storageState: stateFile("ana") });
@@ -33,7 +34,7 @@ test.describe("Mis lanas con sesión", () => {
     await form.getByLabel("Buscar por nombre").fill("aran");
     await form.getByRole("button", { name: /Medio/ }).click();
     await expect(form.getByRole("radio", { name: /Medio/ })).toBeChecked();
-    await expect(form.getByTestId("weight-tools")).toContainText("agujas de");
+    await expect(form.getByTestId("weight-tools")).toContainText(`${STUDIO_TEXTS.panelLanas.agujas} de`);
 
     // Composición: 70 / 30 en vivo
     await form.getByLabel("Porcentaje de la fibra 1").fill("70");

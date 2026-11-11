@@ -417,7 +417,7 @@ describe("saveProgress", () => {
     db.setProgress(projectId, 4, 0); // terminado (3 filas)
     const r = await saveProgress(projectId, versionId, { rowsDone: 1, stitchesDone: 0 }, seen);
     expect(r).toMatchObject({ ok: false, code: "CONFLICT", workedIn: "rows", totalRows: 3 });
-    if (!r.ok) expect(r.error).toBe("En otro dispositivo vas en el gráfico terminado. Aquí vas en la fila 2. ¿Con cuál sigues?");
+    if (!r.ok) expect(r.error).toBe("En otro dispositivo ya terminaste el gráfico. Aquí vas en la fila 2. ¿Con cuál sigues?");
   });
 
   it("elegir «esta» es reintentar con currentUpdatedAt (acción explícita)", async () => {
@@ -600,7 +600,7 @@ describe("deletePattern con proyectos (ADR 0009, D1)", () => {
     await startOne();
     await startProjectFromDesign(PID);
     const r = await deletePattern(PID);
-    expect(r).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene 2 proyectos. Bórralos antes de borrar el diseño." });
+    expect(r).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene 2 proyectos con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance." });
     expect(JSON.stringify(r)).not.toMatch(/foreign key|pattern_versions/);
     expect(db.patterns).toHaveLength(1);
     expect(db.versionsOf(PID)).toHaveLength(1);
@@ -608,7 +608,7 @@ describe("deletePattern con proyectos (ADR 0009, D1)", () => {
 
   it("con un proyecto dice «1 proyecto»", async () => {
     await startOne();
-    expect(await deletePattern(PID)).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene 1 proyecto. Bórralos antes de borrar el diseño." });
+    expect(await deletePattern(PID)).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene 1 proyecto con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance." });
   });
 
   it("si la cuenta falla, el mensaje sale sin número", async () => {
@@ -620,7 +620,7 @@ describe("deletePattern con proyectos (ADR 0009, D1)", () => {
       return q as ReturnType<typeof real>;
     };
     try {
-      expect(await deletePattern(PID)).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene proyectos. Bórralos antes de borrar el diseño." });
+      expect(await deletePattern(PID)).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene proyectos con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance." });
     } finally {
       db.client.from = real;
     }
