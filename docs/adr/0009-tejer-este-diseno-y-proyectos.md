@@ -177,7 +177,7 @@ Verificado en el proyecto real el 2026-11-09 (T3 de la fase 3): 2 proyectos, 0 c
 
 ## Enmiendas tras implementar T7 (2026-11-10)
 
-Aprobadas por el orquestador; la migración es `supabase/migrations/20261110020000_tejer_disenos.sql`.
+Aprobadas por el orquestador; la migración es `supabase/migrations/20261111031813_tejer_disenos.sql`.
 
 1. **Solo el servidor fija versiones.** `start_chart_project(p_owner_id, p_pattern_id, p_expected_updated_at, p_title)` y `repin_project(p_owner_id, p_project_id, p_expected_updated_at, p_expected_progress_updated_at, p_round_number, p_stitch_index)` las ejecuta **solo `service_role`**, no `authenticated`. La base no puede correr el validador: si la sesión pudiera llamarlas por `/rpc`, podría fijar un borrador con errores de tejido saltándose E10 del ADR 0006. La Server Action (T11) lee el documento desde la base, exige `valid` con `migratePattern` + `validatePattern`, y llama a la función con el cliente admin, pasando el `updated_at` leído con ese documento y `p_owner_id` de `auth.getUser()`. El `updated_at` exacto cierra la carrera entre validar y fijar.
 2. **`repin_project` escribe también el puntero** reubicado (`remapPointer`) en la misma transacción y exige el `updated_at` esperado del avance, para que otro dispositivo con la versión vieja reciba conflicto en vez de pisar en silencio.

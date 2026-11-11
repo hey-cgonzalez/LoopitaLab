@@ -1497,7 +1497,7 @@ declare
     'snapshot_pattern(uuid,text)'            -- authenticated
     -- start_chart_project y repin_project (T7, ADR 0009) NO están aquí a propósito: fijan una versión
     -- para tejer, que exige `valid` (ADR 0006, E10), y solo la Server Action puede validar. Las ejecuta
-    -- service_role (ver la sección T7 y 20261110020000_tejer_disenos.sql).
+    -- service_role (ver la sección T7 y 20261111031813_tejer_disenos.sql).
   ];
   f record;
   n integer := 0;
@@ -1532,7 +1532,7 @@ end $$;
 drop function public.__funcion_futura();
 
 -- Funciones de trigger de public: ninguna es ejecutable por anon ni authenticated (docs/seguridad.md,
--- "Limpieza menor: EXECUTE en funciones de trigger", 20261110010000_revocar_execute_triggers.sql).
+-- "Limpieza menor: EXECUTE en funciones de trigger", 20261111031138_revocar_execute_triggers.sql).
 -- No son invocables por /rpc, pero un trigger nuevo con EXECUTE vía PUBLIC sería exposición innecesaria.
 -- Los disparadores siguen funcionando sin EXECUTE: las pruebas de arriba disparan patterns_quota,
 -- patterns_guard_origin y projects_check_pattern como authenticated.
