@@ -14,6 +14,7 @@ import {
   remapPointer,
   startPointer,
   stepAt,
+  totalRowsOf,
 } from "../src/index.ts";
 import { cellsFrom, chartPattern } from "./support/fixtures.ts";
 
@@ -126,5 +127,19 @@ describe("puntero", () => {
   it("los pasos se devuelven congelados", () => {
     const s = stepAt(plan, 0)!;
     assert.ok(Object.isFrozen(s) && Object.isFrozen(s.runs) && Object.isFrozen(s.runs[0]));
+  });
+});
+
+describe("totalRowsOf", () => {
+  it("coincide con plan.totalRows para alto y repeticiones válidos y da 0 con valores dañados", () => {
+    for (const [h, y] of [
+      [1, 1],
+      [3, 2],
+      [200, 500],
+    ] as const) {
+      const p = chartPattern({ width: 2, height: h, cells: Array.from({ length: 2 * h }, () => 0), repeat: { x: 1, y } });
+      assert.equal(totalRowsOf(h, y), planChart(p).totalRows);
+    }
+    for (const bad of [[0, 1], [1.5, 1], [NaN, 1], [1, Infinity], ["3", 2], [null, 1], [3, -1]] as const) assert.equal(totalRowsOf(bad[0], bad[1]), 0);
   });
 });

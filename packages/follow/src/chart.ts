@@ -121,6 +121,18 @@ export interface RemapResult {
 const isPosInt = (n: unknown): n is number => typeof n === "number" && Number.isSafeInteger(n) && n >= 1;
 
 /**
+ * Filas o vueltas del gráfico completo a partir del alto del motivo y las repeticiones a lo alto (`height × repeat.y`,
+ * propiedad P1 del ADR 0007). Es la misma cuenta que hace `planChart`; se exporta para que la lista de proyectos la
+ * derive desde las rutas JSON de la versión fijada sin leer el documento completo (ADR 0009, T1-2) y sin repetir la
+ * cuenta en `apps/web`. Con valores dañados devuelve 0, como `planChart`.
+ */
+export function totalRowsOf(height: unknown, repeatY: unknown): number {
+  if (!isPosInt(height) || !isPosInt(repeatY)) return 0;
+  const total = height * repeatY;
+  return Number.isSafeInteger(total) ? total : 0;
+}
+
+/**
  * Plan de un gráfico. O(motivo): no recorre las filas del gráfico completo (no depende
  * de `repeat.y`). Acepta todo documento `savable`; con dimensiones dañadas el plan
  * tiene 0 filas (terminado desde el inicio) y nunca lanza.
@@ -128,8 +140,7 @@ const isPosInt = (n: unknown): n is number => typeof n === "number" && Number.is
 export function planChart(pattern: ChartPattern, opts: FollowOptions = {}): ChartPlan {
   const chart = pattern.chart;
   const ok = isPosInt(chart.width) && isPosInt(chart.height) && isPosInt(chart.repeat.x) && isPosInt(chart.repeat.y);
-  const total = ok ? chart.height * chart.repeat.y : 0;
-  const totalRows = Number.isSafeInteger(total) ? total : 0;
+  const totalRows = ok ? totalRowsOf(chart.height, chart.repeat.y) : 0;
   const plan: ChartPlan = {
     kind: "chart",
     totalRows,

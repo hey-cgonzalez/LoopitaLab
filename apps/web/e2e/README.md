@@ -114,7 +114,7 @@ Si el job falla, sube el artefacto `playwright-<intento>` con `playwright-report
 
 Proyecto `sesion`, archivos en `e2e/sesion/`. Corren contra la Supabase local de la CLI (Docker), con todas las migraciones de `supabase/migrations/` y la configuración de `supabase/config.toml`. Las claves son las de desarrollo que imprime `supabase status` (las mismas en cualquier equipo; solo sirven contra `127.0.0.1`). `playwright.config.ts` falla si la URL de Supabase no es local.
 
-Sin `E2E_SUPABASE=1`, las 20 pruebas del proyecto `sesion` se saltan y la consola avisa por qué. Los proyectos `escritorio`, `movil` y `latencia` no cambian y no necesitan Docker.
+Sin `E2E_SUPABASE=1`, las 27 pruebas del proyecto `sesion` se saltan y la consola avisa por qué. Los proyectos `escritorio`, `movil` y `latencia` no cambian y no necesitan Docker.
 
 ### Cómo correrlas en local
 
@@ -137,13 +137,14 @@ npx supabase@2.122.1 stop --no-backup
 
 ### Cuentas de prueba
 
-`sesion-preparar` (`preparar.setup.ts`) corre antes de las pruebas. Crea cinco cuentas confirmadas con la API admin local (`auth.admin.createUser`, correo `<nombre>-<corrida>@e2e.loopitalab.test`, contraseña al azar), entra con cada una por el formulario de `/ingresar` y guarda su sesión en `apps/web/playwright/.auth/` (ignorada por git):
+`sesion-preparar` (`preparar.setup.ts`) corre antes de las pruebas. Crea seis cuentas confirmadas con la API admin local (`auth.admin.createUser`, correo `<nombre>-<corrida>@e2e.loopitalab.test`, contraseña al azar), entra con cada una por el formulario de `/ingresar` y guarda su sesión en `apps/web/playwright/.auth/` (ignorada por git):
 
 - **ana**: diseños, autoguardado, versiones, conflicto, duplicar y borrar;
 - **bea**: aislamiento y preferencias de la cuenta;
 - **cata**: cerrar sesión. Es aparte porque cerrar sesión revoca todas las sesiones de la cuenta;
 - **dani**: lanas guardadas usadas desde el estudio (`lanas-estudio.spec.ts`). Es aparte porque `lanas.spec.ts` espera que la lista de ana empiece vacía;
-- **eva**: QA del grupo C (`sesion/qa-grupo-c.spec.ts`): tope de 500 lanas, nota de más de 200 caracteres, Colores planos y autoguardado repetido.
+- **eva**: QA del grupo C (`sesion/qa-grupo-c.spec.ts`): tope de 500 lanas, nota de más de 200 caracteres, Colores planos y autoguardado repetido;
+- **fer**: "Tejer este diseño" y la pantalla "Tejiendo" (`sesion/tejer.spec.ts`, T12). Es aparte porque sus proyectos impiden borrar los diseños que tejen.
 
 `sesion-limpiar` (`limpiar.teardown.ts`) corre al final, aunque fallen pruebas. Borra todas las cuentas `@e2e.loopitalab.test`, también las de una corrida cortada y la del registro. Sus diseños y versiones se borran en cascada.
 
@@ -159,6 +160,7 @@ npx supabase@2.122.1 stop --no-backup
 | `lanas.spec.ts` | Mis lanas (ana): crear, editar y borrar una lana guardada, búsqueda de grosor por nombre y sugerencia de palillos y crochet, y aislamiento con bea | T10, ADR 0008 |
 | `lanas-estudio.spec.ts` | Usar una lana guardada desde el selector del estudio (dani): reemplazar la de un diseño, agregarla como lana nueva y la nota privada solo si se marca copiarla | T9, ADR 0008 |
 | `qa-grupo-c.spec.ts` | Tope de 500 lanas guardadas, nota de más de 200 caracteres, Colores planos fuera del documento y autoguardado repetido 5 veces (eva) | T8 a T11 |
+| `tejer.spec.ts` | "Tejer este diseño" desde el estudio con la pantalla previa, avanzar con botones, teclado y teclas de pasapáginas, el avance sobrevive a recargar, 390 px sin desplazamiento horizontal y `row-to-paint`; conflicto entre dos contextos con las dos salidas; "Pasar a la versión actual" tras editar el diseño; borrar el proyecto y después el diseño; `NOT_KNITTABLE` desde Mis diseños; pantalla encendida recordada (fer) | T12, F3-7, F3-12, F3-38, F3-39, F3-41 |
 
 Las comprobaciones en la base usan la clave secreta local (`support.ts`, `adminClient`), que solo acepta una URL local. La guardia de `console.error` es la misma que sin sesión. La única excepción declarada es el 404 de `aislamiento.spec.ts`.
 

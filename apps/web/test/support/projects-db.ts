@@ -196,6 +196,13 @@ export function createProjectsDb(me: { id: string } | null) {
         for (const pr of db.projects) if (ids.includes(pr.pattern_id as string)) pr.pattern_id = null;
         return { data: hit.map((r) => ({ ...r })), error: null };
       }
+      if (table === "projects") {
+        // RLS "proyectos: borrar propios"; el avance se va en cascada.
+        const ids = hit.map((r) => r.id);
+        db.projects = db.projects.filter((r) => !hit.includes(r));
+        db.progress = db.progress.filter((r) => !ids.includes(r.project_id as string));
+        return { data: hit.map((r) => ({ ...r })), error: null };
+      }
       if (table === "user_yarns") {
         db.yarns = db.yarns.filter((r) => !hit.includes(r));
         return { data: hit.map((r) => ({ ...r })), error: null };

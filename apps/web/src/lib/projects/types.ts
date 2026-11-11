@@ -3,7 +3,7 @@ import type { ChartPattern, Issue } from "@loopitalab/pattern-core";
 import type { LengthEstimate } from "@loopitalab/yarn-catalog";
 import type { ProjectFailure, WorkedIn } from "./messages.ts";
 
-export type { ProjectFailure, ProjectErrorCode } from "./messages.ts";
+export type { ProjectFailure, ProjectErrorCode, WorkedIn } from "./messages.ts";
 
 export type StartProjectResult = { ok: true; projectId: string; version: number; reused: boolean } | ProjectFailure;
 
@@ -108,3 +108,31 @@ export type RepinPreviewResult = ({ ok: true } & RepinPreview) | ProjectFailure;
 export type RepinResult =
   | { ok: true; version: number; reused: boolean; pointer: ChartPointer; progressUpdatedAt: string; clamped: boolean; rowChanged: boolean; workedIn: WorkedIn; totalRows: number }
   | ProjectFailure;
+
+export type DeleteProjectResult = { ok: true } | ProjectFailure;
+
+/** Fila de "Tus proyectos" (ADR 0009, T1-2): el avance y el tamaño salen de las rutas JSON de la versión fijada. */
+export interface ProjectListItem {
+  id: string;
+  title: string;
+  status: "planned" | "in_progress" | "paused" | "finished";
+  updatedAt: string;
+  /** `null` en los proyectos sueltos (sin diseño): conservan el flujo de estado. */
+  design: {
+    patternId: string | null;
+    /** Título actual del diseño (`null` si el diseño ya no existe). */
+    patternTitle: string | null;
+    version: number;
+    workedIn: WorkedIn;
+    /** `totalRowsOf(height, repeat.y)` de `follow`; 0 si la versión no se pudo leer. */
+    totalRows: number;
+    /** Puntero sin acotar al plan completo (solo `rowsDone` acotado a `totalRows`). */
+    pointer: ChartPointer;
+    progressUpdatedAt: string | null;
+    /**
+     * Pista de que el diseño cambió después de fijar la versión: `patterns.updated_at` posterior a la versión y al
+     * proyecto. Es una heurística para la lista (sin leer documentos); la ficha compara los documentos (exacto).
+     */
+    mayHaveNewer: boolean;
+  } | null;
+}

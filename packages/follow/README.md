@@ -21,6 +21,7 @@ const siguiente = nextRepeat(plan, ptr);      // un toque = una repetición hori
 | Exporta | Qué hace |
 |---|---|
 | `planChart(pattern, opts?)` | `ChartPlan` congelado: `totalRows`, `totalStitches`, `motifWidth`, `motifHeight`, `repeatX`, `repeatY`, `workedIn`, `technique`, `mirror` y una referencia (no copia) a `pattern`. O(motivo): no depende de `repeat.y` |
+| `totalRowsOf(height, repeatY)` | `height × repeat.y` con las mismas guardas que `planChart` (0 con valores dañados). Para la lista de proyectos, que lee el alto y las repeticiones desde las rutas JSON de la versión sin traer el documento |
 | `stepAt(plan, row)` | `ChartStep` de la fila `row` del gráfico completo, o `null` fuera de rango o con `row` no entero. O(ancho del motivo) |
 | `startPointer()` | `{ rowsDone: 0, stitchesDone: 0 }` |
 | `clampPointer(plan, input: unknown)` | Puntero del dominio a partir de cualquier valor. Idempotente |

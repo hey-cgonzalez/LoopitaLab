@@ -377,6 +377,7 @@ export const STUDIO_TEXTS = {
     sinPuntos: "Sin puntos todavía: las medidas aparecen cuando haya al menos un punto.",
     revisando: "Revisando…",
     todoBien: "Sin avisos.",
+    tejerAyuda: "Crea un proyecto con esta versión del diseño fijada y te lleva a seguirlo fila a fila. Antes verás un resumen.",
     guardarVersionAyuda:
       "Una versión es una copia del diseño tal como está guardado, a la que puedes volver. El autoguardado no crea versiones.",
   },

@@ -11,6 +11,7 @@ import Link from "next/link";
 import { CREATE_PASSWORD_FIRST, PASSWORD_STATUS_UNKNOWN, REAUTH_FAILED_MESSAGE, REAUTH_RETURN_NOTICE } from "@/lib/auth-messages";
 import { providerLabel, type ReauthChoice } from "@/lib/auth-providers";
 import { CAPTCHA_MISSING, captchaEnabled, captchaOptions, captchaToken, resetCaptcha } from "@/lib/captcha";
+import { clearBrowserProgressQueues } from "@/lib/projects/progress-queue.ts";
 import { clearBrowserBackups } from "@/lib/studio/backup.ts";
 import { createClient } from "@/lib/supabase/client";
 
@@ -102,6 +103,7 @@ export function YourData({ choice, reauthDone = false, reauthFailed = false }: P
     }
     // La cuenta ya no existe: tampoco deben quedar sus respaldos locales en este navegador (seguridad, ALTO-1).
     clearBrowserBackups();
+    clearBrowserProgressQueues();
     await supabase.auth.signOut({ scope: "local" }).catch(() => undefined);
     window.location.assign("/");
   }

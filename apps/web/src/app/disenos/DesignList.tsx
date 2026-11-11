@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DesignListItem } from "@/lib/designs/types";
+import { KnitStartButton } from "@/components/knit/KnitStartButton";
 import { deletePattern, duplicatePattern } from "./actions";
 
 const SHAPE: Record<string, string> = { flat: "Plano", tube: "Tubo", circle: "Círculo", yoke: "Canesú" };
@@ -15,6 +16,8 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  /** El borrado falló porque el diseño tiene proyectos: se enlaza a la lista, donde se borran. */
+  const [hasProjects, setHasProjects] = useState(false);
 
   async function onDuplicate(d: DesignListItem) {
     setBusy(d.id);
@@ -36,6 +39,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
   async function onDelete(d: DesignListItem) {
     setBusy(d.id);
     setMessage(null);
+    setHasProjects(false);
     try {
       const r = await deletePattern(d.id);
       if (r.ok || r.code === "NOT_FOUND") {
@@ -45,6 +49,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
         router.refresh();
       } else {
         setMessage({ tone: "error", text: r.error });
+        setHasProjects(r.code === "HAS_PROJECTS");
       }
     } catch {
       setMessage({ tone: "error", text: "No pudimos borrar el diseño. Revisa tu conexión e intenta de nuevo." });
@@ -58,6 +63,13 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
       <p role={message?.tone === "error" ? "alert" : "status"} className={`empty:hidden ${message?.tone === "error" ? "font-bold text-error" : "font-bold text-exito"}`}>
         {message?.text}
       </p>
+      {hasProjects && message?.tone === "error" ? (
+        <p>
+          <Link href="/proyectos" className="underline underline-offset-4">
+            Ir a tus proyectos
+          </Link>
+        </p>
+      ) : null}
       {designs.length === 0 ? (
         <p className="max-w-2xl rounded-2xl border-2 border-dashed border-linea px-6 py-8 text-tinta-suave">
           Todavía no tienes diseños. Crea el primero con «Nuevo diseño»: puedes partir de una plantilla.
@@ -97,6 +109,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
                         Los diseños con IA aún no se duplican.
                       </span>
                     ) : null}
+                    {d.kind === "chart" ? <KnitStartButton patternId={d.id} designTitle={d.title} studioHref={`/disenos/${d.id}`} compact /> : null}
                     <button
                       type="button"
                       onClick={() => onDuplicate(d)}

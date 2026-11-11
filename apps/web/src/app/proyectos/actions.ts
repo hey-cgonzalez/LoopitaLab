@@ -28,6 +28,7 @@ import {
   type SessionClient,
 } from "@/lib/projects/server";
 import type {
+  DeleteProjectResult,
   KnitPreviewResult,
   LoadProjectResult,
   RepinPreviewResult,
@@ -63,6 +64,22 @@ export async function setProjectStatus(form: FormData): Promise<void> {
   // RLS garantiza que solo se actualice si el proyecto es de la usuaria.
   await supabase.from("projects").update({ status }).eq("id", id);
   revalidatePath("/proyectos");
+}
+
+/**
+ * Borra un proyecto propio (T12). Irreversible: el avance se va con él (`project_progress` en cascada); la versión
+ * fijada del diseño queda (es del diseño, no del proyecto). RLS limita a los propios; el filtro por dueña es defensa
+ * en profundidad. Es lo que `HAS_PROJECTS` de los diseños pide hacer antes de borrar un diseño (ADR 0009, D1).
+ */
+export async function deleteProject(projectId: string): Promise<DeleteProjectResult> {
+  const { supabase, user } = await session();
+  if (!user) return projectFailure("UNAUTHENTICATED");
+  if (!isUuid(projectId)) return projectFailure("INVALID_REQUEST");
+  const { data, error } = await supabase.from("projects").delete().eq("id", projectId).eq("owner_id", user.id).select("id");
+  if (error) return dbFailure("borrar el proyecto", error);
+  if (!data || data.length === 0) return projectFailure("NOT_FOUND");
+  revalidatePath("/proyectos");
+  return { ok: true };
 }
 
 /*
