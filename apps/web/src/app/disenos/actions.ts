@@ -228,7 +228,21 @@ export async function duplicatePattern(id: string): Promise<DuplicateDesignResul
   return { ok: true, id: data.id, updatedAt: data.updated_at, draft: !prepared.valid };
 }
 
-/** Borra un diseño propio. Sus versiones se van con él (cascada); los proyectos conservan su título (set null). */
+/**
+ * Mensaje de "este diseño tiene proyectos". Cuenta los proyectos propios que lo tejen (RLS + filtro por dueña) para
+ * decir cuántos; si la cuenta falla, el mensaje sale sin el número. Nunca devuelve el texto de la base.
+ */
+async function hasProjectsFailure(supabase: Awaited<ReturnType<typeof createClient>>, patternId: string) {
+  const { count } = await supabase.from("projects").select("id", { count: "exact", head: true }).eq("pattern_id", patternId);
+  if (typeof count !== "number" || count < 1) return failure("HAS_PROJECTS");
+  const n = count === 1 ? "1 proyecto" : `${count} proyectos`;
+  return { ...failure("HAS_PROJECTS"), error: `Este diseño tiene ${n} con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance.` };
+}
+
+/**
+ * Borra un diseño propio. Sus versiones se van con él (cascada), salvo que un proyecto las esté tejiendo: entonces la
+ * base lo impide (23503) y se pide borrar antes los proyectos (ADR 0009, D1).
+ */
 export async function deletePattern(id: string): Promise<DeleteDesignResult> {
   const { supabase, user } = await session();
   if (!user) return failure("UNAUTHENTICATED");
@@ -237,6 +251,8 @@ export async function deletePattern(id: string): Promise<DeleteDesignResult> {
   const { data, error } = await supabase.from("patterns").delete().eq("id", id).eq("owner_id", user.id).select("id");
   if (error) {
     logDb("borrar", error);
+    // 23503: algún proyecto teje una versión de este diseño (projects.pattern_version_id, ADR 0009, D1).
+    if (error.code === "23503") return hasProjectsFailure(supabase, id);
     return failure(dbErrorCode(error));
   }
   if (!data || data.length === 0) return failure("NOT_FOUND");

@@ -17,7 +17,7 @@
  *   por dobles de prueba (`createRenderer`).
  */
 import { HIDDEN, STITCH_EXTENT, STITCH_OVERLAP, type FrameInfo, type StitchLayout, type StitchRenderer, type ViewState, type YarnLook } from "./types.ts";
-import { hexToRgb, lookKey, neutralLook, tone } from "./look.ts";
+import { fillTone, hexToRgb, lookKey, neutralLook, tone } from "./look.ts";
 import { buildGrid, dirtyRegions, instanceBounds, queryGridRects, tileClass, tilePlan, tileRect, tileRepresentative, type Rect, type SpatialGrid, type TilePlan } from "./regions.ts";
 import { fitView } from "./view.ts";
 
@@ -680,7 +680,9 @@ export function drawInstances(e: DrawEnv, ids: ArrayLike<number>, n: number): vo
     const v = Math.floor(key / SHADE_LEVELS);
     const f = (key % SHADE_LEVELS) / (SHADE_LEVELS - 1);
     const rgb = e.rgb[v] ?? [140, 140, 140];
-    ctx.fillStyle = tone(rgb, lod ? f : f * 0.6);
+    // Relleno según el aspecto (`fillTone`): con halo, el hueco y el nivel de detalle se aclaran (pelusa).
+    const ft = fillTone(e.looks[v], f, lod);
+    ctx.fillStyle = tone(rgb, ft.k, ft.toWhite);
     ctx.beginPath();
     const end = p + (counts[key] as number);
     let inPath = 0;

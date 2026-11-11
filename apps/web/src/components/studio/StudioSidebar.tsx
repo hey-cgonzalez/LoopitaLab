@@ -9,6 +9,7 @@ import { tubeSeamNotice } from "@/lib/studio/wizard.ts";
 import { measures, validateForPanel, type IssueGroups } from "@/lib/studio/measures.ts";
 import { paintGate } from "@/lib/studio/paint-gate.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
+import { YarnLengthPanel } from "./YarnLengthPanel.tsx";
 
 const T = STUDIO_TEXTS;
 const FIELD = "w-20 rounded-xl border-2 border-borde bg-superficie px-3 py-1";
@@ -217,6 +218,10 @@ export function StudioSidebar({ store, doc, design }: Props) {
 
       <Section title={T.panel.medidasSeccion} testId="section-measures">
         <MeasuresView doc={deferred} m={m} />
+      </Section>
+
+      <Section title={T.metraje.seccion} testId="section-length">
+        <YarnLengthPanel store={store} />
       </Section>
 
       <Section title={T.panel.validacionSeccion} testId="section-validation">

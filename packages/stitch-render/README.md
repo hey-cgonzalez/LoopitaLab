@@ -9,7 +9,7 @@ La vista previa es una aproximación visual (regla de oro 8): la interfaz lo dic
 | Capa | Módulo | Exporta |
 |---|---|---|
 | 1. Disposición (pura) | `layout.ts` | `layoutGeometry`, `colorize`, `hitTest`, `needsRelayout`, `layoutShape`, `layoutInstanceCount`, `visibleCount` |
-| 2. Aspecto (puro) | `look.ts` | `yarnLook`, `neutralLook`, `normalizeHex`, `FALLBACK_HEX` |
+| 2. Aspecto (puro) | `look.ts` | `yarnLook`, `lookInputKey`, `lookKey`, `fillTone`, `FIBER_LEVELS`, `neutralLook`, `normalizeHex`, `FALLBACK_HEX` |
 | Regiones (puro) | `regions.ts` | `instanceBounds`, `buildGrid`, `queryGrid`, `dirtyRegions`, `deviceBox` |
 | Vista (pura) | `view.ts` | `fitView`, `zoomAt`, `panBy`, `screenToLayout`, `layoutToScreen` |
 | 3. Backend Canvas 2D | `canvas.ts` | `createCanvasRenderer`, `createRenderer` (sobre una `Surface` cualquiera), `paintSprite`, `drawInstances` |
@@ -20,7 +20,7 @@ La vista previa es una aproximación visual (regla de oro 8): la interfaz lo dic
 ```ts
 const layout = layoutGeometry(chart, { gauge, shape, tubeRotation });
 colorize(layout, chart);
-renderer.setLooks(pattern.yarns.map((y) => yarnLook(y, FIBERS)));
+renderer.setLooks(pattern.yarns.map((y) => yarnLook(y, FIBERS, { fiberEffects: true }))); // sin la opción: "Colores planos"
 renderer.setLayout(layout);
 renderer.setView(fitView(layout.bounds, cssW, cssH));
 renderer.requestRender();
@@ -35,6 +35,17 @@ renderer.requestRender();
 ```
 
 `validatePattern` y `describeChart` corren con antirrebote o en un Worker, nunca entre la edición y el dibujo (CA-P7).
+
+## Aspecto por fibra (fase 3, T8; ADR 0008 §4)
+
+- **Activado por defecto en el estudio** (`PreviewEngine` de `apps/web`), con el interruptor de vista "Colores planos" que vuelve al aspecto neutro. Es estado de la vista, no del documento (regla de oro 1).
+- **Niveles**: los de `yarn-catalog` (`halo`, `brillo`, `definicion`), con `FIBER_LEVELS` = bajo 0, medio 0,5, alto 1, sin otra escala.
+- **Mezclas**: promedio ponderado por porcentaje, lineal. **Validar con tejedora**: la ponderación lineal de porcentajes chicos de mohair o lurex (F3-35).
+- **Fibra desconocida**: neutra, y en una mezcla aporta el neutro con su porcentaje (50 % mohair + 50 % desconocida da la mitad del halo del mohair). Antes de T8 se excluía, lo que suponía que el resto se comportaba como las fibras conocidas.
+- **Grosor**: no cambia el aspecto; el tamaño relativo del punto sale de la muestra. No hay datos para más (regla de oro 6).
+- **Claves**: `lookInputKey(yarn, opts)` (color, grosor, fibras con porcentajes y si hay efectos) decide si recalcular; `lookKey(look)` decide si redibujar. Cambiar 70/30 a 30/70 cambia las dos; cambiar solo el grosor cambia la primera y no la segunda.
+- **Dibujo**: el sprite de la V ya tenía halo (difuminado y pelitos), brillo (lomo más claro) y definición (contorno). T8 agrega `fillTone`: con halo, el hueco entre las hojas y el nivel de detalle sin V se aclaran (pelusa); con brillo, el nivel de detalle se aclara un poco. Un aspecto neutro da exactamente el relleno de la fase 2.
+- **Limitación**: con el nivel de detalle sin V (círculo de más de `ROTATED_SPRITE_BUDGET` puntos visibles, o puntos de menos de `LOD_MIN_PX`), la fibra solo se nota en ese leve cambio de tono. Al acercar aparece la V con halo y brillo.
 
 ## Decisiones de geometría
 

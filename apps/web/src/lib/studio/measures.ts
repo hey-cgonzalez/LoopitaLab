@@ -42,6 +42,14 @@ export function gaugeInUse(doc: ChartPattern): GaugeUse | null {
   return { gauge: { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm }, assumed: true, lowConfidence: s.lowConfidence };
 }
 
+/**
+ * Regla única de confianza baja del metraje (panel del estudio y pantalla previa): solo con muestra supuesta, y
+ * cuando la referencia del grosor principal es poco precisa o la lana en cuestión es de categoría 7.
+ */
+export function lengthLowConfidence(use: GaugeUse, yarnWeight: number): boolean {
+  return use.assumed && (use.lowConfidence || yarnWeight === 7);
+}
+
 export interface Measures {
   total: number;
   gauge: GaugeUse | null;

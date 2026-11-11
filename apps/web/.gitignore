@@ -6,3 +6,5 @@
 # E2E con sesión (T2 de la fase 3): sesiones de las cuentas de prueba (Supabase local) y build con la URL local
 /playwright/.auth/
 /.next-e2e-sesion/
+# Builds paralelos de agentes o pruebas (p. ej. .next-t8): nunca se versionan
+/.next*/

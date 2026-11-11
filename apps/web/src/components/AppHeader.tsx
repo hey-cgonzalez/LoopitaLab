@@ -13,12 +13,15 @@ export function AppHeader({ name, wide = false }: { name: string; wide?: boolean
         <Link href="/proyectos" className="py-1 font-display text-xl font-bold tracking-tight">
           LoopitaLab
         </Link>
-        <nav aria-label="Principal" className="order-last flex w-full gap-5 sm:order-none sm:w-auto">
+        <nav aria-label="Principal" className="order-last flex w-full flex-wrap gap-x-5 sm:order-none sm:w-auto">
           <Link href="/proyectos" className="py-1 underline-offset-4 hover:underline">
             Proyectos
           </Link>
           <Link href="/disenos" className="py-1 underline-offset-4 hover:underline">
             Mis diseños
+          </Link>
+          <Link href="/lanas" className="py-1 underline-offset-4 hover:underline">
+            Mis lanas
           </Link>
           <Link href="/cuenta" className="py-1 underline-offset-4 hover:underline">
             Cuenta

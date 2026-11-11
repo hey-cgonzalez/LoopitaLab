@@ -59,13 +59,17 @@ Todas las pruebas fallan si en la página hubo un `console.error` o una excepci�
 | `formas.spec.ts` | Círculo: la casilla sin punto de una disminución anuncia "se pierde un punto". Plano y tubo: un "sin punto" muestra el aviso de huecos y desaparece al deshacer. Las columnas se numeran desde la derecha y, con `?espejo=1`, desde la izquierda. Cambiar la forma redibuja la vista | CA-F13, E18 |
 | `avisos-a11y.spec.ts` | El aviso de prototipo se ve arriba, al medio y al final, sin botón para cerrarlo. El editor tiene rol `application` con nombre y tamaño, hay regiones vivas y todos los botones tienen nombre. Con 500 × 500 repeticiones aparece el aviso de vista demasiado grande, la interfaz sigue respondiendo y la vista vuelve al bajar | CA-F10, CA-A1 |
 | `movil.spec.ts` | 390 px: cada pestaña muestra solo su panel, sin desplazamiento horizontal (también con el editor de lana y la confirmación de quitar abiertos). Las flechas mueven entre pestañas. "Saltar al editor" vuelve a la cuadrícula desde otra pestaña | CA-A1 |
-| `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa: 50 entradas de pintar (clic y teclado) y 20 cambios de repeticiones de 5 a 10. Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7 |
+| `selector-lanas.spec.ts` | Selector de lanas del estudio: paleta, vista previa al pasar el cursor, grosor con equivalencia en inglés, composición con avisos por fibra, panel de metraje y muestra supuesta (13 pruebas) | T9, F3-23 a F3-27 |
+| `qa-grupo-c.spec.ts` | Selector de lanas entero con el teclado (pestañas, paleta con foco itinerante, Esc, un paso de deshacer por elección), táctil sin vista previa y Colores planos que sobrevive a recargar (3 pruebas) | T8, T9 |
+| `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa, con el aspecto por fibra activado: 50 entradas de pintar (clic y teclado), 20 cambios de repeticiones de 5 a 10, 50 colores al pasar el cursor (`hover-to-paint`) y 50 avances de la fila resaltada (`row-to-paint`), estos dos con el banco de medición de la vista previa (`?perf=1`). Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7, CA3-P1 a CA3-P3, CA3-P5 |
 
 ### Latencia
 
 Usa el recolector del estudio (`/dev/estudio?perf=1`, `window.__loopitaPerf`, `src/lib/studio/perf.ts`): mide desde el evento de entrada hasta el frame pintado del editor y de la vista previa (ADR 0004, "Cómo se mide"). Pintar una casilla con la lana que ya tenía no es una edición y no se mide: de las 50 entradas se miden entre 34 y 45.
 
 Los números de cada escenario salen en la consola (`[latencia] {...}`) y como adjunto `latencia-<escenario>.json` en el reporte HTML.
+
+`hover-to-paint` (fase 3, T8) empieza en el `pointerout` o `pointerover` del movimiento (React sintetiza `onPointerEnter` desde el `pointerout` del elemento anterior) o en el `focusin`; esas entradas son "débiles" (`perf.ts`): no tapan una tecla o un clic de menos de 50 ms, solo originan vistas previas y caducan a los 50 ms de vistas. `row-to-paint` empieza en el clic de "Fila siguiente" y mide solo la vista previa: el resaltado de la fila en la cuadrícula del editor llega con el modo tejiendo (T12).
 
 Medido el 2026-11-06 en un Mac (Chromium 156 completo, Playwright 1.64.1), p95 en ms. Sin limitar la CPU: dos corridas completas seguidas. Con CPU ×4: una corrida.
 
@@ -95,7 +99,7 @@ El job **"E2E (estudio)"** de `.github/workflows/ci.yml` corre en cada pull requ
 
 1. Instala con `pnpm install --frozen-lockfile`.
 2. Restaura la caché de navegadores (`~/.cache/ms-playwright`, con la versión de Playwright en la clave).
-3. Corre `playwright install --with-deps chromium`. Con la caché solo instala las dependencias del sistema.
+3. Si la caché no tenía Chromium, corre `playwright install chromium` (hasta tres intentos). No usa `--with-deps`: la imagen `ubuntu-26.04` del runner ya trae todas las bibliotecas que Chromium necesita, y ese modo corría `apt-get` contra los espejos de Ubuntu en cada corrida (una caída de esos espejos el 2026-11-11 tumbó la CI con Chromium ya en caché). Si una imagen futura dejara de traer alguna biblioteca, Playwright lo avisa al lanzar el navegador ("Host system is missing dependencies"); entonces se agrega un paso `playwright install-deps chromium`.
 4. Corre `pnpm --filter @loopitalab/web e2e` con un trabajador y un reintento.
 
 Para ver el resultado, abre el pull request y entra a **Checks > CI > E2E (estudio)**. Las fallas aparecen también como anotaciones en los archivos. Los números de latencia están en el paso "Pruebas E2E del estudio" (busca `[latencia]`).
@@ -110,7 +114,7 @@ Si el job falla, sube el artefacto `playwright-<intento>` con `playwright-report
 
 Proyecto `sesion`, archivos en `e2e/sesion/`. Corren contra la Supabase local de la CLI (Docker), con todas las migraciones de `supabase/migrations/` y la configuración de `supabase/config.toml`. Las claves son las de desarrollo que imprime `supabase status` (las mismas en cualquier equipo; solo sirven contra `127.0.0.1`). `playwright.config.ts` falla si la URL de Supabase no es local.
 
-Sin `E2E_SUPABASE=1`, las 12 pruebas del proyecto `sesion` se saltan y la consola avisa por qué. Los proyectos `escritorio`, `movil` y `latencia` no cambian y no necesitan Docker.
+Sin `E2E_SUPABASE=1`, las 20 pruebas del proyecto `sesion` se saltan y la consola avisa por qué. Los proyectos `escritorio`, `movil` y `latencia` no cambian y no necesitan Docker.
 
 ### Cómo correrlas en local
 
@@ -133,11 +137,13 @@ npx supabase@2.122.1 stop --no-backup
 
 ### Cuentas de prueba
 
-`sesion-preparar` (`preparar.setup.ts`) corre antes de las pruebas. Crea tres cuentas confirmadas con la API admin local (`auth.admin.createUser`, correo `<nombre>-<corrida>@e2e.loopitalab.test`, contraseña al azar), entra con cada una por el formulario de `/ingresar` y guarda su sesión en `apps/web/playwright/.auth/` (ignorada por git):
+`sesion-preparar` (`preparar.setup.ts`) corre antes de las pruebas. Crea cinco cuentas confirmadas con la API admin local (`auth.admin.createUser`, correo `<nombre>-<corrida>@e2e.loopitalab.test`, contraseña al azar), entra con cada una por el formulario de `/ingresar` y guarda su sesión en `apps/web/playwright/.auth/` (ignorada por git):
 
 - **ana**: diseños, autoguardado, versiones, conflicto, duplicar y borrar;
 - **bea**: aislamiento y preferencias de la cuenta;
-- **cata**: cerrar sesión. Es aparte porque cerrar sesión revoca todas las sesiones de la cuenta.
+- **cata**: cerrar sesión. Es aparte porque cerrar sesión revoca todas las sesiones de la cuenta;
+- **dani**: lanas guardadas usadas desde el estudio (`lanas-estudio.spec.ts`). Es aparte porque `lanas.spec.ts` espera que la lista de ana empiece vacía;
+- **eva**: QA del grupo C (`sesion/qa-grupo-c.spec.ts`): tope de 500 lanas, nota de más de 200 caracteres, Colores planos y autoguardado repetido.
 
 `sesion-limpiar` (`limpiar.teardown.ts`) corre al final, aunque fallen pruebas. Borra todas las cuentas `@e2e.loopitalab.test`, también las de una corrida cortada y la del registro. Sus diseños y versiones se borran en cascada.
 
@@ -150,6 +156,9 @@ npx supabase@2.122.1 stop --no-backup
 | `conflicto.spec.ts` | Dos pestañas del mismo diseño: la segunda que guarda recibe el aviso de conflicto sin escribir nada. «Sobrescribir con mi versión» deja la suya. Después, la otra pestaña choca y «Recargar la versión guardada» trae la del servidor y descarta su cambio | ADR 0006 |
 | `aislamiento.spec.ts` | bea recibe 404 al abrir el diseño de ana, y no lo ve en su lista (RLS real, no stubs) | — |
 | `cuenta.spec.ts` | «Tejer en espejo» se guarda en `profiles`, sobrevive a recargar y el estudio muestra la lectura en espejo. «Cerrar sesión» borra los respaldos `loopitalab:*:diseno:*` (de cualquier cuenta y del formato viejo) y conserva las demás claves; después, `/disenos` pide ingresar | T8 |
+| `lanas.spec.ts` | Mis lanas (ana): crear, editar y borrar una lana guardada, búsqueda de grosor por nombre y sugerencia de palillos y crochet, y aislamiento con bea | T10, ADR 0008 |
+| `lanas-estudio.spec.ts` | Usar una lana guardada desde el selector del estudio (dani): reemplazar la de un diseño, agregarla como lana nueva y la nota privada solo si se marca copiarla | T9, ADR 0008 |
+| `qa-grupo-c.spec.ts` | Tope de 500 lanas guardadas, nota de más de 200 caracteres, Colores planos fuera del documento y autoguardado repetido 5 veces (eva) | T8 a T11 |
 
 Las comprobaciones en la base usan la clave secreta local (`support.ts`, `adminClient`), que solo acepta una URL local. La guardia de `console.error` es la misma que sin sesión. La única excepción declarada es el 404 de `aislamiento.spec.ts`.
 
