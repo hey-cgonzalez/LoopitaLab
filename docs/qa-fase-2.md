@@ -10,7 +10,7 @@
 
 1. CA-P6, la medición en el equipo de referencia.
 2. Las pruebas E2E con sesión, que necesitan Supabase de pruebas.
-3. La prueba con un lector de pantalla real (parte de CA-A3).
+3. ~~La prueba con un lector de pantalla real (parte de CA-A3).~~ Hecha por la usuaria con VoiceOver y NVDA el 2026-11-09.
 4. T1b, la validación con tejedoras.
 
 Faltan también las aprobaciones finales de `experto-tejido` (T16) y `revisor-seguridad`.
@@ -153,13 +153,13 @@ Todas las rutas son relativas a `packages/`.
 |---|---|---|
 | CA-A1 | CUMPLE | E2E `teclado.spec.ts` (3 pruebas) y `movil.spec.ts:26` |
 | CA-A2 | CUMPLE (parcial automatizado) | La letra se lee a 4,5:1 o más sobre cada color de la paleta (`studio-a11y.test.ts:44`); bordes con contraste (`:47`). **No hay** una auditoría automática de contraste de toda la interfaz (axe o similar): el contraste global sale de la revisión de T11 |
-| CA-A3 | PENDIENTE (parte no-código) | E2E `avisos-a11y.spec.ts:48` (anuncio de la casilla); `studio-a11y.test.ts`; `describeChart` en `ChartEditor.tsx` y `PreviewPane.tsx`. **Falta** probarlo con un lector de pantalla real (VoiceOver o NVDA) |
+| CA-A3 | CUMPLE | E2E `avisos-a11y.spec.ts:48` (anuncio de la casilla); `studio-a11y.test.ts`; `describeChart` en `ChartEditor.tsx` y `PreviewPane.tsx`. Probado por la usuaria con VoiceOver y NVDA el 2026-11-09: funciona bien. |
 
 ### Criterios de salida de la fase 2
 
 | Criterio | Estado |
 |---|---|
-| CA-P1 a CA-P7, CA-F1 a CA-F10 y CA-A1 a CA-A3, con la evidencia en el PR | Todos cumplen salvo CA-P6 y la prueba con lector de pantalla real de CA-A3. Las capturas de las tres formas no se revisaron en este informe: van en el PR |
+| CA-P1 a CA-P7, CA-F1 a CA-F10 y CA-A1 a CA-A3, con la evidencia en el PR | Todos cumplen salvo CA-P6 (la prueba con lector de pantalla real de CA-A3 se hizo el 2026-11-09). Las capturas de las tres formas no se revisaron en este informe: van en el PR |
 | `pnpm test` y `pnpm typecheck` en verde (incluido `ai-router`), y la CI corriendo de verdad | En verde en local. No se revisaron las corridas de GitHub Actions; según el ADR 0004 y `e2e/README.md`, la CI ya corrió el 2026-11-06 |
 | T1b cerrada | **PENDIENTE** (no es código). Hay un `docs/validacion-tejedoras.md` sin commit en el árbol, de otro agente |
 | Aprueban `experto-tejido`, `qa-tester` y `revisor-seguridad` | `qa-tester`: aprueba lo que depende del código. Los otros dos: pendiente (T16 depende de T1b) |
@@ -196,7 +196,7 @@ No hay fallas en `main`.
 - **O2. Sin guardia automática de CA-P2 y CA-P4**: el trazo continuo y los fps de zoom solo se midieron a mano en T10. Una regresión no la detecta la CI.
 - **O3. El margen de latencia sigue corto**: con CPU ×4, 82,8 a 89,2 ms al cambiar repeticiones. CA-P6 en el equipo de referencia es decisivo.
 - **O4. Sin auditoría automática de contraste de toda la interfaz (CA-A2)**.
-- **O5. Fuera de `main`: falla una verificación RLS sin commit.** En el árbol de trabajo hay una migración nueva sin commit (`20261107010000_cuotas_proyectos_lanas.sql`) y 148 líneas nuevas en `10_rls_check.sql`, de otro agente. Con ellas, la verificación falla:
+- **O5. Fuera de `main`: falla una verificación RLS sin commit.** En el árbol de trabajo hay una migración nueva sin commit (`20261109024823_cuotas_proyectos_lanas.sql`) y 148 líneas nuevas en `10_rls_check.sql`, de otro agente. Con ellas, la verificación falla:
   - **Pasos**: stubs, todas las migraciones del árbol y después `10_rls_check.sql`.
   - **Esperado**: "RLS: todas las verificaciones pasaron".
   - **Obtenido**: `ERROR: insert or update on table "projects" violates foreign key constraint "projects_owner_id_fkey"`, porque la clave `22222222-…` (Bea) no está en `users`. El error sale de `10_rls_check.sql:1273`.

@@ -50,7 +50,12 @@ update public.patterns set visibility = 'public' where id = 'aaaaaaaa-0000-0000-
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '11111111-1111-1111-1111-111111111111', true);
 
-insert into public.projects (id, title, pattern_id) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Bolita para Mateo', 'aaaaaaaa-0000-0000-0000-000000000001');
+-- Desde T7 (ADR 0009) el cliente no asocia patrones: solo start_chart_project (servidor). El proyecto
+-- se crea suelto y el superusuario lo asocia (proyecto de antes de la fase 3, sin versión fijada).
+insert into public.projects (id, title) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Bolita para Mateo');
+reset role;
+update public.projects set pattern_id = 'aaaaaaaa-0000-0000-0000-000000000001' where id = 'bbbbbbbb-0000-0000-0000-000000000001';
+set local role authenticated;
 insert into public.project_progress (project_id, part_id, round_number, stitch_index) values ('bbbbbbbb-0000-0000-0000-000000000001', 'bolita', 3, 5);
 insert into public.project_notes (project_id, body) values ('bbbbbbbb-0000-0000-0000-000000000001', 'Usar relleno hipoalergénico');
 insert into public.user_yarns (weight, composition, color_hex, palette_id) values (3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE', 'crudo');
@@ -251,10 +256,15 @@ begin
     insert into public.projects (title, pattern_id) values ('copia', 'aaaaaaaa-0000-0000-0000-000000000001');
     raise exception 'FALLO: Bea no puede usar el patrón privado de Ana en un proyecto';
   exception when insufficient_privilege then null; end;
+  -- Desde T7 tampoco asocia un patrón público por la API (proyectos sobre patrones ajenos: fase 7).
+  begin
+    insert into public.projects (title, pattern_id) values ('copia', 'aaaaaaaa-0000-0000-0000-000000000002');
+    raise exception 'FALLO: el cliente no escribe pattern_id';
+  exception when insufficient_privilege then null; end;
 
-  -- Sí puede tejer un patrón público.
-  insert into public.projects (id, title, pattern_id) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Gorro de Ana', 'aaaaaaaa-0000-0000-0000-000000000002');
-  raise notice 'ok - Bea no ve ni modifica nada privado de Ana, y sí puede usar su patrón público';
+  -- Su proyecto suelto; el patrón público de Ana se lo asocia el superusuario más abajo.
+  insert into public.projects (id, title) values ('bbbbbbbb-0000-0000-0000-000000000002', 'Gorro de Ana');
+  raise notice 'ok - Bea no ve ni modifica nada privado de Ana, ni asocia patrones ajenos';
 end $$;
 
 -- Denuncias (pattern_reports): Bea denuncia el patrón público de Ana.
@@ -950,6 +960,338 @@ do $$ begin
 end $$;
 reset role;
 
+-- ================================================================ T7: tejer un diseño (ADR 0009)
+-- Eva teje sus gráficos; Fina es la otra usuaria. start_chart_project y repin_project solo las
+-- ejecuta service_role (la Server Action, con la clave secreta, después de exigir `valid`).
+-- Dentro de la transacción now() no avanza: los diseños nacen con updated_at de hace una hora (como
+-- superusuario, sin disparador) para que una edición posterior lo cambie.
+insert into auth.users (id, email) values
+  ('e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', 'eva@example.test'),
+  ('f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1', 'fina@example.test');
+insert into public.patterns (id, owner_id, title, technique, kind, schema_version, document, updated_at)
+select ('e1000000-0000-4000-8000-00000000000' || i)::uuid, 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', t, 'knit', k, 1,
+       ('{"schemaVersion":1,"title":"' || t || '","kind":"' || k || '","technique":"knit","origin":{"kind":"manual"},"yarns":[]}')::jsonb,
+       now() - interval '1 hour'
+from (values (1, 'Gorro de Eva', 'chart'), (2, 'Escrito de Eva', 'written'), (3, 'Lleno de Eva', 'chart'), (4, 'Suelto de Eva', 'chart')) v(i, t, k);
+
+do $$ begin
+  assert not exists (select 1 from information_schema.columns
+                     where table_schema = 'public' and table_name = 'projects' and column_name = 'pattern_version'),
+    'projects.pattern_version ya no existe (T1-9)';
+  assert not has_function_privilege('authenticated', 'public.start_chart_project(uuid, uuid, timestamptz, text)', 'execute'), 'start_chart_project no es para authenticated';
+  assert not has_function_privilege('anon', 'public.start_chart_project(uuid, uuid, timestamptz, text)', 'execute'), 'start_chart_project no es para anon';
+  assert has_function_privilege('service_role', 'public.start_chart_project(uuid, uuid, timestamptz, text)', 'execute'), 'start_chart_project es del servidor';
+  assert not has_function_privilege('authenticated', 'public.repin_project(uuid, uuid, timestamptz, timestamptz, integer, integer)', 'execute'), 'repin_project no es para authenticated';
+  assert has_function_privilege('service_role', 'public.repin_project(uuid, uuid, timestamptz, timestamptz, integer, integer)', 'execute'), 'repin_project es del servidor';
+  assert not has_function_privilege('service_role', 'public.pin_current_version(uuid, jsonb)', 'execute'), 'pin_current_version es interna';
+  assert not has_function_privilege('authenticated', 'public.pin_current_version(uuid, jsonb)', 'execute'), 'pin_current_version es interna';
+  raise notice 'ok - T7: pattern_version eliminada; las funciones de tejer solo las ejecuta service_role';
+end $$;
+
+-- La sesión no puede llamar a las funciones (saltaría la validación de `valid` de la Server Action).
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', true);
+do $$ begin
+  begin
+    perform public.start_chart_project('e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', 'e1000000-0000-4000-8000-000000000001',
+      (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000001'), 'x');
+    raise exception 'FALLO: authenticated no ejecuta start_chart_project';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.repin_project('e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', gen_random_uuid(), now(), null, 1, 0);
+    raise exception 'FALLO: authenticated no ejecuta repin_project';
+  exception when insufficient_privilege then null; end;
+  begin
+    perform public.pin_current_version('e1000000-0000-4000-8000-000000000001', '{}');
+    raise exception 'FALLO: authenticated no ejecuta pin_current_version';
+  exception when insufficient_privilege then null; end;
+  raise notice 'ok - T7: la sesión no llama a start_chart_project, repin_project ni pin_current_version';
+end $$;
+
+-- Empezar: carrera de updated_at, aislamiento, tipo, versión nueva y reutilizada.
+set local role service_role;
+do $$
+declare
+  eva constant uuid := 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1';
+  fina constant uuid := 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1';
+  g constant uuid := 'e1000000-0000-4000-8000-000000000001';
+  t0 timestamptz;
+  r record;
+  r2 record;
+begin
+  select updated_at into t0 from public.patterns where id = g;
+  begin
+    perform public.start_chart_project(eva, g, t0 - interval '1 microsecond', null);
+    raise exception 'FALLO: un updated_at distinto debe dar conflicto';
+  exception when sqlstate 'PT409' then null; end;
+  begin
+    perform public.start_chart_project(fina, g, t0, null);
+    raise exception 'FALLO: Fina no fija versiones del diseño de Eva';
+  exception when no_data_found then null; end;
+  begin
+    perform public.start_chart_project(eva, gen_random_uuid(), t0, null);
+    raise exception 'FALLO: un diseño inexistente es no encontrado';
+  exception when no_data_found then null; end;
+  begin
+    perform public.start_chart_project(eva, 'e1000000-0000-4000-8000-000000000002',
+      (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000002'), null);
+    raise exception 'FALLO: solo se tejen gráficos';
+  exception when invalid_parameter_value then null; end;
+  begin
+    perform public.start_chart_project(eva, g, t0, repeat('a', 121));
+    raise exception 'FALLO: título de 121 caracteres';
+  exception when check_violation then null; end;
+  assert not exists (select 1 from public.pattern_versions where pattern_id = g), 'los intentos fallidos no dejan versiones';
+  assert not exists (select 1 from public.projects where owner_id = eva), 'ni proyectos';
+
+  select * into r from public.start_chart_project(eva, g, t0, '  ');
+  assert r.version = 1 and not r.reused, 'primera vez: versión 1 nueva';
+  assert (select title from public.projects where id = r.project_id) = 'Gorro de Eva', 'título vacío: el del diseño';
+  assert (select status from public.projects where id = r.project_id) = 'in_progress', 'proyecto en curso';
+  assert (select v.version from public.projects p join public.pattern_versions v on v.id = p.pattern_version_id
+          where p.id = r.project_id and p.pattern_id = g) = 1, 'proyecto con la versión 1 fijada';
+  assert (select round_number = 1 and stitch_index = 0 and part_id is null from public.project_progress where project_id = r.project_id),
+    'puntero inicial: vuelta 1, punto 0';
+
+  select * into r2 from public.start_chart_project(eva, g, t0, 'Segundo gorro');
+  assert r2.version = 1 and r2.reused, 'mismo documento: reutiliza la versión 1';
+  assert (select count(*) from public.pattern_versions where pattern_id = g) = 1, 'no gasta cuota de versiones';
+  assert r2.project_id <> r.project_id, 'pero es otro proyecto';
+  raise notice 'ok - T7: start_chart_project exige dueña, gráfico y updated_at exacto; reutiliza la versión idéntica';
+end $$;
+
+-- Autoguardado entre validar y fijar (la carrera del problema 2): la edición cambia updated_at y el
+-- updated_at viejo, el que validó la Server Action, ya no sirve.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', true);
+update public.patterns set document = jsonb_set(document, '{yarns}', '[{"id":"A"}]') where id = 'e1000000-0000-4000-8000-000000000001';
+set local role service_role;
+do $$
+declare
+  eva constant uuid := 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1';
+  fina constant uuid := 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1';
+  g constant uuid := 'e1000000-0000-4000-8000-000000000001';
+  t1 timestamptz;
+  pid uuid;
+  pt timestamptz;
+  r record;
+begin
+  select updated_at into t1 from public.patterns where id = g;
+  assert t1 = now(), 'la edición renovó updated_at';
+  begin
+    perform public.start_chart_project(eva, g, now() - interval '1 hour', null);
+    raise exception 'FALLO: el updated_at validado antes del autoguardado debe dar conflicto';
+  exception when sqlstate 'PT409' then null; end;
+
+  -- Pasar a la versión actual: el primer proyecto (versión 1) a la versión 2, con el puntero reubicado.
+  select id into pid from public.projects where owner_id = eva and title = 'Gorro de Eva';
+  select updated_at into pt from public.project_progress where project_id = pid;
+  begin
+    perform public.repin_project(eva, pid, now() - interval '1 hour', pt, 5, 0);
+    raise exception 'FALLO: repin con updated_at viejo';
+  exception when sqlstate 'PT409' then null; end;
+  begin
+    perform public.repin_project(eva, pid, t1, pt - interval '1 minute', 5, 0);
+    raise exception 'FALLO: repin con el avance cambiado en otro dispositivo';
+  exception when sqlstate 'PT409' then null; end;
+  begin
+    perform public.repin_project(fina, pid, t1, pt, 5, 0);
+    raise exception 'FALLO: Fina no cambia la versión de un proyecto de Eva';
+  exception when no_data_found then null; end;
+  begin
+    perform public.repin_project(eva, pid, t1, pt, 100002, 0);
+    raise exception 'FALLO: el puntero respeta las cotas';
+  exception when check_violation then null; end;
+  assert (select v.version from public.projects p join public.pattern_versions v on v.id = p.pattern_version_id where p.id = pid) = 1,
+    'los intentos fallidos no cambian la versión';
+
+  select * into r from public.repin_project(eva, pid, t1, pt, 5, 0);
+  assert r.version = 2 and not r.reused, 'documento distinto: versión 2 nueva';
+  assert (select v.version from public.projects p join public.pattern_versions v on v.id = p.pattern_version_id where p.id = pid) = 2,
+    'el proyecto queda en la versión 2';
+  assert (select round_number from public.project_progress where project_id = pid) = 5, 'con el puntero reubicado';
+  assert r.progress_updated_at = (select updated_at from public.project_progress where project_id = pid), 'devuelve el updated_at del avance';
+  assert (select v.version from public.projects p join public.pattern_versions v on v.id = p.pattern_version_id
+          where p.owner_id = eva and p.title = 'Segundo gorro') = 1, 'el otro proyecto sigue en la versión 1';
+
+  select * into r from public.start_chart_project(eva, g, t1, 'Tercer gorro');
+  assert r.version = 2 and r.reused, 'empezar después reutiliza la versión 2';
+
+  -- Un proyecto suelto (sin diseño) no se puede "pasar a la versión actual".
+  insert into public.projects (owner_id, title) values (eva, 'Suelto') returning id into pid;
+  begin
+    perform public.repin_project(eva, pid, t1, null, 1, 0);
+    raise exception 'FALLO: repin sin diseño';
+  exception when invalid_parameter_value then null; end;
+  raise notice 'ok - T7: la carrera validar -> fijar da conflicto; repin_project es atómico, con avance y dueña';
+end $$;
+
+-- Topes al empezar (54000), sin dejar nada a medias.
+reset role;
+insert into public.pattern_versions (pattern_id, version, document)
+select 'e1000000-0000-4000-8000-000000000003', v, '{}'::jsonb from generate_series(1, 200) v;
+set local role service_role;
+do $$
+declare
+  eva constant uuid := 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1';
+  n integer;
+begin
+  begin
+    perform public.start_chart_project(eva, 'e1000000-0000-4000-8000-000000000003',
+      (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000003'), null);
+    raise exception 'FALLO: tope de 200 versiones por diseño';
+  exception when program_limit_exceeded then null; end;
+
+  select count(*) into n from public.projects where owner_id = eva;
+  insert into public.projects (owner_id, title) select eva, 'Relleno ' || i from generate_series(1, 1000 - n) i;
+  begin
+    perform public.start_chart_project(eva, 'e1000000-0000-4000-8000-000000000004',
+      (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000004'), null);
+    raise exception 'FALLO: tope de 1000 proyectos';
+  exception when program_limit_exceeded then null; end;
+  assert not exists (select 1 from public.pattern_versions where pattern_id = 'e1000000-0000-4000-8000-000000000004'),
+    'el tope de proyectos deshace también la versión creada (atómica)';
+  delete from public.projects where owner_id = eva and title like 'Relleno %';
+  raise notice 'ok - T7: start_chart_project respeta los topes (54000) y es atómica';
+end $$;
+
+-- La sesión de Eva: no escribe pattern_id ni pattern_version_id; escribe solo su puntero, con
+-- concurrencia optimista; no borra un diseño con proyectos; las versiones fijadas no cambian.
+set local role authenticated;
+select set_config('request.jwt.claim.sub', 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', true);
+do $$
+declare
+  pid uuid;
+  v1 uuid;
+  pt timestamptz;
+  n integer;
+begin
+  select id into pid from public.projects where title = 'Gorro de Eva';
+  select id into v1 from public.pattern_versions where pattern_id = 'e1000000-0000-4000-8000-000000000001' and version = 1;
+  begin
+    update public.projects set pattern_version_id = v1 where id = pid;
+    raise exception 'FALLO: el cliente no escribe pattern_version_id';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.projects set pattern_id = 'e1000000-0000-4000-8000-000000000004' where id = pid;
+    raise exception 'FALLO: el cliente no escribe pattern_id';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.projects (title, pattern_id, pattern_version_id) values ('a mano', 'e1000000-0000-4000-8000-000000000001', v1);
+    raise exception 'FALLO: el cliente no crea proyectos con versión fijada';
+  exception when insufficient_privilege then null; end;
+  begin
+    insert into public.projects (title, created_at) values ('a mano', now() - interval '1 year');
+    raise exception 'FALLO: INSERT limitado a id, owner_id, title y status';
+  exception when insufficient_privilege then null; end;
+  update public.projects set title = 'Gorro rojo', status = 'paused' where id = pid;
+  get diagnostics n = row_count;
+  assert n = 1, 'título y estado siguen editables';
+
+  -- Puntero con concurrencia optimista (lo que hará saveProgress).
+  select updated_at into pt from public.project_progress where project_id = pid;
+  update public.project_progress set round_number = 6, stitch_index = 12 where project_id = pid and updated_at = pt - interval '1 minute';
+  get diagnostics n = row_count;
+  assert n = 0, 'updated_at viejo: no escribe (conflicto explícito)';
+  update public.project_progress set round_number = 6, stitch_index = 12 where project_id = pid and updated_at = pt;
+  get diagnostics n = row_count;
+  assert n = 1, 'updated_at vigente: escribe';
+  begin
+    update public.project_progress set round_number = 100002 where project_id = pid;
+    raise exception 'FALLO: cota de round_number';
+  exception when check_violation then null; end;
+  begin
+    update public.project_progress set stitch_index = 100001 where project_id = pid;
+    raise exception 'FALLO: cota de stitch_index';
+  exception when check_violation then null; end;
+  begin
+    update public.project_progress set device = 'tableta' where project_id = pid;
+    raise exception 'FALLO: device no se escribe en la fase 3';
+  exception when insufficient_privilege then null; end;
+  begin
+    update public.project_progress set updated_at = now() - interval '1 day' where project_id = pid;
+    raise exception 'FALLO: updated_at lo pone la base';
+  exception when insufficient_privilege then null; end;
+
+  begin
+    update public.pattern_versions set document = '{}' where id = v1;
+    raise exception 'FALLO: la versión fijada es inmutable';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.pattern_versions where id = v1;
+    raise exception 'FALLO: la usuaria no borra versiones';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.patterns where id = 'e1000000-0000-4000-8000-000000000001';
+    raise exception 'FALLO: un diseño con proyectos no se borra';
+  exception when foreign_key_violation then null; end;
+  assert exists (select 1 from public.patterns where id = 'e1000000-0000-4000-8000-000000000001'), 'el diseño sigue';
+  -- Sin proyectos que lo tejan, sí se borra (con sus versiones).
+  delete from public.projects where pattern_id = 'e1000000-0000-4000-8000-000000000001';
+  delete from public.patterns where id = 'e1000000-0000-4000-8000-000000000001';
+  get diagnostics n = row_count;
+  assert n = 1, 'sin proyectos, el diseño se borra';
+  raise notice 'ok - T7: el cliente no fija versiones; escribe solo su puntero con updated_at; un diseño con proyectos no se borra';
+end $$;
+
+-- Fina no ve ni toca nada de Eva.
+select set_config('request.jwt.claim.sub', 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1', true);
+do $$
+declare n integer;
+begin
+  assert (select count(*) from public.projects) = 0, 'Fina no ve proyectos de Eva';
+  assert (select count(*) from public.project_progress) = 0, 'Fina no ve el avance de Eva';
+  assert (select count(*) from public.pattern_versions) = 0, 'Fina no ve versiones de Eva';
+  update public.project_progress set round_number = 1;
+  get diagnostics n = row_count;
+  assert n = 0, 'Fina no mueve el puntero de Eva';
+  begin
+    insert into public.project_progress (project_id, round_number, stitch_index)
+    select gen_random_uuid(), 1, 0;
+    raise exception 'FALLO: Fina no crea avance en proyectos que no son suyos';
+  exception when insufficient_privilege or foreign_key_violation then null; end;
+  raise notice 'ok - T7: aislamiento entre usuarias en proyectos, avance y versiones';
+end $$;
+
+-- Como servidor/superusuario: la versión fijada sigue inmutable y debe ser del patrón del proyecto.
+reset role;
+do $$
+declare
+  pid uuid;
+  vid uuid;
+  other uuid;
+begin
+  -- Eva vuelve a empezar un proyecto con el diseño 4 para las pruebas de abajo.
+  select project_id into pid from public.start_chart_project('e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1', 'e1000000-0000-4000-8000-000000000004',
+    (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000004'), null);
+  select pattern_version_id into vid from public.projects where id = pid;
+  select id into other from public.pattern_versions where pattern_id = 'e1000000-0000-4000-8000-000000000003' limit 1;
+  begin
+    update public.pattern_versions set label = 'cambiada' where id = vid;
+    raise exception 'FALLO: ni el servidor modifica una versión';
+  exception when insufficient_privilege then null; end;
+  begin
+    delete from public.pattern_versions where id = vid;
+    raise exception 'FALLO: una versión fijada no se borra';
+  exception when foreign_key_violation then null; end;
+  begin
+    update public.projects set pattern_version_id = other where id = pid;
+    raise exception 'FALLO: la versión debe ser del patrón del proyecto';
+  exception when foreign_key_violation then null; end;
+  raise notice 'ok - T7: versión fijada inmutable y del mismo patrón que el proyecto';
+end $$;
+
+-- Borrar la cuenta con proyectos y versiones fijadas funciona (NO ACTION se comprueba al final de la
+-- sentencia, cuando la cascada ya borró los proyectos).
+delete from auth.users where id = 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1';
+do $$ begin
+  assert not exists (select 1 from public.projects where owner_id = 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1'), 'sin proyectos de Eva';
+  assert not exists (select 1 from public.pattern_versions where pattern_id::text like 'e1000000-%'), 'sin versiones de Eva';
+  assert not exists (select 1 from public.patterns where owner_id = 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1'), 'sin diseños de Eva';
+  raise notice 'ok - T7: eliminar la cuenta con proyectos y versiones fijadas borra todo';
+end $$;
+delete from auth.users where id = 'f1f1f1f1-f1f1-4f1f-8f1f-f1f1f1f1f1f1';
+
 -- Eliminar la cuenta (auth.admin.deleteUser) borra todo lo de la usuaria y no rompe lo ajeno.
 -- Cata (Bea ya está en su tope de denuncias) denuncia el patrón de IA de Ana.
 insert into public.pattern_reports (pattern_id, reporter_id, reason)
@@ -1141,7 +1483,8 @@ end $$;
 -- Funciones de public ejecutables por anon o authenticated: SOLO las de la lista permitida.
 -- Una función nueva hereda EXECUTE de PUBLIC (valor global de PostgreSQL que no se revoca, ver
 -- 20261106035626_sin_truncate.sql): si su migración olvida el `revoke`, este check falla.
--- Las funciones de trigger no cuentan: no se pueden invocar por /rpc.
+-- Las funciones de trigger no cuentan aquí: no se pueden invocar por /rpc. Tienen su propia
+-- verificación, más abajo (ninguna debe ser ejecutable por anon ni authenticated).
 -- Para exponer una función nueva: grant explícito en su migración y agregarla aquí.
 do $$
 declare
@@ -1152,6 +1495,9 @@ declare
     'pattern_is_reportable(uuid)',           -- authenticated
     'pattern_is_usable(uuid)',               -- authenticated
     'snapshot_pattern(uuid,text)'            -- authenticated
+    -- start_chart_project y repin_project (T7, ADR 0009) NO están aquí a propósito: fijan una versión
+    -- para tejer, que exige `valid` (ADR 0006, E10), y solo la Server Action puede validar. Las ejecuta
+    -- service_role (ver la sección T7 y 20261111031813_tejer_disenos.sql).
   ];
   f record;
   n integer := 0;
@@ -1184,6 +1530,42 @@ do $$ begin
   raise notice 'ok - una función nueva sin revoke quedaría expuesta: la lista permitida la detecta';
 end $$;
 drop function public.__funcion_futura();
+
+-- Funciones de trigger de public: ninguna es ejecutable por anon ni authenticated (docs/seguridad.md,
+-- "Limpieza menor: EXECUTE en funciones de trigger", 20261111031138_revocar_execute_triggers.sql).
+-- No son invocables por /rpc, pero un trigger nuevo con EXECUTE vía PUBLIC sería exposición innecesaria.
+-- Los disparadores siguen funcionando sin EXECUTE: las pruebas de arriba disparan patterns_quota,
+-- patterns_guard_origin y projects_check_pattern como authenticated.
+do $$
+declare
+  f record;
+  n integer := 0;
+begin
+  for f in
+    select p.oid, replace(p.oid::regprocedure::text, 'public.', '') as firma
+    from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+    where s.nspname = 'public' and p.prorettype = 'trigger'::regtype
+  loop
+    n := n + 1;
+    if has_function_privilege('anon', f.oid, 'execute') or has_function_privilege('authenticated', f.oid, 'execute') then
+      raise exception 'FALLO: la función de trigger % es ejecutable por anon o authenticated', f.firma;
+    end if;
+  end loop;
+  assert n >= 14, 'se revisaron las funciones de trigger de public';
+  assert not has_function_privilege('anon', 'public.patterns_quota()', 'execute'), 'patterns_quota no es para anon';
+  assert not has_function_privilege('authenticated', 'public.pattern_reports_quota()', 'execute'), 'pattern_reports_quota no es para authenticated';
+  raise notice 'ok - ninguna función de trigger de public es ejecutable por anon ni authenticated';
+end $$;
+
+-- Y la prueba en negativo: una función de trigger nueva sin revoke sería detectada.
+create function public.__trigger_futura() returns trigger language plpgsql as $f$ begin return new; end; $f$;
+do $$ begin
+  -- Hereda EXECUTE de PUBLIC, así que la búsqueda de arriba la marcaría (salvo que PUBLIC ya no lo tenga).
+  assert has_function_privilege('anon', 'public.__trigger_futura()', 'execute')
+      or not has_function_privilege('public', 'public.__trigger_futura()', 'execute'), 'una función de trigger nueva sin revoke quedaría expuesta';
+  raise notice 'ok - una función de trigger nueva sin revoke quedaría expuesta: la verificación la detecta';
+end $$;
+drop function public.__trigger_futura();
 
 -- Secuencias: anon y authenticated no tienen USAGE, SELECT ni UPDATE sobre ninguna secuencia de
 -- public (hoy solo existe la de rate_events.id, identity, que escribe el servidor). Si una tabla

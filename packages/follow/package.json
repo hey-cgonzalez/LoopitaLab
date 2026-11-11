@@ -1,0 +1,14 @@
+{
+  "name": "@loopitalab/follow",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Secuenciador del modo tejiendo: deriva los pasos de un gráfico de colorwork y maneja el puntero de avance (ADR 0007). Sin dependencias de terceros.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@loopitalab/pattern-core": "workspace:*"
+  }
+}

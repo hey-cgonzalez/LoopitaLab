@@ -294,3 +294,82 @@ export function rowShapingColumns(chart: Chart, y: number): RowShapingColumns {
   }
   return out;
 }
+
+// ------------------------------------------------- Uso de lana (ADR 0008, T1-1)
+
+export interface YarnUsage {
+  /** Puntos por lana en el gráfico completo. Igual a `yarnTotals`; su suma es `stitchTotal`. */
+  stitches: number[];
+  /**
+   * Hebras flotantes por lana en el gráfico completo, en anchos de punto (no en cm ni
+   * metros: la conversión es de `yarn-catalog`). Solo suman las filas con dos o más lanas
+   * y solo para las lanas presentes en la fila:
+   * - en redondo, `N − k` (la hebra da la vuelta completa);
+   * - en ida y vuelta, `(último − primero + 1) − k`, contado en puntos tejidos (sin
+   *   `NO_STITCH`) a lo ancho de todas las repeticiones.
+   */
+  floatStitches: number[];
+}
+
+/**
+ * Puntos y hebras flotantes por lana (ADR 0008, sección 6 y enmienda T1-1; casos F3-14 a
+ * F3-20). Lee `chart.workedIn`. `yarnCount` es la cantidad de lanas del documento
+ * (`yarns.length`); los valores de celda fuera de `0 … yarnCount − 1` cuentan como punto
+ * (ocupan una posición, como en `rowStitchCount`) pero no como lana.
+ *
+ * Costo `O(celdas del motivo + height × yarnCount)`: por cada fila del motivo se calculan,
+ * en puntos tejidos de la repetición (`s` puntos), `k`, `primero` y `último` de cada lana.
+ * En la fila completa (`R = repeat.x`) la lana tiene `k × R` puntos, `N = s × R`,
+ * `primero = primero_motivo` y `último = (R − 1) × s + último_motivo`. Cada fila del
+ * motivo se repite `repeat.y` veces. Nunca arma el gráfico completo.
+ *
+ * Nunca lanza: con un gráfico dañado (lados o repeticiones que no son enteros ≥ 1) o un
+ * `yarnCount` que no es entero ≥ 0, devuelve ceros (o listas vacías).
+ */
+export function yarnUsage(chart: Chart, yarnCount: number): YarnUsage {
+  const n = Number.isSafeInteger(yarnCount) && yarnCount > 0 ? yarnCount : 0;
+  const stitches = new Array<number>(n).fill(0);
+  const floatStitches = new Array<number>(n).fill(0);
+  const { width, height, cells } = chart;
+  const rx = chart.repeat?.x;
+  const ry = chart.repeat?.y;
+  const okInt = (v: unknown): v is number => Number.isSafeInteger(v) && (v as number) >= 1;
+  if (n === 0 || !okInt(width) || !okInt(height) || !okInt(rx) || !okInt(ry) || !Array.isArray(cells)) {
+    return { stitches, floatStitches };
+  }
+  const rounds = chart.workedIn === "rounds";
+  const count = new Int32Array(n);
+  const first = new Int32Array(n);
+  const last = new Int32Array(n);
+  const present: number[] = [];
+  for (let my = 0; my < height; my++) {
+    const start = my * width;
+    let s = 0;
+    present.length = 0;
+    for (let x = 0; x < width; x++) {
+      const v = cells[start + x] ?? NO_STITCH;
+      if (v === NO_STITCH) continue;
+      if (Number.isInteger(v) && v >= 0 && v < n) {
+        if (count[v] === 0) {
+          present.push(v);
+          first[v] = s;
+        }
+        count[v] = (count[v] as number) + 1;
+        last[v] = s;
+      }
+      s++;
+    }
+    const multi = present.length >= 2;
+    const full = s * rx;
+    for (const i of present) {
+      const k = (count[i] as number) * rx;
+      stitches[i] = (stitches[i] as number) + k * ry;
+      if (multi) {
+        const span = rounds ? full : (rx - 1) * s + (last[i] as number) - (first[i] as number) + 1;
+        floatStitches[i] = (floatStitches[i] as number) + (span - k) * ry;
+      }
+      count[i] = 0;
+    }
+  }
+  return { stitches, floatStitches };
+}

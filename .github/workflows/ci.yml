@@ -30,17 +30,21 @@ jobs:
       - name: Pruebas de ai-router
         working-directory: packages/ai-router
         run: node --test "test/**/*.test.ts"
-      # stitch-render y pattern-render importan pattern-core (y yarn-catalog) por nombre de
+      # stitch-render, pattern-render y follow importan pattern-core (y yarn-catalog) por nombre de
       # paquete: hace falta enlazar el workspace. El filtro instala solo ese paquete y sus dependencias
       # dentro del monorepo (sin dependencias de terceros, ADR 0002).
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - name: Enlaces del workspace para stitch-render y pattern-render
-        run: pnpm install --frozen-lockfile --filter "@loopitalab/stitch-render..." --filter "@loopitalab/pattern-render..."
+      - name: Enlaces del workspace para stitch-render, pattern-render y follow
+        run: pnpm install --frozen-lockfile --filter "@loopitalab/stitch-render..." --filter "@loopitalab/pattern-render..." --filter "@loopitalab/follow..."
       - name: Pruebas de stitch-render (incluye la guardia de rendimiento CA-P5)
         working-directory: packages/stitch-render
         run: node --test "test/**/*.test.ts"
       - name: Pruebas de pattern-render
         working-directory: packages/pattern-render
+        run: node --test "test/**/*.test.ts"
+      # follow (secuenciador del modo tejiendo) importa pattern-core por nombre de paquete.
+      - name: Pruebas de follow
+        working-directory: packages/follow
         run: node --test "test/**/*.test.ts"
 
   base-de-datos:
@@ -144,3 +148,79 @@ jobs:
             apps/web/test-results/
           retention-days: 14
           if-no-files-found: ignore
+
+  e2e-sesion:
+    name: E2E con sesión (Supabase local)
+    runs-on: ubuntu-latest
+    # Medido en local (Mac): ~4 min con las imágenes ya descargadas. En GitHub se estima 10 a 14 min: descargar las
+    # imágenes de Supabase (~2 a 4 min), supabase start (~1 min), install, Chromium, next build (~2 min) y las pruebas.
+    timeout-minutes: 30
+    permissions:
+      contents: read
+    env:
+      NEXT_TELEMETRY_DISABLED: "1"
+      E2E_SUPABASE: "1"
+      # Ajustes de Auth SOLO para esta Supabase local (la CLI lee SUPABASE_<SECCIÓN>_<CLAVE> por encima de
+      # config.toml): sitio y vuelta de los correos en el puerto de las E2E, y Google apagado (no hay cliente OAuth
+      # de prueba). config.toml no cambia: es la configuración del proyecto real.
+      SUPABASE_AUTH_SITE_URL: http://localhost:3200
+      SUPABASE_AUTH_ADDITIONAL_REDIRECT_URLS: http://localhost:3200/auth/callback
+      SUPABASE_AUTH_EXTERNAL_GOOGLE_ENABLED: "false"
+      SUPABASE_CLI: supabase
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - uses: supabase/setup-cli@689adcfb80d947100a1eab127289b97d1fb07b13 # v3.2.0
+        with:
+          # La misma versión fija que playwright.config.ts (SUPABASE_CLI_VERSION) y e2e/README.md.
+          version: 2.122.1
+      - name: Supabase local (todas las migraciones de supabase/migrations)
+        # Solo los servicios que usan las pruebas: base, Auth, API (PostgREST), Storage, Kong y el correo (Mailpit).
+        run: supabase start -x studio,imgproxy,edge-runtime,logflare,vector,postgres-meta,supavisor,realtime
+      - name: URL y claves de desarrollo de la Supabase local
+        # Son las claves por defecto de la CLI (públicas, solo valen contra 127.0.0.1). Nunca las del proyecto real.
+        run: |
+          supabase status -o json 2>/dev/null > "$RUNNER_TEMP/supabase.json"
+          {
+            echo "E2E_SUPABASE_URL=$(jq -r .API_URL "$RUNNER_TEMP/supabase.json")"
+            echo "E2E_SUPABASE_PUBLISHABLE_KEY=$(jq -r .PUBLISHABLE_KEY "$RUNNER_TEMP/supabase.json")"
+            echo "E2E_SUPABASE_SECRET_KEY=$(jq -r .SECRET_KEY "$RUNNER_TEMP/supabase.json")"
+            echo "E2E_MAILPIT_URL=$(jq -r '.MAILPIT_URL // .INBUCKET_URL' "$RUNNER_TEMP/supabase.json")"
+            echo "E2E_DB_URL=$(jq -r .DB_URL "$RUNNER_TEMP/supabase.json")"
+          } >> "$GITHUB_ENV"
+      - name: Verificar aislamiento entre usuarias (RLS sobre la Supabase local, sin stubs)
+        run: psql "$E2E_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/checks/10_rls_check.sql
+      - name: Versión de Playwright
+        id: playwright
+        working-directory: apps/web
+        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> "$GITHUB_OUTPUT"
+      - name: Caché de los navegadores de Playwright
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+      - name: Chromium y sus dependencias del sistema
+        working-directory: apps/web
+        run: pnpm exec playwright install --with-deps chromium
+      - name: Pruebas E2E con sesión
+        # playwright.config.ts levanta next build + next start en localhost:3200 apuntando a la Supabase local; el proyecto
+        # sesion-preparar crea las cuentas y sesion-limpiar las borra.
+        run: pnpm --filter @loopitalab/web e2e --project=sesion
+      - name: Reporte y trazas de Playwright
+        if: failure()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: playwright-sesion-${{ github.run_attempt }}
+          path: |
+            apps/web/playwright-report/
+            apps/web/test-results/
+          retention-days: 14
+          if-no-files-found: ignore
+      - name: Detener Supabase local
+        if: always()
+        run: supabase stop --no-backup

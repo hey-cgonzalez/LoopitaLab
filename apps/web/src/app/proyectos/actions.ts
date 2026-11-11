@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
+import { projectErrorMessage } from "@/lib/project-messages";
 
 export interface ProjectFormState {
   error?: string;
@@ -14,7 +15,7 @@ export async function createProject(_prev: ProjectFormState, form: FormData): Pr
 
   const supabase = await createClient();
   const { error } = await supabase.from("projects").insert({ title });
-  if (error) return { error: "No pudimos crear el proyecto. Revisa tu conexión e intenta de nuevo." };
+  if (error) return { error: projectErrorMessage(error, "project") };
   revalidatePath("/proyectos");
   return {};
 }

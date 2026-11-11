@@ -1,8 +1,8 @@
 # Pruebas E2E del estudio (Playwright)
 
-Tarea T13 de la fase 2. Las pruebas corren contra **`/dev/estudio`**, la página interna del estudio con un documento sintético: sin sesión, sin guardado y sin Supabase (`src/lib/dev-pages.ts`). En producción esa página responde 404, salvo que el servidor se levante con `LOOPITA_DEV_PAGES=1`. Si además el entorno es el de producción (`LOOPITA_ENV=production` o `VERCEL_ENV=production`), `assertDevPagesSafe` hace fallar el build y el arranque.
+Tarea T13 de la fase 2 (sin sesión) y T2 de la fase 3 (con sesión, ver [Con sesión](#con-sesión-supabase-local)). Las pruebas sin sesión corren contra **`/dev/estudio`**, la página interna del estudio con un documento sintético: sin sesión, sin guardado y sin Supabase (`src/lib/dev-pages.ts`). En producción esa página responde 404, salvo que el servidor se levante con `LOOPITA_DEV_PAGES=1`. Si además el entorno es el de producción (`LOOPITA_ENV=production` o `VERCEL_ENV=production`), `assertDevPagesSafe` hace fallar el build y el arranque.
 
-**Pendiente:** E2E con sesión (crear, autoguardar y reabrir un diseño, conflicto entre pestañas). Necesita un proyecto Supabase de pruebas o Supabase local con Docker. Nunca se usa el proyecto real ni datos de producción.
+Las pruebas con sesión (proyecto `sesion`) corren contra una **Supabase local** con Docker. Nunca se usa el proyecto real ni datos de producción.
 
 ## Cómo correrlas en local
 
@@ -105,6 +105,59 @@ Si el job falla, sube el artefacto `playwright-<intento>` con `playwright-report
 1. Descárgalo desde la página del run (sección **Artifacts**) y descomprímelo.
 2. Abre el reporte con `pnpm --filter @loopitalab/web exec playwright show-report <carpeta>/playwright-report`.
 3. Abre una traza con `pnpm --filter @loopitalab/web exec playwright show-trace <carpeta>/test-results/<prueba>/trace.zip`. También se puede arrastrar a https://trace.playwright.dev (se abre en el navegador; no se sube a ningún servidor).
+
+## Con sesión (Supabase local)
+
+Proyecto `sesion`, archivos en `e2e/sesion/`. Corren contra la Supabase local de la CLI (Docker), con todas las migraciones de `supabase/migrations/` y la configuración de `supabase/config.toml`. Las claves son las de desarrollo que imprime `supabase status` (las mismas en cualquier equipo; solo sirven contra `127.0.0.1`). `playwright.config.ts` falla si la URL de Supabase no es local.
+
+Sin `E2E_SUPABASE=1`, las 12 pruebas del proyecto `sesion` se saltan y la consola avisa por qué. Los proyectos `escritorio`, `movil` y `latencia` no cambian y no necesitan Docker.
+
+### Cómo correrlas en local
+
+Requisitos: Docker Desktop abierto y Node 24 (`nvm use`). Desde la raíz del repositorio:
+
+```
+export SUPABASE_AUTH_SITE_URL=http://localhost:3200 SUPABASE_AUTH_ADDITIONAL_REDIRECT_URLS=http://localhost:3200/auth/callback SUPABASE_AUTH_EXTERNAL_GOOGLE_ENABLED=false
+npx supabase@2.122.1 start -x studio,imgproxy,edge-runtime,logflare,vector,postgres-meta,supavisor,realtime
+E2E_SUPABASE=1 pnpm --filter @loopitalab/web e2e --project=sesion
+npx supabase@2.122.1 stop --no-backup
+```
+
+- La primera vez, `supabase start` descarga las imágenes (unos minutos). Después tarda menos de un minuto.
+- Las tres variables de `export` ajustan Auth **solo en esta Supabase local**: la CLI lee `SUPABASE_<SECCIÓN>_<CLAVE>` por encima de `config.toml`. Fijan el sitio y la vuelta de los correos en el puerto de las pruebas y apagan Google (no hay cliente OAuth de prueba). `config.toml` no se toca: es también la configuración del proyecto real. Sin ellas, `supabase start` igual funciona, pero el registro y el cierre de sesión fallan.
+- `playwright.config.ts` le pide la URL y las claves a `npx supabase@2.122.1 status`. También se pueden pasar con `E2E_SUPABASE_URL`, `E2E_SUPABASE_PUBLISHABLE_KEY`, `E2E_SUPABASE_SECRET_KEY` y `E2E_MAILPIT_URL` (así lo hace la CI), o cambiar el comando de la CLI con `SUPABASE_CLI` (por ejemplo `SUPABASE_CLI=supabase`).
+- El servidor de pruebas es `next build` + `next start` en `http://localhost:3200`. Construye en `.next-e2e-sesion/` (`LOOPITA_NEXT_DIST_DIR`), así no pisa el `.next` de `pnpm build` ni el de las E2E sin sesión. Recibe solo la URL y las claves locales: `NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321`, la clave publicable local y `SUPABASE_SECRET_KEY` con la clave secreta local (solo este servidor, que la necesita para `/cuenta`). Reemplazan a las de `.env.local`. Nunca reutiliza un servidor que ya esté en el puerto. `E2E_SKIP_BUILD=1` sirve aquí igual que sin sesión.
+- Es `localhost` y no `127.0.0.1` porque Next normaliza `127.0.0.1` a `localhost` en `request.nextUrl`: las redirecciones de `/auth/callback` y `/auth/salir` llevarían a otro origen, sin las cookies ni el `localStorage` de la prueba.
+- El check de RLS también corre contra esta base: `psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/checks/10_rls_check.sql`. Sin `psql` instalado: `docker exec -i supabase_db_loopitalab psql -U postgres -v ON_ERROR_STOP=1 -f - < supabase/checks/10_rls_check.sql`.
+- Studio y el visor del correo local: Mailpit queda en http://127.0.0.1:54324. Studio no se levanta con el `-x` de arriba (quítalo de la lista si lo quieres).
+
+### Cuentas de prueba
+
+`sesion-preparar` (`preparar.setup.ts`) corre antes de las pruebas. Crea tres cuentas confirmadas con la API admin local (`auth.admin.createUser`, correo `<nombre>-<corrida>@e2e.loopitalab.test`, contraseña al azar), entra con cada una por el formulario de `/ingresar` y guarda su sesión en `apps/web/playwright/.auth/` (ignorada por git):
+
+- **ana**: diseños, autoguardado, versiones, conflicto, duplicar y borrar;
+- **bea**: aislamiento y preferencias de la cuenta;
+- **cata**: cerrar sesión. Es aparte porque cerrar sesión revoca todas las sesiones de la cuenta.
+
+`sesion-limpiar` (`limpiar.teardown.ts`) corre al final, aunque fallen pruebas. Borra todas las cuentas `@e2e.loopitalab.test`, también las de una corrida cortada y la del registro. Sus diseños y versiones se borran en cascada.
+
+### Qué cubren
+
+| Archivo | Pruebas | Criterios |
+|---|---|---|
+| `acceso.spec.ts` | Registro con correo: el correo de confirmación llega a Mailpit (confirmación real, `enable_confirmations = true`) y su enlace abre la sesión por `/auth/callback` (PKCE). Ingreso: `/disenos` sin sesión lleva a `/ingresar?next=/disenos` y vuelve ahí al entrar | — |
+| `disenos.spec.ts` | Crear desde la plantilla «Banda en tubo» en `/disenos/nuevo` abre el estudio. Pintar una casilla envía el autoguardado en ≤ 2 s, la base tiene el cambio y recargar lo conserva. «Guardar versión» crea exactamente una versión (contada en `pattern_versions`), con el cambio recién hecho; crear y autoguardar no crean ninguna. Una vuelta entera «sin punto» se guarda como borrador. Duplicar («Copia de …», mismo dibujo) y borrar con confirmación en `/disenos` | CA-F6, CA-F8, E10 |
+| `conflicto.spec.ts` | Dos pestañas del mismo diseño: la segunda que guarda recibe el aviso de conflicto sin escribir nada. «Sobrescribir con mi versión» deja la suya. Después, la otra pestaña choca y «Recargar la versión guardada» trae la del servidor y descarta su cambio | ADR 0006 |
+| `aislamiento.spec.ts` | bea recibe 404 al abrir el diseño de ana, y no lo ve en su lista (RLS real, no stubs) | — |
+| `cuenta.spec.ts` | «Tejer en espejo» se guarda en `profiles`, sobrevive a recargar y el estudio muestra la lectura en espejo. «Cerrar sesión» borra los respaldos `loopitalab:*:diseno:*` (de cualquier cuenta y del formato viejo) y conserva las demás claves; después, `/disenos` pide ingresar | T8 |
+
+Las comprobaciones en la base usan la clave secreta local (`support.ts`, `adminClient`), que solo acepta una URL local. La guardia de `console.error` es la misma que sin sesión. La única excepción declarada es el 404 de `aislamiento.spec.ts`.
+
+### En GitHub
+
+El job **"E2E con sesión (Supabase local)"** de `.github/workflows/ci.yml`: instala, instala la CLI con `supabase/setup-cli` (fijada por SHA, CLI 2.122.1), corre `supabase start` con las mismas variables de Auth, exporta la URL y las claves locales desde `supabase status -o json` y corre `10_rls_check.sql` contra la base local. Después instala Chromium, corre `pnpm --filter @loopitalab/web e2e --project=sesion` (un trabajador, un reintento), sube `playwright-sesion-<intento>` si falla y siempre termina con `supabase stop`. Duración estimada: 10 a 14 minutos (la mayor parte, descargar las imágenes de Supabase y `next build`).
+
+**Por qué CLI 2.122.1 y no 3.0.0.** La 3.0.0 es una versión mayor publicada el 2026-11-02. La 2.122.1, publicada ese mismo día, es el último parche de la línea 2, que es la que se probó con este `config.toml`. Para actualizar, cambia la versión en `playwright.config.ts` (`SUPABASE_CLI_VERSION`), en `ci.yml` y en este README.
 
 ## Por qué se agrega la dependencia
 
