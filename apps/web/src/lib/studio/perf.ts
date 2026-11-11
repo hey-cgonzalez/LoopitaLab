@@ -17,12 +17,19 @@ import { fpsFromFrames, summarize, type Summary } from "../render-bench.ts";
  * Puro: el reloj, el `requestAnimationFrame`, la tarea siguiente y `performance.measure` se inyectan (Vitest).
  */
 
-export type EditKind = "paint" | "stroke" | "repeats" | "relayout" | "looks";
+/**
+ * `hover`: vista previa de una lana al pasar el cursor o el foco (`hover-to-paint`, ADR 0008 §3, CA3-P1).
+ * `row`: avance de la fila resaltada del modo tejiendo (`row-to-paint`, CA3-P3). Los dos no tocan el documento.
+ */
+export type EditKind = "paint" | "stroke" | "repeats" | "relayout" | "looks" | "hover" | "row";
 
 /** Lo que la vista previa sabe del cambio que acaba de encolar. */
 export interface PreviewChange {
-  /** `cells`: solo casillas; `repeats`: cambiaron las repeticiones; `relayout`: otra geometría; `looks`: solo lanas. */
-  change: "cells" | "repeats" | "relayout" | "looks";
+  /**
+   * `cells`: solo casillas; `repeats`: cambiaron las repeticiones; `relayout`: otra geometría; `looks`: solo lanas
+   * (o "Colores planos"); `hover`: vista previa de una lana (`previewYarn`); `row`: fila resaltada.
+   */
+  change: "cells" | "repeats" | "relayout" | "looks" | "hover" | "row";
   /** ¿Cambió algo que el editor dibuja (casillas, lanas, tamaño)? Si no, no se espera al editor. */
   editor: boolean;
 }
@@ -95,13 +102,32 @@ export interface PerfSummary {
 
 /** Una entrada vale como origen de una edición hasta este tiempo. */
 export const INPUT_TTL_MS = 1000;
+/**
+ * Entradas "débiles" (`pointerout`, `pointerover`, `focusin`), las de pasar el cursor o el foco (`hover-to-paint`):
+ *
+ * - Las puede provocar otra entrada (mover el foco con una flecha, un clic que enfoca). No reemplazan una entrada
+ *   fuerte sin usar de hace menos de `WEAK_INPUT_SHADOW_MS`: la medición empieza en la tecla o el clic que originó el
+ *   cambio, no después de su manejador (no se subestima la latencia).
+ * - React sintetiza `onPointerEnter` desde el `pointerout` del elemento anterior, antes del `pointerover`: por eso
+ *   `pointerout` también cuenta (tiene la misma marca de tiempo del movimiento).
+ * - Llegan a montones (cada movimiento entre elementos). Valen solo para un cambio encolado dentro de
+ *   `WEAK_INPUT_TTL_MS` desde que el recolector las vio (en el mismo despacho del evento): una entrada débil vieja no
+ *   se atribuye a un cambio que no provocó.
+ */
+export const WEAK_INPUT_SHADOW_MS = 50;
+export const WEAK_INPUT_TTL_MS = 50;
+const WEAK_INPUTS: ReadonlySet<string> = new Set(["pointerout", "pointerover", "focusin"]);
+/** Nombre de la medida de `performance.measure` por tipo: `hover-to-paint` y `row-to-paint` tienen nombre propio. */
+export function measureName(kind: EditKind): string {
+  return kind === "hover" ? "loopita:hover-to-paint" : kind === "row" ? "loopita:row-to-paint" : `loopita:edit-to-paint:${kind}`;
+}
 /** Una edición abierta que no se pinta en este tiempo se descarta y se cuenta. */
 export const EDIT_TIMEOUT_MS = 2000;
 const MAX_SAMPLES = 5000;
 
 export class PerfRecorder {
   readonly #d: PerfDeps;
-  #input: { type: string; ts: number; used: boolean } | null = null;
+  #input: { type: string; ts: number; used: boolean; seenAt: number } | null = null;
   #open: OpenEdit[] = [];
   #samples: EditSample[] = [];
   #spans: Span[] = [];
@@ -118,7 +144,11 @@ export class PerfRecorder {
 
   /** Evento de entrada (puntero apretado, tecla, campo). `ts` es `event.timeStamp`, en el reloj de `now()`. */
   input(type: string, ts: number): void {
-    this.#input = { type, ts, used: false };
+    const cur = this.#input;
+    if (WEAK_INPUTS.has(type) && cur && !cur.used && !WEAK_INPUTS.has(cur.type) && ts >= cur.ts && ts - cur.ts < WEAK_INPUT_SHADOW_MS) return;
+    // Un `pointerover` justo después del `pointerout` que ya abrió la medición (mismo movimiento) no abre otra.
+    if (WEAK_INPUTS.has(type) && cur && cur.used && WEAK_INPUTS.has(cur.type) && cur.ts === ts) return;
+    this.#input = { type, ts, used: false, seenAt: this.#d.now() };
   }
 
   /**
@@ -130,6 +160,8 @@ export class PerfRecorder {
     this.#expire(now);
     const inp = this.#input;
     if (!inp || inp.used || now - inp.ts > INPUT_TTL_MS || now < inp.ts) return;
+    // Una entrada débil solo origina vistas previas (`hover`), y solo si es reciente.
+    if (WEAK_INPUTS.has(inp.type) && (c.change !== "hover" || now - inp.seenAt > WEAK_INPUT_TTL_MS)) return;
     inp.used = true;
     const kind: EditKind = c.change === "cells" ? (inp.type === "pointermove" ? "stroke" : "paint") : c.change;
     this.#open.push({ kind, t0: inp.ts, queuedAt: now, needEditor: c.editor, editorAt: null, previewAt: null, closing: false });
@@ -249,7 +281,7 @@ export class PerfRecorder {
         const s: EditSample = { kind: e.kind, t0: e.t0, queuedAt: e.queuedAt, end, ms: end - e.t0, editorMs: e.editorAt === null ? null : e.editorAt - e.t0, previewMs: (e.previewAt as number) - e.t0 };
         this.#samples.push(s);
         if (this.#samples.length > MAX_SAMPLES) this.#samples.shift();
-        this.#d.measure?.(`loopita:edit-to-paint:${e.kind}`, e.t0, end);
+        this.#d.measure?.(measureName(e.kind), e.t0, end);
       }
     };
     // Desde dentro del frame, tanto la tarea siguiente como el próximo `requestAnimationFrame` corren después de que

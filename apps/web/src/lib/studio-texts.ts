@@ -406,6 +406,11 @@ export const STUDIO_TEXTS = {
     moverConDedoAyuda: "Apagado, el dedo desplaza la página. Encendido, arrastrar mueve la vista previa.",
     descripcionCarga: "Descripción del diseño",
     limitacionesAbrir: "Lo que la vista no muestra",
+    /** Interruptor de vista (ADR 0008 §4): no cambia el diseño. */
+    coloresPlanos: "Colores planos",
+    coloresPlanosAyuda: "Muestra cada lana solo con su color, sin el halo ni el brillo de la fibra. No cambia el diseño.",
+    /** Regla de oro 8: el aspecto por fibra también es una aproximación. */
+    aspectoFibra: "El halo y el brillo según la fibra son una aproximación visual.",
   },
 
   /** Pestañas en tableta y móvil. */

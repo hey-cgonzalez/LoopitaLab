@@ -450,7 +450,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
           {compact ? yarnPanel : null}
         </div>
         <div id="panel-preview" {...panelA11y("preview")} className={`${show("preview")} relative min-h-0 flex-col overflow-y-auto overscroll-contain`} data-column="preview">
-          <PreviewPane store={store} />
+          <PreviewPane store={store} devBench={perf} />
         </div>
       </div>
 

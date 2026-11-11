@@ -20,7 +20,11 @@ declare global {
   }
 }
 
-const INPUTS = ["pointerdown", "pointermove", "keydown", "input", "change"] as const;
+/**
+ * `pointerout`, `pointerover` y `focusin` abren la medición `hover-to-paint` (pasar el cursor o el foco por un color,
+ * ADR 0008 §3). Son entradas débiles (`perf.ts`): no tapan la tecla o el clic que las provocó y caducan enseguida.
+ */
+const INPUTS = ["pointerdown", "pointermove", "keydown", "input", "change", "pointerout", "pointerover", "focusin"] as const;
 
 export function installPerfProbe(): () => void {
   const channel = new MessageChannel();

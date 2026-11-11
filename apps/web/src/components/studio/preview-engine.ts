@@ -1,13 +1,16 @@
-import { type ChartPattern, type Gauge } from "@loopitalab/pattern-core";
+import { type ChartPattern, type Gauge, type Yarn } from "@loopitalab/pattern-core";
 import { FIBERS } from "@loopitalab/yarn-catalog";
 import {
   colorize,
   createCanvasRenderer,
   fitView,
   layoutGeometry,
+  lookInputKey,
+  lookKey,
   needsRelayout,
   yarnLook,
   type RendererOptions,
+  type YarnLook,
   type StitchLayout,
   type StitchRenderer,
 } from "@loopitalab/stitch-render";
@@ -16,6 +19,7 @@ import { paintGate } from "@/lib/studio/paint-gate.ts";
 import { activePerf, type PreviewChange } from "@/lib/studio/perf.ts";
 import { diffCharts, isRingDistorted, planPreview, type PreviewPlan } from "@/lib/studio/preview-plan.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { PreviewTarget, YarnCandidate } from "./preview-controls.ts";
 
 /*
  * PUNTO DE INTEGRACIÓN con `render-puntos` (T10).
@@ -36,6 +40,15 @@ import type { DocumentStore } from "@/lib/studio/store.ts";
  * el dibujo se agrupa con `requestRender`, así varias pinceladas dentro de un mismo frame se pintan una vez.
  * Instrumentación `edit-to-paint` (solo con el recolector activo, `?perf=1`): `previewQueued` al encolar un cambio y
  * `previewFrameEnd` al terminar cada frame del renderer (opción `schedule`, contrato de `RendererOptions`).
+ *
+ * Fase 3 (T8, ADR 0008 §3 y §4):
+ * - Aspecto por fibra activado por defecto (`yarnLook(..., { fiberEffects: true })`); "Colores planos" lo apaga
+ *   (`setFlatColors`, preferencia de vista, no del documento).
+ * - El aspecto se recalcula si cambia `lookInputKey` (color, grosor, fibras y porcentajes) y solo se vuelve a dibujar
+ *   si cambia el aspecto resultante (`lookKey`): cambiar 70/30 a 30/70 lana/mohair se ve; cambiar el grosor, no.
+ * - `previewYarn(i, candidato)`: vista previa al pasar el cursor (`setPreviewOverride`), sin tocar el documento, con
+ *   instrumentación `hover-to-paint`.
+ * - `setHighlightRow(fila)`: fila resaltada del modo tejiendo, con instrumentación `row-to-paint` (CA3-P3).
  */
 
 export type EngineStatus =
@@ -46,12 +59,20 @@ export type EngineStatus =
 const BACKGROUND = "#EFE9DF";
 const FIT_MARGIN = 12;
 
-export class PreviewEngine {
+export class PreviewEngine implements PreviewTarget {
   #renderer: StitchRenderer | null = null;
   #layout: StitchLayout | null = null;
   #doc: ChartPattern | null = null;
   #gauge: Gauge | null = null;
+  /** Clave de entrada de los aspectos (`lookInputKey` de cada lana) y claves de los aspectos dibujados. */
   #yarnsKey = "";
+  #lookKeys: string[] = [];
+  /** "Colores planos": aspecto neutro (sin halo, brillo ni definición por fibra). */
+  #flat = false;
+  /** Vista previa al pasar el cursor, y la clave del aspecto que se le pasó al renderer (`""` = ninguno). */
+  #preview: { index: number; candidate: YarnCandidate } | null = null;
+  #previewKey = "";
+  #highlightRow: number | null = null;
   #cssW = 0;
   #cssH = 0;
   #tubeRotation = 0;
@@ -92,7 +113,9 @@ export class PreviewEngine {
         }),
     });
     if (this.#cssW > 0) this.#renderer.resize(this.#cssW, this.#cssH, window.devicePixelRatio || 1);
+    this.#previewKey = "";
     this.#applyLooks(true);
+    if (this.#highlightRow !== null) this.#renderer.setHighlightRow(this.#highlightRow);
     if (this.#doc && this.#gauge) {
       const d = this.#doc;
       const g = this.#gauge;
@@ -168,14 +191,97 @@ export class PreviewEngine {
     if (this.#doc && this.#gauge && this.#doc.chart.renderAs !== "flat" && this.#doc.chart.renderAs !== "circle") this.#requestRelayout(false);
   }
 
-  /** Devuelve true si cambió el aspecto de alguna lana. */
+  /** "Colores planos" activo. */
+  get flatColors(): boolean {
+    return this.#flat;
+  }
+
+  /** "Colores planos" (ADR 0008 §4): preferencia de la vista; el documento no cambia. */
+  setFlatColors(flat: boolean): void {
+    if (flat === this.#flat) return;
+    this.#flat = flat;
+    if (!this.#doc || !this.#renderer) return;
+    try {
+      const changed = this.#applyLooks();
+      const previewChanged = this.#applyPreview();
+      if (changed || previewChanged) this.#queued({ change: "looks", editor: false });
+      this.#renderer.requestRender();
+    } catch (e) {
+      this.#fail(e);
+    }
+  }
+
+  #lookOf(y: Pick<Yarn, "color" | "composition"> & Partial<Pick<Yarn, "weight">>): YarnLook {
+    return yarnLook(y, FIBERS, { fiberEffects: !this.#flat });
+  }
+
+  /**
+   * Vista previa de la lana `index` con otro aspecto, sin tocar el documento (ADR 0008 §3). `null` la quita.
+   * No pasa por el almacén ni por el historial: no dispara autoguardado ni validación (CA3-P4).
+   */
+  previewYarn(index: number, candidate: YarnCandidate | null): void {
+    this.#preview = candidate && Number.isInteger(index) && index >= 0 ? { index, candidate } : null;
+    if (!this.#doc || !this.#renderer) return;
+    try {
+      if (this.#applyPreview()) {
+        this.#queued({ change: "hover", editor: false });
+        this.#renderer.requestRender();
+      }
+    } catch (e) {
+      this.#fail(e);
+    }
+  }
+
+  /** Fila resaltada (modo tejiendo), en filas del gráfico completo; `null` la quita. */
+  setHighlightRow(row: number | null): void {
+    const r = row !== null && Number.isInteger(row) && row >= 0 ? row : null;
+    if (r === this.#highlightRow) return;
+    this.#highlightRow = r;
+    if (!this.#renderer) return;
+    this.#renderer.setHighlightRow(r);
+    this.#queued({ change: "row", editor: false });
+    this.#renderer.requestRender();
+  }
+
+  get highlightRow(): number | null {
+    return this.#highlightRow;
+  }
+
+  /** Pasa la vista previa al renderer si cambió su aspecto. Devuelve true si cambió lo que se ve. */
+  #applyPreview(): boolean {
+    const r = this.#renderer;
+    const doc = this.#doc;
+    if (!r || !doc) return false;
+    const p = this.#preview;
+    const base = p ? doc.yarns[p.index] : undefined;
+    if (!p || !base) {
+      if (this.#previewKey === "") return false;
+      this.#previewKey = "";
+      r.setPreviewOverride(null);
+      return true;
+    }
+    const look = this.#lookOf({ ...base, color: p.candidate.color, composition: p.candidate.composition ?? base.composition });
+    const key = `${p.index}|${lookKey(look)}`;
+    if (key === this.#previewKey) return false;
+    this.#previewKey = key;
+    r.setPreviewOverride({ yarn: p.index, look });
+    return true;
+  }
+
+  /** Devuelve true si cambió el aspecto de alguna lana (o la vista previa al pasar el cursor, que depende de ellas). */
   #applyLooks(force = false): boolean {
     if (!this.#doc || !this.#renderer) return false;
-    const key = this.#doc.yarns.map((y) => `${y.color.hex}|${y.composition.map((c) => c.fiber).join("+")}`).join(",");
+    const fx = { fiberEffects: !this.#flat };
+    const key = this.#doc.yarns.map((y) => lookInputKey(y, fx)).join(",");
     if (!force && key === this.#yarnsKey) return false;
     this.#yarnsKey = key;
-    // Aspecto neutro (sin efectos de fibra) en la fase 2, como pide el ADR 0004.
-    this.#renderer.setLooks(this.#doc.yarns.map((y) => yarnLook(y, FIBERS)));
+    // La vista previa se arma sobre la lana del documento (composición, si el candidato no trae): puede cambiar.
+    const previewChanged = this.#applyPreview();
+    const looks = this.#doc.yarns.map((y) => this.#lookOf(y));
+    const keys = looks.map(lookKey);
+    if (!force && keys.length === this.#lookKeys.length && keys.every((k, i) => k === this.#lookKeys[i])) return previewChanged;
+    this.#lookKeys = keys;
+    this.#renderer.setLooks(looks);
     return true;
   }
 

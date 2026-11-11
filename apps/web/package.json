@@ -16,6 +16,7 @@
     "e2e:report": "playwright show-report"
   },
   "dependencies": {
+    "@loopitalab/follow": "workspace:*",
     "@loopitalab/pattern-core": "workspace:*",
     "@loopitalab/pattern-render": "workspace:*",
     "@loopitalab/stitch-render": "workspace:*",

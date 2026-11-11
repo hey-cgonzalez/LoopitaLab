@@ -59,13 +59,15 @@ Todas las pruebas fallan si en la página hubo un `console.error` o una excepci�
 | `formas.spec.ts` | Círculo: la casilla sin punto de una disminución anuncia "se pierde un punto". Plano y tubo: un "sin punto" muestra el aviso de huecos y desaparece al deshacer. Las columnas se numeran desde la derecha y, con `?espejo=1`, desde la izquierda. Cambiar la forma redibuja la vista | CA-F13, E18 |
 | `avisos-a11y.spec.ts` | El aviso de prototipo se ve arriba, al medio y al final, sin botón para cerrarlo. El editor tiene rol `application` con nombre y tamaño, hay regiones vivas y todos los botones tienen nombre. Con 500 × 500 repeticiones aparece el aviso de vista demasiado grande, la interfaz sigue respondiendo y la vista vuelve al bajar | CA-F10, CA-A1 |
 | `movil.spec.ts` | 390 px: cada pestaña muestra solo su panel, sin desplazamiento horizontal (también con el editor de lana y la confirmación de quitar abiertos). Las flechas mueven entre pestañas. "Saltar al editor" vuelve a la cuadrícula desde otra pestaña | CA-A1 |
-| `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa: 50 entradas de pintar (clic y teclado) y 20 cambios de repeticiones de 5 a 10. Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7 |
+| `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa, con el aspecto por fibra activado: 50 entradas de pintar (clic y teclado), 20 cambios de repeticiones de 5 a 10, 50 colores al pasar el cursor (`hover-to-paint`) y 50 avances de la fila resaltada (`row-to-paint`), estos dos con el banco de medición de la vista previa (`?perf=1`). Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7, CA3-P1 a CA3-P3, CA3-P5 |
 
 ### Latencia
 
 Usa el recolector del estudio (`/dev/estudio?perf=1`, `window.__loopitaPerf`, `src/lib/studio/perf.ts`): mide desde el evento de entrada hasta el frame pintado del editor y de la vista previa (ADR 0004, "Cómo se mide"). Pintar una casilla con la lana que ya tenía no es una edición y no se mide: de las 50 entradas se miden entre 34 y 45.
 
 Los números de cada escenario salen en la consola (`[latencia] {...}`) y como adjunto `latencia-<escenario>.json` en el reporte HTML.
+
+`hover-to-paint` (fase 3, T8) empieza en el `pointerout` o `pointerover` del movimiento (React sintetiza `onPointerEnter` desde el `pointerout` del elemento anterior) o en el `focusin`; esas entradas son "débiles" (`perf.ts`): no tapan una tecla o un clic de menos de 50 ms, solo originan vistas previas y caducan a los 50 ms de vistas. `row-to-paint` empieza en el clic de "Fila siguiente" y mide solo la vista previa: el resaltado de la fila en la cuadrícula del editor llega con el modo tejiendo (T12).
 
 Medido el 2026-11-06 en un Mac (Chromium 156 completo, Playwright 1.64.1), p95 en ms. Sin limitar la CPU: dos corridas completas seguidas. Con CPU ×4: una corrida.
 

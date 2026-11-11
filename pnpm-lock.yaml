@@ -17,6 +17,9 @@ importers:
 
   apps/web:
     dependencies:
+      '@loopitalab/follow':
+        specifier: workspace:*
+        version: link:../../packages/follow
       '@loopitalab/pattern-core':
         specifier: workspace:*
         version: link:../../packages/pattern-core

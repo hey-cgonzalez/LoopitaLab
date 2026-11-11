@@ -27,7 +27,7 @@ const nextConfig: NextConfig = {
   reactStrictMode: true,
   poweredByHeader: false,
   // Los paquetes del monorepo se publican como TypeScript sin compilar.
-  transpilePackages: ["@loopitalab/pattern-core", "@loopitalab/yarn-catalog", "@loopitalab/stitch-render", "@loopitalab/pattern-render"],
+  transpilePackages: ["@loopitalab/follow", "@loopitalab/pattern-core", "@loopitalab/yarn-catalog", "@loopitalab/stitch-render", "@loopitalab/pattern-render"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
