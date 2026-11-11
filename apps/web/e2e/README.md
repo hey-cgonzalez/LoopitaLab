@@ -99,7 +99,7 @@ El job **"E2E (estudio)"** de `.github/workflows/ci.yml` corre en cada pull requ
 
 1. Instala con `pnpm install --frozen-lockfile`.
 2. Restaura la caché de navegadores (`~/.cache/ms-playwright`, con la versión de Playwright en la clave).
-3. Corre `playwright install --with-deps chromium`. Con la caché solo instala las dependencias del sistema.
+3. Si la caché no tenía Chromium, corre `playwright install chromium` (hasta tres intentos). No usa `--with-deps`: la imagen `ubuntu-26.04` del runner ya trae todas las bibliotecas que Chromium necesita, y ese modo corría `apt-get` contra los espejos de Ubuntu en cada corrida (una caída de esos espejos el 2026-11-11 tumbó la CI con Chromium ya en caché). Si una imagen futura dejara de traer alguna biblioteca, Playwright lo avisa al lanzar el navegador ("Host system is missing dependencies"); entonces se agrega un paso `playwright install-deps chromium`.
 4. Corre `pnpm --filter @loopitalab/web e2e` con un trabajador y un reintento.
 
 Para ver el resultado, abre el pull request y entra a **Checks > CI > E2E (estudio)**. Las fallas aparecen también como anotaciones en los archivos. Los números de latencia están en el paso "Pruebas E2E del estudio" (busca `[latencia]`).
