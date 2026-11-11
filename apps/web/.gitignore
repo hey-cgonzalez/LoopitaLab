@@ -3,3 +3,6 @@
 /playwright-report/
 /blob-report/
 /playwright/.cache/
+# E2E con sesión (T2 de la fase 3): sesiones de las cuentas de prueba (Supabase local) y build con la URL local
+/playwright/.auth/
+/.next-e2e-sesion/

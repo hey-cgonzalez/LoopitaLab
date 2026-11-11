@@ -1,6 +1,8 @@
 # Seguridad: estado y pendientes
 
-Última revisión: 2026-11-06 (T15, revisión de T4; correcciones en esta rama) y 2026-11-05, agente `revisor-seguridad`, sobre la rama `fase-2/preparacion` (antes: 2026-11-04, rama `fase-1/supabase-auth`). Sin hallazgos críticos. Las comprobaciones de RLS están en `supabase/checks/10_rls_check.sql` y corren en CI.
+Última revisión: 2026-11-06 (T15, revisión de T4; correcciones en esta rama) y 2026-11-05, agente `revisor-seguridad`, sobre la rama `fase-2/preparacion` (antes: 2026-11-04, rama `fase-1/supabase-auth`). Sin hallazgos críticos. Las comprobaciones de RLS están en `supabase/checks/10_rls_check.sql` y corren en CI. Corren dos veces: sobre Postgres con stubs (job "Migraciones y RLS") y sobre la Supabase local de la CLI (job "E2E con sesión").
+
+**E2E con sesión.** Las E2E usan Supabase local (Docker, CLI 2.122.1) con claves de desarrollo; nunca el proyecto real. `playwright.config.ts` y `e2e/sesion/support.ts` fallan si la URL no es `127.0.0.1` o `localhost`; las cuentas de prueba (`@e2e.loopitalab.test`) se crean y se borran en cada corrida, y la clave secreta local solo llega al servidor de pruebas (`apps/web/e2e/README.md`).
 
 ## Corregido
 

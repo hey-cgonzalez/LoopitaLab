@@ -21,6 +21,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Las E2E con sesión (proyecto `sesion` de playwright.config.ts) construyen en otra carpeta: su build lleva la URL
+  // de la Supabase local, y no debe pisar el `.next` de `pnpm build` ni el de las E2E sin sesión.
+  ...(process.env.LOOPITA_NEXT_DIST_DIR ? { distDir: process.env.LOOPITA_NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   poweredByHeader: false,
   // Los paquetes del monorepo se publican como TypeScript sin compilar.

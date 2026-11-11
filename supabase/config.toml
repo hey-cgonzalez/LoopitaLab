@@ -1,5 +1,10 @@
 # Configuración para la CLI de Supabase (desarrollo local y `supabase link` / `db push` / `config push`).
 # Mantener igual en el panel del proyecto remoto.
+# E2E con sesión y CI: la CLI lee SUPABASE_<SECCIÓN>_<CLAVE> por encima de este archivo, solo para la
+# Supabase local. Las E2E usan SUPABASE_AUTH_SITE_URL=http://localhost:3200,
+# SUPABASE_AUTH_ADDITIONAL_REDIRECT_URLS=http://localhost:3200/auth/callback y
+# SUPABASE_AUTH_EXTERNAL_GOOGLE_ENABLED=false (apps/web/e2e/README.md). No cambies aquí los valores del
+# proyecto real para las pruebas.
 project_id = "loopitalab"
 
 [auth]
