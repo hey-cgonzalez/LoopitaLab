@@ -443,6 +443,20 @@ export const STUDIO_TEXTS = {
   },
 
   /** Selector de lanas (por lana del diseño). */
+  /** Pantalla «Mis lanas» (`/lanas`): confirmaciones y avisos del gestor. */
+  gestorLanas: {
+    guardadaEditada: "Guardaste los cambios de la lana.",
+    guardadaNueva: "Guardaste la lana en «Mis lanas».",
+    borrada: "Borraste la lana.",
+    borrarError: "No pudimos borrar la lana. Revisa tu conexión e intenta de nuevo.",
+    borrarPregunta: "¿Borrar esta lana? No se puede deshacer.",
+    borrarConfirmar: "Sí, borrar",
+    confirmarGrupo: "Confirmar borrado",
+    borrar: "Borrar",
+    cancelar: "Cancelar",
+    borrarDe: (title: string) => `Borrar ${title}`,
+  },
+
   selectorLanas: {
     pestanaAjustar: "Ajustar la lana",
     pestanaMisLanas: "Mis lanas",
@@ -457,6 +471,9 @@ export const STUDIO_TEXTS = {
     muestraSupuesta: "Muestra supuesta",
     muestraSupuestaAyuda: "hasta que ingreses la tuya en la sección Muestra",
     paleta: "Paleta",
+    /** Nombre accesible de la paleta y del color de una lana concreta ("Color de la lana B"). */
+    paletaDeLana: (letter: string) => `Paleta de colores de la lana ${letter}`,
+    colorDeLana: (letter: string) => `Color de la lana ${letter}`,
     paletaAyuda: "Pasa el cursor o el foco por un color para verlo en la vista previa. Enter o clic lo elige.",
     personalizado: "Color personalizado",
     hexEtiqueta: "Código del color (#RRGGBB)",

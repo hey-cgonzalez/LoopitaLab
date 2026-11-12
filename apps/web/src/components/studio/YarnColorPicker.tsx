@@ -15,6 +15,8 @@ interface Props {
   store: DocumentStore;
   /** Posición de la lana en el diseño (a qué lana se le aplica la vista previa). */
   index: number;
+  /** Letra de la lana que se edita (A, B…): entra en los nombres accesibles de la paleta (CA3-A2). */
+  letter?: string;
   color: { hex: string; paletteId?: string };
   /** Elegir un color de la paleta (o "Usar {más cercano}"): un paso de deshacer. */
   onPick(color: { hex: string; paletteId?: string }): void;
@@ -27,7 +29,7 @@ interface Props {
  * personalizado con "prácticamente igual a…". Al pasar el cursor o el foco por una muestra, la vista previa realista
  * la prueba sin tocar el documento; al elegir, `onPick` escribe (un paso de deshacer).
  */
-export function YarnColorPicker({ store, index, color, onPick, onCustom }: Props) {
+export function YarnColorPicker({ store, index, letter, color, onPick, onCustom }: Props) {
   const uid = useId();
   const selectedPos = palettePosition(FAMILIES, color.hex);
   const [focusPos, setFocusPos] = useState<{ row: number; col: number }>(selectedPos ?? { row: 0, col: 0 });
@@ -53,9 +55,9 @@ export function YarnColorPicker({ store, index, color, onPick, onCustom }: Props
 
   return (
     <fieldset className="grid gap-2" data-testid="color-picker">
-      <legend className="font-bold">{STUDIO_TEXTS.lanas.colorPaleta}</legend>
+      <legend className="font-bold">{letter ? `${STUDIO_TEXTS.lanas.colorPaleta}: ${S.colorDeLana(letter)}` : STUDIO_TEXTS.lanas.colorPaleta}</legend>
       <p className="text-sm text-tinta-suave">{S.paletaAyuda}</p>
-      <div className="grid gap-1" role="group" aria-label={S.paleta}>
+      <div className="grid gap-1" role="group" aria-label={letter ? S.paletaDeLana(letter) : S.paleta}>
         {FAMILIES.map((f, row) => (
           <div key={f.family} role="group" aria-label={f.family} className="flex flex-wrap items-center gap-1" data-family={f.family}>
             <span className="w-20 shrink-0 text-xs text-tinta-suave" aria-hidden="true">
@@ -78,7 +80,7 @@ export function YarnColorPicker({ store, index, color, onPick, onCustom }: Props
                   title={c.nombre}
                   tabIndex={tab ? 0 : -1}
                   style={{ backgroundColor: c.hex }}
-                  className={`relative grid size-8 place-items-center rounded-lg border-2 bg-clip-padding ${selected ? "border-marino ring-2 ring-marino ring-offset-1" : "border-borde hover:border-marino"}`}
+                  className={`relative grid size-8 place-items-center [@media(pointer:coarse)]:size-11 rounded-lg border-2 bg-clip-padding ${selected ? "border-marino ring-2 ring-marino ring-offset-1" : "border-borde hover:border-marino"}`}
                   {...previewHandlers(store, index, { color: { hex: c.hex, paletteId: c.id } })}
                   onFocus={(e) => {
                     setFocusPos({ row, col });
@@ -144,7 +146,7 @@ export function YarnColorPicker({ store, index, color, onPick, onCustom }: Props
             {S.hexInvalido}
           </p>
         ) : null}
-        <div id={`${uid}-near`} className="grid gap-1 text-sm" aria-live="polite" data-testid="near-color">
+        <div id={`${uid}-near`} className="grid gap-1 text-sm" aria-live="polite" aria-atomic="true" data-testid="near-color">
           {info.nearest ? (
             <>
               <p>

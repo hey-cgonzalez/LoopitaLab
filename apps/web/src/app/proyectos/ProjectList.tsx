@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { PROJECT_TEXTS, STATUS_LABEL, progressSummaryText } from "@/lib/projects/texts.ts";
 import type { ProjectListItem } from "@/lib/projects/types.ts";
 import { deleteProject, setProjectStatus } from "./actions";
@@ -24,6 +24,19 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
   const [confirming, setConfirming] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
+  const messageRef = useRef<HTMLParagraphElement>(null);
+  const cancelledId = useRef<string | null>(null);
+
+  // Foco (WCAG 2.4.3): al cancelar el borrado vuelve a «Borrar»; al borrar, al mensaje de resultado (la tarjeta ya no existe).
+  useEffect(() => {
+    if (confirming === null && cancelledId.current) {
+      document.getElementById(`borrar-${cancelledId.current}`)?.focus();
+      cancelledId.current = null;
+    }
+  }, [confirming]);
+  useEffect(() => {
+    if (message?.tone === "ok") messageRef.current?.focus();
+  }, [message]);
 
   async function onDelete(p: ProjectListItem) {
     setBusy(p.id);
@@ -45,8 +58,12 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
 
   return (
     <div className="grid gap-3">
-      <p role={message?.tone === "error" ? "alert" : "status"} className={`empty:hidden font-bold ${message?.tone === "error" ? "text-error" : "text-exito"}`}>
-        {message?.text}
+      {/* Dos regiones fijas en vez de una que cambia de rol: los lectores anuncian de forma fiable un texto nuevo en una región ya existente. */}
+      <p ref={messageRef} tabIndex={-1} role="status" className="empty:hidden font-bold text-exito">
+        {message?.tone === "ok" ? message.text : null}
+      </p>
+      <p role="alert" className="empty:hidden font-bold text-error">
+        {message?.tone === "error" ? message.text : null}
       </p>
       <ul className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
         {projects.map((p) => {
@@ -55,13 +72,13 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
           return (
             <li key={p.id} className="flex flex-col gap-3 rounded-2xl border-2 border-linea bg-superficie p-4" data-testid="project-card">
               <div className="min-w-0">
-                <p className="truncate font-display text-xl font-semibold">
+                <p className="break-words font-display text-xl font-semibold">
                   <Link href={`/proyectos/${p.id}`} className="underline-offset-4 hover:underline">
                     {p.title}
                   </Link>
                 </p>
                 <p className="text-sm text-tinta-suave">
-                  {STATUS_LABEL[p.status]} · actualizado el {dateFmt.format(new Date(p.updatedAt))}
+                  {STATUS_LABEL[p.status]} · {T.actualizadoEl(dateFmt.format(new Date(p.updatedAt)))}
                 </p>
               </div>
               {d ? (
@@ -82,24 +99,33 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
                 <p className="text-sm text-tinta-suave">{T.sinDiseno}</p>
               )}
               {confirming === p.id ? (
-                <div role="group" aria-label={`Confirmar borrado de ${p.title}`} className="mt-auto grid gap-2">
+                <div role="group" aria-label={T.confirmarBorradoDe(p.title)} className="mt-auto grid gap-2">
                   <p className="font-bold">{T.borrarPregunta(p.title)}</p>
                   <div className="flex flex-wrap gap-2">
-                    <button type="button" onClick={() => onDelete(p)} disabled={busy === p.id} className="rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
+                    <button type="button" onClick={() => onDelete(p)} disabled={busy === p.id} className="min-h-11 rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
                       {T.borrarConfirmar}
                     </button>
-                    <button type="button" onClick={() => setConfirming(null)} className="rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white">
+                    {/* El foco empieza en «Cancelar»: la opción segura para una acción que no se puede deshacer. */}
+                    <button
+                      type="button"
+                      autoFocus
+                      onClick={() => {
+                        cancelledId.current = p.id;
+                        setConfirming(null);
+                      }}
+                      className="min-h-11 rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white"
+                    >
                       {PROJECT_TEXTS.tejer.cancelar}
                     </button>
                   </div>
                 </div>
               ) : d ? (
                 <div className="mt-auto flex flex-wrap items-center gap-2">
-                  <Link href={`/proyectos/${p.id}/tejer`} aria-label={`${started ? T.seguirTejiendo : T.empezarATejer}: ${p.title}`} className="rounded-full bg-marino px-4 py-2 font-bold text-white hover:bg-indigo">
+                  <Link href={`/proyectos/${p.id}/tejer`} aria-label={`${started ? T.seguirTejiendo : T.empezarATejer}: ${p.title}`} className="inline-flex min-h-11 items-center rounded-full bg-marino px-4 py-2 font-bold text-white hover:bg-indigo">
                     {started ? T.seguirTejiendo : T.empezarATejer}
                   </Link>
-                  <button type="button" onClick={() => setConfirming(p.id)} aria-label={`Borrar ${p.title}`} className="rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
-                    Borrar
+                  <button id={`borrar-${p.id}`} type="button" onClick={() => setConfirming(p.id)} aria-label={T.borrarDe(p.title)} className="min-h-11 rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
+                    {T.borrarCorto}
                   </button>
                 </div>
               ) : (
@@ -107,21 +133,21 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
                   <form action={setProjectStatus} className="flex items-center gap-2">
                     <input type="hidden" name="id" value={p.id} />
                     <label htmlFor={`estado-${p.id}`} className="sr-only">
-                      Estado de {p.title}
+                      {T.estadoDe(p.title)}
                     </label>
-                    <select id={`estado-${p.id}`} name="status" defaultValue={p.status} className="min-w-0 flex-1 rounded-xl border-2 border-borde bg-superficie px-3 py-2">
+                    <select id={`estado-${p.id}`} name="status" defaultValue={p.status} className="min-h-11 min-w-0 flex-1 rounded-xl border-2 border-borde bg-superficie px-3 py-2">
                       {Object.entries(STATUS_LABEL).map(([value, label]) => (
                         <option key={value} value={value}>
                           {label}
                         </option>
                       ))}
                     </select>
-                    <button type="submit" className="rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white">
+                    <button type="submit" className="min-h-11 rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white">
                       {T.guardarEstado}
                     </button>
                   </form>
-                  <button type="button" onClick={() => setConfirming(p.id)} aria-label={`Borrar ${p.title}`} className="justify-self-start rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
-                    Borrar
+                  <button id={`borrar-${p.id}`} type="button" onClick={() => setConfirming(p.id)} aria-label={T.borrarDe(p.title)} className="min-h-11 justify-self-start rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
+                    {T.borrarCorto}
                   </button>
                 </div>
               )}

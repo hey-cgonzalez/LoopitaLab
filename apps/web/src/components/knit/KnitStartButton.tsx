@@ -95,30 +95,15 @@ export function KnitStartButton({ patternId, designTitle, beforeOpen, studioHref
     const preview = phase.preview;
     setPhase({ kind: "starting", preview });
     try {
-      // Lo que se fija debe ser lo que se mostró (ADR 0009, T1-7): `startProjectFromDesign` relee el diseño, así que
-      // un cambio hecho en otra pestaña con esta pantalla abierta no daría CONFLICT. Se compara aquí el `updated_at`
-      // del diseño con el de la pantalla; si cambió, se recalcula y se pide confirmar de nuevo. La carrera que queda
-      // entre esta lectura y la creación la cierra el servidor (`start_chart_project` con `updated_at` exacto).
-      const fresh = await getKnitPreview(patternId);
-      if (!fresh.ok) {
-        if (fresh.code === "NOT_KNITTABLE" || fresh.code === "NOT_SAVABLE") setPhase({ kind: "not-knittable", issues: fresh.issues ?? [], message: fresh.error });
-        else setPhase({ kind: "error", message: fresh.error });
-        return;
-      }
-      if (fresh.patternUpdatedAt !== preview.patternUpdatedAt) {
-        const { ok: _ok, ...next } = fresh;
-        void _ok;
-        setPhase({ kind: "preview", preview: next, notice: T.cambioMientras });
-        return;
-      }
-      const r = await startProjectFromDesign(patternId, title.trim() === "" ? undefined : title);
+      // El servidor compara `patternUpdatedAt` con el diseño actual y responde CONFLICT si cambió (ADR 0009, T1-7).
+      const r = await startProjectFromDesign(patternId, preview.patternUpdatedAt, title.trim() === "" ? undefined : title);
       if (r.ok) {
         setPhase({ kind: "done" });
         router.push(`/proyectos/${r.projectId}/tejer`);
         return;
       }
       if (r.code === "CONFLICT") {
-        // El diseño cambió entre la pantalla previa y la confirmación: se recalcula todo (ADR 0009, T1-7).
+        // El diseño cambió desde la pantalla previa: se recalcula todo y se pide confirmar de nuevo (ADR 0009, T1-7).
         setPhase({ kind: "loading" });
         await load(T.cambioMientras);
         return;

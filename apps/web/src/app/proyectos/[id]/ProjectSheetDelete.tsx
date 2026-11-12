@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { deleteProject } from "@/app/proyectos/actions";
 import { PROJECT_TEXTS } from "@/lib/projects/texts.ts";
 
@@ -13,6 +13,7 @@ export function ProjectSheetDelete({ id, title }: { id: string; title: string })
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const deleteButton = useRef<HTMLButtonElement>(null);
 
   async function onDelete() {
     setBusy(true);
@@ -40,17 +41,27 @@ export function ProjectSheetDelete({ id, title }: { id: string; title: string })
         </p>
       ) : null}
       {confirming ? (
-        <div role="group" aria-label={`Confirmar borrado de ${title}`} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-error p-4">
+        <div role="group" aria-label={T.proyectos.confirmarBorradoDe(title)} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-error p-4">
           <p className="min-w-0 flex-1 font-bold">{T.proyectos.borrarPregunta(title)}</p>
           <button type="button" onClick={onDelete} disabled={busy} className="min-h-12 rounded-full bg-error px-5 font-bold text-white hover:opacity-90 disabled:opacity-60">
             {T.proyectos.borrarConfirmar}
           </button>
-          <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="min-h-12 rounded-full border-2 border-marino px-5 font-bold hover:bg-marino hover:text-white">
+          {/* Mismo manejo de foco que la ficha: empieza en «Cancelar» (irreversible) y vuelve a «Borrar» al cancelar. */}
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setConfirming(false);
+              setTimeout(() => deleteButton.current?.focus(), 0);
+            }}
+            disabled={busy}
+            className="min-h-12 rounded-full border-2 border-marino px-5 font-bold hover:bg-marino hover:text-white"
+          >
             {T.tejer.cancelar}
           </button>
         </div>
       ) : (
-        <button type="button" onClick={() => setConfirming(true)} className="min-h-12 justify-self-start rounded-full border-2 border-error px-5 py-2 font-bold text-error hover:bg-error hover:text-white" data-testid="project-delete">
+        <button ref={deleteButton} type="button" onClick={() => setConfirming(true)} className="min-h-12 justify-self-start rounded-full border-2 border-error px-5 py-2 font-bold text-error hover:bg-error hover:text-white" data-testid="project-delete">
           {T.proyectos.borrar}
         </button>
       )}

@@ -54,7 +54,7 @@ export const PROJECT_MESSAGES: Record<Exclude<ProjectErrorCode, "CONFLICT" | "VE
   NOT_FOUND: "No encontramos ese proyecto o diseño. Puede que lo hayas borrado desde otro dispositivo.",
   NOT_A_CHART: "Por ahora solo se pueden tejer gráficos de colorwork.",
   NO_DESIGN: "Este proyecto no tiene un diseño asociado, así que no hay un patrón que seguir.",
-  NOT_SAVABLE: "El diseño tiene errores que impiden abrirlo. Revísalo en el estudio.",
+  NOT_SAVABLE: "El diseño tiene errores que impiden abrirlo, así que no se puede seguir tejiendo con esta versión. Revísalo en el estudio.", // F3-42
   NOT_KNITTABLE: "El diseño tiene errores de tejido que impiden tejerlo. Corrígelos en el estudio e intenta de nuevo.",
   MAX_VERSIONS: DESIGN_MESSAGES.MAX_VERSIONS,
   VERSIONS_QUOTA: `Llegaste al máximo de ${spaced(5000)} versiones guardadas entre todos tus diseños. Borra diseños que ya no uses.`,
@@ -66,13 +66,21 @@ export const PATTERN_CONFLICT_MESSAGE = "El diseño cambió mientras preparabas 
 
 export const PROGRESS_CONFLICT_FALLBACK = "El avance cambió en otro dispositivo. Recarga para ver dónde vas.";
 
+/**
+ * Frase del conflicto de avance, con o sin la hora del otro dispositivo (`stamp` ya viene con paréntesis y espacio):
+ * "En otro dispositivo vas en la vuelta 40 (hace 3 min). Aquí vas en la vuelta 36. ¿Con cuál sigues?".
+ * Única fuente: la usan el servidor (`progressConflictMessage`) y el diálogo de Tejiendo (`conflictQuestionText`).
+ */
+export function conflictSentence(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, yours: ChartPointer, stamp = ""): string {
+  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
+  const head = finished ? `En otro dispositivo ya terminaste el gráfico${stamp}.` : `En otro dispositivo vas en ${positionText(workedIn, totalRows, theirs)}${stamp}.`;
+  return `${head} Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
+}
+
 /** Conflicto de avance: "En otro dispositivo vas en la vuelta 40. Aquí vas en la vuelta 36. ¿Con cuál sigues?". */
 export function progressConflictMessage(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, yours: ChartPointer | undefined): string {
-  const other = positionText(workedIn, totalRows, theirs);
-  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
-  if (finished && yours) return `En otro dispositivo ya terminaste el gráfico. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
-  if (!yours) return `El avance cambió en otro dispositivo: vas en ${other}. Recarga para seguir desde ahí.`;
-  return `En otro dispositivo vas en ${other}. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
+  if (!yours) return `El avance cambió en otro dispositivo: vas en ${positionText(workedIn, totalRows, theirs)}. Recarga para seguir desde ahí.`;
+  return conflictSentence(workedIn, totalRows, theirs, yours);
 }
 
 /** La versión fijada cambió en otro dispositivo (VERSION_CHANGED): el puntero que se enviaba era de otro plan. */

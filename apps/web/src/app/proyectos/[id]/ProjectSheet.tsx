@@ -2,10 +2,10 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { ChartPointer } from "@loopitalab/follow";
 import { deleteProject, getRepinPreview, repinProject } from "@/app/proyectos/actions";
-import { PROJECT_TEXTS, positionText, progressSummaryText, relativeTimeText, rowWord } from "@/lib/projects/texts.ts";
+import { PROJECT_TEXTS, positionText, progressSummaryText, relativeTimeText, rowCountText } from "@/lib/projects/texts.ts";
 import type { RepinPreview, WorkedIn } from "@/lib/projects/types.ts";
 import { STUDIO_TEXTS, workedInName } from "@/lib/studio-texts.ts";
 
@@ -35,6 +35,20 @@ export function ProjectSheet(p: ProjectSheetProps) {
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const finished = p.totalRows > 0 && p.pointer.rowsDone >= p.totalRows;
+  const deleteButton = useRef<HTMLButtonElement>(null);
+  const repinTitle = useRef<HTMLHeadingElement>(null);
+  const repinWasOpen = useRef(false);
+
+  // Foco (WCAG 2.4.3): al abrir el panel de cambio de versión va a su título; al cerrarlo, de vuelta al botón que lo abrió.
+  useEffect(() => {
+    if (repin.kind === "loading") {
+      repinWasOpen.current = true;
+      repinTitle.current?.focus();
+    } else if (repin.kind === "idle" && repinWasOpen.current) {
+      repinWasOpen.current = false;
+      document.querySelector<HTMLElement>('[data-testid="repin-open"]')?.focus();
+    }
+  }, [repin.kind]);
 
   async function openRepin() {
     setRepin({ kind: "loading" });
@@ -87,8 +101,8 @@ export function ProjectSheet(p: ProjectSheetProps) {
 
   return (
     <div className="grid gap-5">
-      <p role={message?.tone === "error" ? "alert" : "status"} className={`empty:hidden font-bold ${message?.tone === "error" ? "text-error" : "text-exito"}`}>
-        {message?.text}
+      <p role="alert" className="empty:hidden font-bold text-error">
+        {message?.tone === "error" ? message.text : null}
       </p>
 
       <dl className="grid gap-x-6 gap-y-2 rounded-2xl border-2 border-linea bg-superficie p-4 sm:grid-cols-[auto_minmax(0,1fr)]">
@@ -118,7 +132,7 @@ export function ProjectSheet(p: ProjectSheetProps) {
       ) : null}
 
       <div className="flex flex-wrap gap-3">
-        <Link href={`/proyectos/${p.project.id}/tejer`} className="min-h-12 rounded-full bg-marino px-6 py-2.5 font-bold text-white hover:bg-indigo" data-testid="project-knit">
+        <Link href={`/proyectos/${p.project.id}/tejer`} className="inline-flex min-h-12 items-center rounded-full bg-marino px-6 py-2.5 font-bold text-white hover:bg-indigo" data-testid="project-knit">
           {finished ? T.tejiendo.titulo : p.pointer.rowsDone === 0 && p.pointer.stitchesDone === 0 ? T.proyectos.empezarATejer : T.proyectos.seguirTejiendo}
         </Link>
         {p.newerVersionAvailable && repin.kind === "idle" ? (
@@ -126,18 +140,28 @@ export function ProjectSheet(p: ProjectSheetProps) {
             {T.repin.boton}
           </button>
         ) : null}
-        <button type="button" onClick={() => setConfirming(true)} disabled={busy || confirming} className="min-h-12 rounded-full border-2 border-error px-5 py-2 font-bold text-error hover:bg-error hover:text-white disabled:opacity-60" data-testid="project-delete">
+        <button ref={deleteButton} type="button" onClick={() => setConfirming(true)} disabled={busy || confirming} className="min-h-12 rounded-full border-2 border-error px-5 py-2 font-bold text-error hover:bg-error hover:text-white disabled:opacity-60" data-testid="project-delete">
           {T.proyectos.borrar}
         </button>
       </div>
 
       {confirming ? (
-        <div role="group" aria-label={`Confirmar borrado de ${p.project.title}`} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-error p-4">
+        <div role="group" aria-label={T.proyectos.confirmarBorradoDe(p.project.title)} className="flex flex-wrap items-center gap-3 rounded-2xl border-2 border-error p-4">
           <p className="min-w-0 flex-1 font-bold">{T.proyectos.borrarPregunta(p.project.title)}</p>
           <button type="button" onClick={onDelete} disabled={busy} className="min-h-12 rounded-full bg-error px-5 font-bold text-white hover:opacity-90 disabled:opacity-60">
             {T.proyectos.borrarConfirmar}
           </button>
-          <button type="button" onClick={() => setConfirming(false)} disabled={busy} className="min-h-12 rounded-full border-2 border-marino px-5 font-bold hover:bg-marino hover:text-white">
+          {/* El foco empieza en «Cancelar» (acción irreversible) y vuelve a «Borrar proyecto» al cancelar. */}
+          <button
+            type="button"
+            autoFocus
+            onClick={() => {
+              setConfirming(false);
+              setTimeout(() => deleteButton.current?.focus(), 0);
+            }}
+            disabled={busy}
+            className="min-h-12 rounded-full border-2 border-marino px-5 font-bold hover:bg-marino hover:text-white"
+          >
             {T.tejer.cancelar}
           </button>
         </div>
@@ -145,7 +169,7 @@ export function ProjectSheet(p: ProjectSheetProps) {
 
       {repin.kind !== "idle" ? (
         <section aria-labelledby="repin-title" className="grid gap-3 rounded-2xl border-2 border-marino bg-superficie p-4" data-testid="repin-panel">
-          <h2 id="repin-title" className="font-display text-xl font-bold">
+          <h2 id="repin-title" ref={repinTitle} tabIndex={-1} className="font-display text-xl font-bold">
             {T.repin.titulo}
           </h2>
           {repin.kind === "loading" ? <p role="status">{T.repin.revisando}</p> : null}
@@ -169,7 +193,7 @@ export function ProjectSheet(p: ProjectSheetProps) {
               )
             ) : null}
             <button type="button" onClick={() => setRepin({ kind: "idle" })} disabled={repin.kind === "working"} className="min-h-12 rounded-full border-2 border-marino px-5 font-bold hover:bg-marino hover:text-white disabled:opacity-60">
-              {repin.kind === "done" ? "Cerrar" : T.tejer.cancelar}
+              {repin.kind === "done" ? T.repin.cerrar : T.tejer.cancelar}
             </button>
           </div>
         </section>
@@ -185,16 +209,16 @@ export function RepinDetails({ preview }: { preview: RepinPreview }) {
   const from = preview.from;
   const to = preview.to;
   const items: string[] = [];
-  items.push(`Versión fijada: ${from.version} (${from.totalRows} ${rowWord(from.workedIn)}${from.totalRows === 1 ? "" : "s"}). Versión nueva: ${to.totalRows} ${rowWord(to.workedIn)}${to.totalRows === 1 ? "" : "s"}.`);
-  items.push(`Tu avance ahora: ${positionText(from.workedIn, from.totalRows, preview.currentPointer)}. Después del cambio: ${positionText(to.workedIn, to.totalRows, preview.pointer)}.`);
+  items.push(R.versiones(from.version, rowCountText(from.workedIn, from.totalRows), rowCountText(to.workedIn, to.totalRows)));
+  items.push(R.avanceAntesDespues(positionText(from.workedIn, from.totalRows, preview.currentPointer), positionText(to.workedIn, to.totalRows, preview.pointer)));
   if (preview.clamped) items.push(R.acotado);
-  else if (preview.rowChanged) items.push(R.filaCambio);
-  else items.push(R.conservaFila);
-  if (preview.currentPointer.stitchesDone > 0 && preview.pointer.stitchesDone === 0) items.push(R.casillasACero);
+  else if (preview.rowChanged) items.push(R.filaCambio(from.workedIn));
+  else items.push(R.conservaFila(from.workedIn));
+  if (preview.currentPointer.stitchesDone > 0 && preview.pointer.stitchesDone === 0) items.push(R.casillasACero(from.workedIn));
   return (
     <ul className="grid list-disc gap-1 pl-5" data-testid="repin-details">
       {items.map((t) => (
-        <li key={t} className={t === R.filaCambio || t === R.acotado ? "font-bold" : ""}>
+        <li key={t} className={t === R.filaCambio(from.workedIn) || t === R.acotado ? "font-bold" : ""}>
           {t}
         </li>
       ))}

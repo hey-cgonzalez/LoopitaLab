@@ -68,7 +68,7 @@ const dbWrites = () => db.log.filter((l) => l.op !== "select");
 /** Empieza un proyecto con el diseño por defecto y devuelve su id y el de la versión fijada. */
 async function startOne(d: ChartPattern = doc(PID)) {
   seed(d);
-  const r = await startProjectFromDesign(d.id);
+  const r = await startProjectFromDesign(d.id, db.updatedAt(d.id));
   if (!r.ok) throw new Error(`no empezó: ${r.code}`);
   const project = db.projects.find((p) => p.id === r.projectId)!;
   return { projectId: r.projectId, versionId: project.pattern_version_id as string, result: r };
@@ -84,7 +84,7 @@ describe("sin sesión: nada toca la base ni el cliente admin", () => {
   it("todas las acciones responden UNAUTHENTICATED", async () => {
     const pointer = { rowsDone: 1, stitchesDone: 0 };
     const results = await Promise.all([
-      startProjectFromDesign(PID),
+      startProjectFromDesign(PID, db.updatedAt(PID)),
       getKnitPreview(PID),
       loadProject(PID),
       saveProgress(PID, OTHER, pointer, null),
@@ -102,7 +102,7 @@ describe("sin sesión: nada toca la base ni el cliente admin", () => {
 describe("startProjectFromDesign", () => {
   it("lee el diseño de la base, valida y llama a start_chart_project con p_owner_id de la sesión y el updated_at leído", async () => {
     const row = seed();
-    const r = await startProjectFromDesign(PID, "  Mi gorro  ");
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID), "  Mi gorro  ");
     expect(r).toMatchObject({ ok: true, version: 1, reused: false });
     expect(db.rpcLog).toEqual([
       { fn: "start_chart_project", args: { p_owner_id: ANA, p_pattern_id: PID, p_expected_updated_at: row.updated_at, p_title: "Mi gorro" } },
@@ -114,7 +114,7 @@ describe("startProjectFromDesign", () => {
 
   it("sin título usa null (el de la base: el del diseño)", async () => {
     seed();
-    await startProjectFromDesign(PID);
+    await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(db.rpcLog[0]?.args.p_title).toBeNull();
     expect(db.projects[0]?.title).toBe("Gorro de prueba");
   });
@@ -122,14 +122,14 @@ describe("startProjectFromDesign", () => {
   it("p_owner_id sale siempre de la sesión: argumentos de más del cliente se ignoran", async () => {
     seed();
     // @ts-expect-error: un cliente manipulado puede mandar argumentos de más; la acción no los lee.
-    await startProjectFromDesign(PID, "Gorro", BEA);
+    await startProjectFromDesign(PID, db.updatedAt(PID), "Gorro", BEA);
     expect(db.rpcLog[0]?.args.p_owner_id).toBe(ANA);
     expect(db.projects[0]?.owner_id).toBe(ANA);
   });
 
   it("la validación es obligatoria: con errores de tejido responde NOT_KNITTABLE y NUNCA crea el cliente admin", async () => {
     seed(draftDoc(PID));
-    const r = await startProjectFromDesign(PID);
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(r).toMatchObject({ ok: false, code: "NOT_KNITTABLE" });
     if (!r.ok) expect(r.issues?.some((i) => i.code === "CHART_ROW_EMPTY_FULL")).toBe(true);
     expect(adminFactory).not.toHaveBeenCalled();
@@ -140,55 +140,76 @@ describe("startProjectFromDesign", () => {
   it("un documento dañado (no savable) no llega a admin: NOT_SAVABLE", async () => {
     seed(doc(PID));
     db.patterns[0]!.document = { ...jsonDoc(doc(PID)), chart: "roto" };
-    const r = await startProjectFromDesign(PID);
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(r).toMatchObject({ ok: false, code: "NOT_SAVABLE" });
     expect(adminFactory).not.toHaveBeenCalled();
   });
 
   it("un diseño ajeno o inexistente es NOT_FOUND, sin distinguir, y sin admin", async () => {
     seed(doc(PID), BEA);
-    expect(await startProjectFromDesign(PID)).toMatchObject({ ok: false, code: "NOT_FOUND" });
-    expect(await startProjectFromDesign(OTHER)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID))).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await startProjectFromDesign(OTHER, db.updatedAt(OTHER))).toMatchObject({ ok: false, code: "NOT_FOUND" });
     expect(adminFactory).not.toHaveBeenCalled();
   });
 
   it("ids o títulos mal formados no tocan la base", async () => {
-    expect(await startProjectFromDesign("no-es-uuid")).toMatchObject({ code: "INVALID_REQUEST" });
-    expect(await startProjectFromDesign(PID, "x".repeat(121))).toMatchObject({ code: "REJECTED" });
+    expect(await startProjectFromDesign("no-es-uuid", db.updatedAt("no-es-uuid"))).toMatchObject({ code: "INVALID_REQUEST" });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID), "x".repeat(121))).toMatchObject({ code: "REJECTED" });
     // @ts-expect-error: el título debe ser texto.
-    expect(await startProjectFromDesign(PID, { toString: () => "x" })).toMatchObject({ code: "REJECTED" });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID), { toString: () => "x" })).toMatchObject({ code: "REJECTED" });
     expect(db.log).toEqual([]);
     expect(adminFactory).not.toHaveBeenCalled();
   });
 
   it("limpia caracteres de control del título", async () => {
     seed();
-    await startProjectFromDesign(PID, "Gorro\u0000\n  de\tprueba");
+    await startProjectFromDesign(PID, db.updatedAt(PID), "Gorro\u0000\n  de\tprueba");
     expect(db.rpcLog[0]?.args.p_title).toBe("Gorro de prueba");
   });
 
   it("un diseño que no es un gráfico es NOT_A_CHART", async () => {
     db.seedPattern({ id: PID, owner_id: ANA, kind: "written", document: jsonDoc(doc(PID)) });
-    expect(await startProjectFromDesign(PID)).toMatchObject({ ok: false, code: "NOT_A_CHART" });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID))).toMatchObject({ ok: false, code: "NOT_A_CHART" });
     expect(adminFactory).not.toHaveBeenCalled();
   });
 
   it("si el diseño cambia entre leer y fijar, la base responde PT409 y la acción devuelve CONFLICT (pattern)", async () => {
     seed();
     db.beforeRpc = () => db.touchPattern(PID);
-    const r = await startProjectFromDesign(PID);
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(r).toMatchObject({ ok: false, code: "CONFLICT", conflictOn: "pattern" });
     expect(db.projects).toEqual([]);
   });
 
+  it("si el diseño cambió desde la pantalla previa (expectedUpdatedAt distinto): CONFLICT (pattern) sin crear admin", async () => {
+    seed();
+    const shown = db.updatedAt(PID);
+    db.touchPattern(PID);
+    const r = await startProjectFromDesign(PID, shown);
+    expect(r).toMatchObject({ ok: false, code: "CONFLICT", conflictOn: "pattern" });
+    expect(adminFactory).not.toHaveBeenCalled();
+    expect(db.rpcLog).toEqual([]);
+    expect(db.projects).toEqual([]);
+  });
+
+  it("expectedUpdatedAt inválido es INVALID_REQUEST y no toca la base", async () => {
+    seed();
+    for (const bad of ["", "ayer", "2026-11-11", "x".repeat(60), null, undefined, 12345]) {
+      // @ts-expect-error: un cliente manipulado puede mandar cualquier cosa.
+      expect(await startProjectFromDesign(PID, bad)).toMatchObject({ ok: false, code: "INVALID_REQUEST" });
+    }
+    expect(db.log).toEqual([]);
+    expect(adminFactory).not.toHaveBeenCalled();
+  });
+
   it("reutiliza la versión idéntica y crea otra si el diseño cambió", async () => {
     seed();
-    const a = await startProjectFromDesign(PID);
-    const b = await startProjectFromDesign(PID);
+    const a = await startProjectFromDesign(PID, db.updatedAt(PID));
+    const b = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(a).toMatchObject({ ok: true, version: 1, reused: false });
     expect(b).toMatchObject({ ok: true, version: 1, reused: true });
     db.editPattern(PID, jsonDoc(doc(PID, { height: 5 })));
-    expect(await startProjectFromDesign(PID)).toMatchObject({ ok: true, version: 2, reused: false });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID))).toMatchObject({ ok: true, version: 2, reused: false });
     expect(db.versionsOf(PID)).toHaveLength(2);
   });
 
@@ -205,7 +226,7 @@ describe("startProjectFromDesign", () => {
   it.each(quota)("mapa de errores: %s -> %s, con texto en español y sin el mensaje de la base", async (_n, error, code) => {
     seed();
     db.rpcError = error;
-    const r = await startProjectFromDesign(PID);
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(r).toMatchObject({ ok: false, code });
     if (!r.ok) {
       expect(r.error).toMatch(/[a-záéíóú]/i);
@@ -220,7 +241,7 @@ describe("startProjectFromDesign", () => {
     adminFactory.mockImplementation(() => {
       throw new Error("Faltan NEXT_PUBLIC_SUPABASE_URL o SUPABASE_SECRET_KEY");
     });
-    const r = await startProjectFromDesign(PID);
+    const r = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(r).toMatchObject({ ok: false, code: "DATABASE" });
     expect(JSON.stringify(r)).not.toContain("SUPABASE_SECRET_KEY");
   });
@@ -228,12 +249,12 @@ describe("startProjectFromDesign", () => {
   it("una respuesta inesperada de la base es DATABASE, no un éxito inventado", async () => {
     seed();
     db.admin.rpc.mockResolvedValueOnce({ data: [{ nada: 1 }], error: null });
-    expect(await startProjectFromDesign(PID)).toMatchObject({ ok: false, code: "DATABASE" });
+    expect(await startProjectFromDesign(PID, db.updatedAt(PID))).toMatchObject({ ok: false, code: "DATABASE" });
   });
 
   it("la sesión nunca llama a rpc: no tiene start_chart_project (solo service_role)", async () => {
     seed();
-    await startProjectFromDesign(PID);
+    await startProjectFromDesign(PID, db.updatedAt(PID));
     expect((db.client as Record<string, unknown>).rpc).toBeUndefined();
   });
 });
@@ -598,7 +619,7 @@ describe("repinProject", () => {
 describe("deletePattern con proyectos (ADR 0009, D1)", () => {
   it("un diseño que tiene proyectos no se borra: mensaje claro con la cuenta, sin el texto de la base", async () => {
     await startOne();
-    await startProjectFromDesign(PID);
+    await startProjectFromDesign(PID, db.updatedAt(PID));
     const r = await deletePattern(PID);
     expect(r).toMatchObject({ ok: false, code: "HAS_PROJECTS", error: "Este diseño tiene 2 proyectos con su avance. Bórralos antes de borrar el diseño; al borrarlos pierdes el avance." });
     expect(JSON.stringify(r)).not.toMatch(/foreign key|pattern_versions/);

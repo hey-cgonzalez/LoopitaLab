@@ -1,7 +1,7 @@
 import { yarnLetter, type Yarn } from "@loopitalab/pattern-core";
 import type { ChartPlan, ChartPointer, ChartPosition } from "@loopitalab/follow";
 import { inkFor } from "@/lib/studio/color.ts";
-import { PROJECT_TEXTS, cellCounterText, finishedText, repeatCounterText, rowCounterText, sideAndReadingText } from "@/lib/projects/texts.ts";
+import { PROJECT_TEXTS, cellCounterText, finishedText, repeatCounterText, repeatDotText, rowCounterText, sideAndReadingText } from "@/lib/projects/texts.ts";
 
 const T = PROJECT_TEXTS.tejiendo;
 
@@ -50,14 +50,16 @@ export function KnitRowCard({ plan, position, pointer, yarns, direction, lastRow
         </p>
       ) : null}
       {step.stitches === 0 ? (
-        <p className="font-bold">{T.sinPuntos}</p>
+        <p className="font-bold">{T.sinPuntos(plan.workedIn)}</p>
       ) : (
         <>
           <ol className="flex flex-wrap gap-2" aria-label={T.tramos} data-testid="knit-runs">
             {step.runs.map((r, i) => {
               const hex = yarns[r.yarn]?.color.hex ?? "#FFFFFF";
               return (
-                <li key={`${i}-${r.yarn}`} className="rounded-xl border-2 border-marino px-3 py-1.5 text-2xl font-bold" style={{ backgroundColor: hex, color: inkFor(hex) }}>
+                // Doble borde (marino por fuera, blanco por dentro): el tramo se ve sobre cualquier lana, clara u oscura.
+                // La letra de la lana va siempre en el tramo: el color nunca es lo único que lo identifica.
+                <li key={`${i}-${r.yarn}`} className="rounded-xl border-2 border-marino px-3 py-1.5 text-2xl font-bold shadow-[inset_0_0_0_2px_#fff]" style={{ backgroundColor: hex, color: inkFor(hex) }}>
                   {r.count} {yarnLetter(r.yarn)}
                 </li>
               );
@@ -68,23 +70,32 @@ export function KnitRowCard({ plan, position, pointer, yarns, direction, lastRow
               {plan.repeatX > 1 ? (
                 <>
                   <span className="font-bold">{repeatCounterText(rep.index, rep.of)}</span>
-                  <span className="text-tinta-suave"> · {step.stitchesPerRepeat} puntos por repetición, {step.stitches} en la {plan.workedIn === "rounds" ? "vuelta" : "fila"}</span>
+                  <span className="text-tinta-suave"> · {T.puntosPorRepeticion(step.stitchesPerRepeat)}, {T.enLa(plan.workedIn, step.stitches)}</span>
                 </>
               ) : (
-                <span className="text-tinta-suave">{step.stitches} puntos en la {plan.workedIn === "rounds" ? "vuelta" : "fila"}</span>
+                <span className="text-tinta-suave">{T.puntosEnLa(plan.workedIn, step.stitches)}</span>
               )}
             </p>
           ) : null}
           {step.change < 0 ? (
             <p className="text-lg" data-testid="knit-cell-counter">
               <span className="font-bold">{cellCounterText(stitchesDone, step.stitches)}</span>
-              <span className="text-tinta-suave"> · {Math.abs(step.change)} {Math.abs(step.change) === 1 ? "punto menos" : "puntos menos"} que la anterior</span>
+              <span className="text-tinta-suave"> · {T.puntosMenos(Math.abs(step.change))}</span>
             </p>
           ) : null}
           {plan.repeatX > 1 && rep ? (
-            <ol className="flex flex-wrap gap-1" aria-label="Repeticiones de esta fila" data-testid="knit-repeat-dots">
+            <ol className="flex flex-wrap gap-1.5" aria-label={T.repeticionesDeFila(plan.workedIn)} data-testid="knit-repeat-dots">
               {Array.from({ length: rep.of }, (_, i) => (
-                <li key={i} aria-current={i === rep.index ? "step" : undefined} className={`size-4 rounded-full border-2 border-marino ${i < rep.index ? "bg-marino/40" : i === rep.index ? "bg-mostaza" : "bg-superficie"}`} aria-label={`repetición ${i + 1}${i === rep.index ? " (actual)" : i < rep.index ? " (hecha)" : ""}`} />
+                <li key={i} aria-current={i === rep.index ? "step" : undefined} className="flex">
+                  {/* La forma no depende del color: hecha = con ✓, actual = anillo grueso, por hacer = vacía. */}
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-6 items-center justify-center rounded-full border-2 border-marino text-xs font-bold leading-none ${i < rep.index ? "bg-marino text-white" : i === rep.index ? "bg-mostaza text-marino ring-2 ring-marino ring-offset-2" : "bg-superficie"}`}
+                  >
+                    {i < rep.index ? "✓" : ""}
+                  </span>
+                  <span className="sr-only">{repeatDotText(i, rep.index)}</span>
+                </li>
               ))}
             </ol>
           ) : null}

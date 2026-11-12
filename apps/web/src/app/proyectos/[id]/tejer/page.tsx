@@ -15,7 +15,7 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 export default async function Page({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   if (!UUID_RE.test(id)) notFound();
-  const { user, name } = await requireUser(`/proyectos/${id}/tejer`);
+  const { user, name, profile } = await requireUser(`/proyectos/${id}/tejer`);
   const r = await loadProject(id);
 
   if (!r.ok) {
@@ -24,7 +24,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       <>
         <AppHeader name={name} />
         <main className="mx-auto grid max-w-3xl gap-4 px-6 py-10">
-          <h1 className="font-display text-3xl font-bold tracking-tight">No pudimos abrir este proyecto para tejer</h1>
+          <h1 className="font-display text-3xl font-bold tracking-tight">{PROJECT_TEXTS.tejiendo.noSePudoAbrir}</h1>
           <p className="text-tinta-suave">{r.code === "NOT_SAVABLE" ? PROJECT_TEXTS.proyectos.noSavable : r.error}</p>
           {r.issues && r.issues.length > 0 ? (
             <ul className="list-disc pl-6">
@@ -35,7 +35,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
           ) : null}
           <p>
             <Link href={`/proyectos/${id}`} className="underline underline-offset-4">
-              Volver al proyecto
+              {PROJECT_TEXTS.tejiendo.volverAlProyecto}
             </Link>
           </p>
         </main>
@@ -56,6 +56,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
         progressUpdatedAt={r.progressUpdatedAt}
         newerVersionAvailable={r.newerVersionAvailable}
         ownerId={user.id}
+        dominantHand={profile?.dominant_hand === "left" ? "left" : "right"}
       />
     </>
   );

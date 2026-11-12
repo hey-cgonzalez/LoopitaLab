@@ -23,17 +23,17 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ a
         <FormMessage message={aviso === "clave" ? "Tu contraseña quedó actualizada." : undefined} tone="ok" />
         <div className="grid items-end gap-x-10 gap-y-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,28rem)]">
           <div className="max-w-2xl">
-            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Tus proyectos</h1>
-            <p className="mt-1 text-tinta-suave">{PROJECT_TEXTS.proyectos.subtitulo} Para empezar uno con patrón, usa «Tejer este diseño» en Mis diseños.</p>
+            <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">{PROJECT_TEXTS.proyectos.titulo}</h1>
+            <p className="mt-1 text-tinta-suave">{PROJECT_TEXTS.proyectos.subtitulo}</p>
           </div>
           <NewProjectForm />
         </div>
 
         {error ? (
-          <FormMessage message="No pudimos cargar tus proyectos. Recarga la página para intentarlo de nuevo." tone="error" />
+          <FormMessage message={PROJECT_TEXTS.proyectos.errorCarga} tone="error" />
         ) : projects.length === 0 ? (
           <p className="max-w-2xl rounded-2xl border-2 border-dashed border-linea px-6 py-8 text-tinta-suave">
-            Todavía no tienes proyectos. Usa «Tejer este diseño» en Mis diseños, o crea uno suelto con el nombre de lo que quieres tejer.
+            {PROJECT_TEXTS.proyectos.vacio}
           </p>
         ) : (
           <ProjectList projects={projects} />

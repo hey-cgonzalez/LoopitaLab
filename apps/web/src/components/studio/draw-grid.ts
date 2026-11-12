@@ -244,8 +244,15 @@ export function paintRowHighlight(ctx: CanvasRenderingContext2D, l: GridLayout, 
   if (repeat && repeat.xEnd > repeat.xStart && repeat.xStart >= 0 && repeat.xEnd <= l.cols) {
     const x = l.left + repeat.xStart * s;
     const rw = (repeat.xEnd - repeat.xStart) * s;
+    // Marco de la repetición: borde blanco por fuera y tinta discontinua por dentro. No depende del color de la lana
+    // (se ve sobre lanas claras y oscuras) ni del color en sí: se distingue del marco de la fila por ser discontinuo.
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.strokeRect(x + 2.5, y + 2.5, rw - 5, s - 5);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = "#CFA02A";
-    ctx.strokeRect(x + 1.5, y + 1.5, rw - 3, s - 3);
+    ctx.strokeStyle = INK;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x + 2.5, y + 2.5, rw - 5, s - 5);
+    ctx.setLineDash([]);
   }
 }

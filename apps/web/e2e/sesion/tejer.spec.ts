@@ -249,7 +249,7 @@ test.describe("Tejer este diseño", () => {
     await page.getByTestId("repin-open").click();
     const details = page.getByTestId("repin-details");
     await expect(details).toContainText("Tu avance ahora: la vuelta 3. Después del cambio: la vuelta 3.");
-    await expect(details).toContainText("La fila en la que vas se teje distinto en la versión nueva");
+    await expect(details).toContainText("La vuelta en la que vas se teje distinto en la versión nueva");
     expect((await admin.from("projects").select("pattern_version_id").eq("id", projectId).single()).data?.pattern_version_id, "ver el detalle no cambia nada").toBe(before);
     await page.getByTestId("repin-confirm").click();
     await expect(page.getByTestId("repin-done")).toHaveText("Listo: el proyecto ahora sigue la versión 2.");

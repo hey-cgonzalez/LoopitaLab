@@ -9,6 +9,7 @@ import { projectErrorMessage } from "@/lib/project-messages";
 import { buildKnitPreview } from "@/lib/projects/knit-preview";
 import {
   progressConflictMessage,
+  patternConflict,
   projectFailure,
   versionChangedMessage,
   type ProjectFailure,
@@ -137,18 +138,22 @@ export async function getKnitPreview(patternId: string): Promise<KnitPreviewResu
 
 /**
  * Empieza un proyecto con la versión actual del diseño fijada. Atómico en la base (`start_chart_project`).
+ * `expectedUpdatedAt` es el `patternUpdatedAt` de `getKnitPreview`: si el diseño ya es otro, CONFLICT (pattern).
  * Respuestas: `{ ok, projectId, version, reused }`, o NOT_KNITTABLE (con los errores), CONFLICT (el diseño cambió),
  * QUOTA / MAX_VERSIONS / VERSIONS_QUOTA, NOT_FOUND, NOT_A_CHART, INVALID_REQUEST, REJECTED (título).
  */
-export async function startProjectFromDesign(patternId: string, title?: string): Promise<StartProjectResult> {
+export async function startProjectFromDesign(patternId: string, expectedUpdatedAt: string, title?: string): Promise<StartProjectResult> {
   const { supabase, user } = await session();
   if (!user) return projectFailure("UNAUTHENTICATED");
-  if (!isUuid(patternId)) return projectFailure("INVALID_REQUEST");
+  if (!isUuid(patternId) || !isTimestamp(expectedUpdatedAt)) return projectFailure("INVALID_REQUEST");
   const cleaned = cleanTitle(title);
   if (cleaned === null) return projectFailure("REJECTED");
 
   const design = await readKnittableDesign(supabase, user.id, patternId);
   if (!design.ok) return design;
+  // Lo que se fija es lo que mostró la pantalla previa (ADR 0009, T1-7): si el diseño cambió desde entonces, CONFLICT
+  // sin tocar admin. Misma cadena que devolvió `getKnitPreview` (ambas salen de la misma lectura de PostgREST).
+  if (design.updatedAt !== expectedUpdatedAt) return patternConflict();
 
   const client = admin();
   if (!client) return projectFailure("DATABASE");

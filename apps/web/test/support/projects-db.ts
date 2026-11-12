@@ -59,6 +59,10 @@ export function createProjectsDb(me: { id: string } | null) {
       r.title = String(document.title);
       r.updated_at = db.tick();
     },
+    /** `updated_at` que devolvería `getKnitPreview` (`patternUpdatedAt`); con un id desconocido, un instante válido cualquiera. */
+    updatedAt(id: string): string {
+      return (db.patterns.find((p) => p.id === id)?.updated_at as string | undefined) ?? ts(0);
+    },
     touchPattern(id: string) {
       db.patterns.find((p) => p.id === id)!.updated_at = db.tick();
     },

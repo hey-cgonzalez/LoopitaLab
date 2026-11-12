@@ -1,6 +1,6 @@
 import { yarnLetter } from "@loopitalab/pattern-core";
 import type { ChartPointer, ColorRun } from "@loopitalab/follow";
-import { positionText, rowWord, type WorkedIn } from "./messages.ts";
+import { PROJECT_MESSAGES, conflictSentence, positionText, rowWord, type WorkedIn } from "./messages.ts";
 import { STUDIO_TEXTS, directionName, shapeName, workedInName } from "../studio-texts.ts";
 
 /*
@@ -26,6 +26,8 @@ export const PROJECT_TEXTS = {
     abriendo: "Preparando…",
     empezando: "Creando el proyecto…",
     cancelar: "Cancelar",
+    /** «Tejer este diseño» desde el estudio (`StudioShell`): el autoguardado no pudo vaciarse. */
+    guardarAntes: "Antes de tejer hay que guardar los cambios, y todavía no se pudo. Revisa el estado del guardado.",
     confirmar: "Empezar a tejer",
     tituloDialogo: "Antes de empezar",
     tituloProyecto: "Nombre del proyecto (opcional)",
@@ -63,7 +65,16 @@ export const PROJECT_TEXTS = {
   /** Lista y ficha de proyectos. */
   proyectos: {
     titulo: "Tus proyectos",
-    subtitulo: "Cada proyecto sigue una versión fijada de un diseño y guarda tu avance en todos tus dispositivos.",
+    subtitulo: "Cada proyecto sigue una versión fijada de un diseño y guarda tu avance en todos tus dispositivos. Para empezar uno con patrón, abre un diseño y usa «Tejer este diseño»: el proyecto se crea con la versión que tengas guardada.",
+    vacio: "Todavía no tienes proyectos. Para empezar uno con patrón, abre un diseño en Mis diseños y usa «Tejer este diseño». También puedes crear uno suelto con el nombre de lo que quieres tejer.",
+    errorCarga: "No pudimos cargar tus proyectos. Recarga la página para intentarlo de nuevo.",
+    irAProyectos: "Ir a tus proyectos",
+    borrarCorto: "Borrar",
+    borrarDe: (title: string) => `Borrar ${title}`,
+    confirmarBorradoDe: (title: string) => `Confirmar borrado de ${title}`,
+    estadoDe: (title: string) => `Estado de ${title}`,
+    actualizadoEl: (date: string) => `actualizado el ${date}`,
+    soloEstado: "Este proyecto guarda solo su estado.",
     sinDiseno: "Sin diseño asociado",
     version: "Versión fijada",
     versionCorta: (n: number) => `versión ${n}`,
@@ -76,7 +87,6 @@ export const PROJECT_TEXTS = {
     borrarPregunta: (title: string) => `¿Borrar «${title}»? Se pierde el avance guardado y no se puede deshacer.`,
     borrarConfirmar: "Sí, borrar",
     borrado: (title: string) => `Borraste «${title}».`,
-    noEncontrado: "No encontramos ese proyecto. Puede que lo hayas borrado desde otro dispositivo.",
     diseno: "Diseño",
     avance: "Avance",
     actualizado: "Actualizado",
@@ -86,7 +96,7 @@ export const PROJECT_TEXTS = {
     marcarTerminado: "Marcar como terminado",
     versionNoValida:
       "Esta versión del diseño ya no pasa una regla nueva de revisión. Puedes seguir tejiendo con cuidado; para corregirla, edita el diseño y pasa el proyecto a la versión actual.", // F3-42
-    noSavable: "Esta versión del diseño no se puede abrir con las reglas actuales. No se puede seguir tejiendo con ella.", // F3-42
+    noSavable: PROJECT_MESSAGES.NOT_SAVABLE, // F3-42 (una sola fuente: lib/projects/messages.ts)
   },
 
   /** "Pasar a la versión actual" (ADR 0007 §5, ADR 0009). */
@@ -95,10 +105,13 @@ export const PROJECT_TEXTS = {
     titulo: "Pasar a la versión actual del diseño",
     revisando: "Comparando con el diseño actual…",
     igual: "El diseño actual es idéntico a la versión fijada: no hay nada que cambiar.",
-    conservaFila: "Tu avance se conserva en el mismo número de fila.",
-    filaCambio: "La fila en la que vas se teje distinto en la versión nueva: revisa que tu tejido coincida antes de seguir.", // F3-12
+    conservaFila: (workedIn: WorkedIn) => `Tu avance se conserva en el mismo número de ${rowWord(workedIn)}.`,
+    filaCambio: (workedIn: WorkedIn) => `La ${rowWord(workedIn)} en la que vas se teje distinto en la versión nueva: revisa que tu tejido coincida antes de seguir.`, // F3-12
     acotado: "La versión nueva es más corta: tu avance queda al final del gráfico (gráfico terminado).", // ADR 0007, enmienda T4-3; validar con tejedora
-    casillasACero: "El avance dentro de la fila vuelve al inicio de la fila.",
+    casillasACero: (workedIn: WorkedIn) => `El avance dentro de la ${rowWord(workedIn)} vuelve al inicio de la ${rowWord(workedIn)}.`,
+    cerrar: "Cerrar",
+    versiones: (version: number, fromRows: string, toRows: string) => `Versión fijada: ${version} (${fromRows}). Versión nueva: ${toRows}.`,
+    avanceAntesDespues: (before: string, after: string) => `Tu avance ahora: ${before}. Después del cambio: ${after}.`,
     confirmar: "Pasar a la versión actual",
     listo: (version: number) => `Listo: el proyecto ahora sigue la versión ${version}.`,
     conflicto: "Tu avance cambió en otro dispositivo mientras preparabas el cambio. Recarga la página y vuelve a intentar.",
@@ -108,6 +121,8 @@ export const PROJECT_TEXTS = {
   tejiendo: {
     titulo: "Tejiendo",
     volver: "← Proyecto",
+    noSePudoAbrir: "No pudimos abrir este proyecto para tejer",
+    volverAlProyecto: "Volver al proyecto",
     siguiente: "Siguiente",
     anterior: "Anterior",
     repeticionSiguiente: "Repetición siguiente",
@@ -121,20 +136,48 @@ export const PROJECT_TEXTS = {
     deIzquierdaADerecha: "de izquierda a derecha",
     coloresDelDerecho: "Los colores del gráfico son los que se ven por el derecho.", // F3-10; validar con tejedora
     espejo: "Lectura en espejo (preferencia de tu cuenta).",
-    grafico: "Gráfico con la fila actual",
+    graficoConFila: (workedIn: WorkedIn) => `Gráfico con la ${rowWord(workedIn)} actual`,
+    grafico: "Gráfico",
     vistaPrevia: "Vista previa",
     graficoTerminado: "Gráfico terminado",
     graficoTerminadoAyuda: "Tejiste todas las filas del gráfico. Falta rematar o cerrar la pieza.", // F3-7
     graficoTerminadoAyudaRedondo: "Tejiste todas las vueltas del gráfico. Falta rematar o cerrar la pieza.", // F3-7
     quedanPuntos: (n: number) => `Quedan ${n} ${n === 1 ? "punto" : "puntos"} de la última vuelta para rematar o cerrar.`, // F3-7 (bottom_up); validar con tejedora
     quedanPuntosFila: (n: number) => `Quedan ${n} ${n === 1 ? "punto" : "puntos"} de la última fila para rematar o cerrar.`, // validar con tejedora
-    sinPuntos: "Esta fila no tiene puntos: pasa a la siguiente.",
+    sinPuntos: (workedIn: WorkedIn) => `Esta ${rowWord(workedIn)} no tiene puntos: pasa a la siguiente.`,
     atajos: "Teclas: flechas, Espacio o Enter avanzan; Retroceso retrocede. Av Pág y Re Pág (o un pasapáginas Bluetooth) también sirven. Con Mayús, las flechas mueven por repetición.",
     pantallaEncendida: "Pantalla encendida",
     pantallaEncendidaAyuda: "Evita que la pantalla se apague mientras tejes. Se recuerda en este dispositivo.",
     pantallaNoSoportada: "Este navegador no permite mantener la pantalla encendida.",
-    versionCambio: "Este proyecto cambió de versión en otro dispositivo. Se recargará la pantalla.",
+    versionCambio: "Este proyecto cambió de versión en otro dispositivo. Recarga la pantalla para seguir con la versión nueva.",
     recargar: "Recargar",
+    /** Botones de avance (T13): grupo y mano. */
+    avanzarGrupo: "Avanzar en el patrón",
+    manoIzquierda: "Botones para zurda",
+    manoIzquierdaAyuda: "Pone «Siguiente» a la izquierda, al alcance del pulgar izquierdo. Se recuerda en este dispositivo; si no la cambias, se usa la mano de tu cuenta.",
+    pantallaNoSePudo: "No se pudo mantener la pantalla encendida. Puede apagarse sola mientras tejes.",
+    /** Repeticiones de la fila (T13): lista con texto accesible. */
+    repeticionesDeFila: (workedIn: WorkedIn) => `Repeticiones de esta ${rowWord(workedIn)}`,
+    /** Tarjeta de la fila actual. */
+    puntosPorRepeticion: (n: number) => `${n} ${n === 1 ? "punto" : "puntos"} por repetición`,
+    puntosEnLa: (workedIn: WorkedIn, n: number) => `${n} ${n === 1 ? "punto" : "puntos"} en la ${rowWord(workedIn)}`,
+    enLa: (workedIn: WorkedIn, n: number) => `${n} en la ${rowWord(workedIn)}`,
+    puntosMenos: (n: number) => `${n} ${n === 1 ? "punto menos" : "puntos menos"} que la anterior`,
+    repeticionActualTexto: "actual",
+    repeticionHechaTexto: "hecha",
+    repeticionPorHacerTexto: "por hacer",
+    /** Texto alternativo del gráfico (T13). */
+    graficoEnTexto: "Ver el gráfico en texto",
+    graficoEnTextoAyuda: "Una fila por línea, empezando por la primera que se teje. Los colores son los que se ven por el derecho; cada letra es una lana.",
+    graficoTablaTitulo: "Colores de cada fila del gráfico",
+    columnaFila: "Fila",
+    columnaVuelta: "Vuelta",
+    columnaLado: "Lado y sentido",
+    columnaPuntos: "Puntos",
+    columnaColores: "Colores de una repetición",
+    filaActualTexto: "(la que tejes ahora)",
+    /** Conflicto de avance (T13): ayuda de teclado del diálogo obligatorio. */
+    conflictoAyuda: "Elige una opción para seguir. Esta pregunta no se puede cerrar sin elegir.",
     actualizadoDesdeOtro: (where: string) => `Se actualizó desde otro dispositivo: vas en ${where}.`,
   },
 
@@ -167,6 +210,12 @@ export const STATUS_LABEL = {
 export function rowCounterText(workedIn: WorkedIn, number: number, totalRows: number): string {
   const w = rowWord(workedIn);
   return `${w.charAt(0).toUpperCase()}${w.slice(1)} ${number} de ${totalRows}`;
+}
+
+/** "8 vueltas" / "1 fila": la unidad en singular o plural según `workedIn`. Única fuente de "vuelta"/"fila" con número. */
+export function rowCountText(workedIn: WorkedIn, n: number): string {
+  const w = rowWord(workedIn);
+  return `${n} ${n === 1 ? w : `${w}s`}`;
 }
 
 /** Resumen del avance para la lista y la ficha: "Vuelta 12 de 60" o "Gráfico terminado". */
@@ -208,6 +257,36 @@ export function rowAnnouncement(workedIn: WorkedIn, number: number, totalRows: n
   return t ? `${rowCounterText(workedIn, number, totalRows)}: ${t}` : rowCounterText(workedIn, number, totalRows);
 }
 
+/**
+ * Anuncio completo al cambiar de fila (CA3-A1): número, lado, sentido, puntos y lanas.
+ * "Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos. En cada repetición: 3 A · 2 B."
+ */
+export function rowAnnouncementFull(
+  workedIn: WorkedIn,
+  step: { number: number; side: "right" | "wrong"; reading: "right_to_left" | "left_to_right"; stitches: number; runs: readonly ColorRun[] },
+  totalRows: number,
+  repeatX: number,
+): string {
+  const head = `${rowCounterText(workedIn, step.number, totalRows)}, ${sideAndReadingText(step.side, step.reading)}`;
+  if (step.stitches === 0) return `${head}. ${PROJECT_TEXTS.tejiendo.sinPuntos(workedIn)}`;
+  const points = `${step.stitches} ${step.stitches === 1 ? "punto" : "puntos"}`;
+  const runs = runsText(step.runs);
+  return `${head}, ${points}. ${repeatX > 1 ? "En cada repetición: " : "Colores: "}${runs}.`;
+}
+
+/** Anuncio al pasar de repetición dentro de la misma fila: "Repetición 3 de 8 de la vuelta 13: 3 A · 2 B". */
+export function repeatAnnouncement(workedIn: WorkedIn, number: number, index: number, of: number, runs: readonly ColorRun[]): string {
+  const t = runsText(runs);
+  const base = `${PROJECT_TEXTS.tejiendo.repeticion} ${index + 1} de ${of} de la ${rowWord(workedIn)} ${number}`;
+  return t ? `${base}: ${t}` : base;
+}
+
+/** Texto accesible de un punto de la lista de repeticiones: "repetición 3 (actual)". */
+export function repeatDotText(i: number, current: number): string {
+  const T = PROJECT_TEXTS.tejiendo;
+  return `${T.repeticion.toLowerCase()} ${i + 1} (${i === current ? T.repeticionActualTexto : i < current ? T.repeticionHechaTexto : T.repeticionPorHacerTexto})`;
+}
+
 /** Texto de "Gráfico terminado" (F3-7, T1-4). `lastStitches` viene de `stepAt(plan, totalRows − 1).stitches`. */
 export function finishedText(workedIn: WorkedIn, direction: "bottom_up" | "top_down", lastStitches: number | null): string {
   const T = PROJECT_TEXTS.tejiendo;
@@ -220,10 +299,8 @@ export function finishedText(workedIn: WorkedIn, direction: "bottom_up" | "top_d
 
 /** "En redondo, de abajo hacia arriba, 60 vueltas en total (tubo)". Los números vienen de `planChart`. */
 export function workShapeText(workedIn: WorkedIn, direction: "bottom_up" | "top_down", renderAs: string, totalRows: number): string {
-  const w = rowWord(workedIn);
-  const unit = totalRows === 1 ? w : `${w}s`;
   const shape = renderAs === "flat" || renderAs === "tube" || renderAs === "circle" || renderAs === "yoke" ? shapeName(renderAs) : renderAs;
-  return `${workedInName(workedIn)}, ${directionName(direction).toLowerCase()}: ${totalRows} ${unit} en total (${shape.toLowerCase()}).`;
+  return `${workedInName(workedIn)}, ${directionName(direction).toLowerCase()}: ${rowCountText(workedIn, totalRows)} en total (${shape.toLowerCase()}).`;
 }
 
 /** "20 puntos × 28 filas en 10 cm (supuesta)". */
@@ -255,9 +332,5 @@ export function relativeTimeText(iso: string | null | undefined, now: number = D
  */
 export function conflictQuestionText(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, theirsAt: string | null, yours: ChartPointer, now: number = Date.now()): string {
   const when = relativeTimeText(theirsAt, now);
-  const other = positionText(workedIn, totalRows, theirs);
-  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
-  const stamp = when ? ` (${when})` : "";
-  const head = finished ? `En otro dispositivo ya terminaste el gráfico${stamp}.` : `En otro dispositivo vas en ${other}${stamp}.`;
-  return `${head} Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
+  return conflictSentence(workedIn, totalRows, theirs, yours, when ? ` (${when})` : "");
 }

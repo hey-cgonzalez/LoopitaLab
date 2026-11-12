@@ -58,7 +58,7 @@ beforeEach(() => {
 
 async function startOne(d: ChartPattern) {
   seed(d);
-  const r = await startProjectFromDesign(d.id);
+  const r = await startProjectFromDesign(d.id, db.updatedAt(d.id));
   if (!r.ok) throw new Error(`no empezó: ${r.code}`);
   const project = db.projects.find((p) => p.id === r.projectId)!;
   return { projectId: r.projectId, versionId: project.pattern_version_id as string };
@@ -78,7 +78,7 @@ describe("F3-37: diseño valid con CHART_FLOAT_LONG", () => {
     expect(w!.message).toMatch(/enganchar la hebra/);
     expect(w!.message).toMatch(/máximo sugerido: \d+ puntos/);
     expect(w!.message).toMatch(/muestra supuesta/); // sin muestra del documento, la cifra en cm lo dice
-    const start = await startProjectFromDesign(PID);
+    const start = await startProjectFromDesign(PID, db.updatedAt(PID));
     expect(start).toMatchObject({ ok: true, version: 1 });
   });
 });
@@ -88,7 +88,7 @@ describe("F3-38: diseño con un error de tejido", () => {
     const d = doc();
     d.chart.cells.fill(NO_STITCH, 0, d.chart.width);
     seed(d);
-    for (const r of [await getKnitPreview(PID), await startProjectFromDesign(PID)]) {
+    for (const r of [await getKnitPreview(PID), await startProjectFromDesign(PID, db.updatedAt(PID))]) {
       expect(r).toMatchObject({ ok: false, code: "NOT_KNITTABLE" });
       if (!r.ok) {
         expect(r.error).toMatch(/errores de tejido/);

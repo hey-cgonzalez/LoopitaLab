@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import type { DesignListItem } from "@/lib/designs/types";
+import { PROJECT_TEXTS } from "@/lib/projects/texts.ts";
 import { KnitStartButton } from "@/components/knit/KnitStartButton";
 import { deletePattern, duplicatePattern } from "./actions";
 
@@ -66,7 +67,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
       {hasProjects && message?.tone === "error" ? (
         <p>
           <Link href="/proyectos" className="underline underline-offset-4">
-            Ir a tus proyectos
+            {PROJECT_TEXTS.proyectos.irAProyectos}
           </Link>
         </p>
       ) : null}
@@ -93,7 +94,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
                 </div>
                 {isAi ? <span className="self-start rounded-full border-2 border-marino px-3 py-0.5 text-sm font-bold">Generado con IA</span> : null}
                 {confirming === d.id ? (
-                  <div role="group" aria-label={`Confirmar borrado de ${d.title}`} className="mt-auto flex flex-wrap items-center gap-2">
+                  <div role="group" aria-label={PROJECT_TEXTS.proyectos.confirmarBorradoDe(d.title)} className="mt-auto flex flex-wrap items-center gap-2">
                     <span className="font-bold">¿Borrar «{d.title}»? No se puede deshacer.</span>
                     <button type="button" onClick={() => onDelete(d)} disabled={busy === d.id} className="rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
                       Sí, borrar

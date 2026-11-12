@@ -18,7 +18,7 @@ const T = STUDIO_TEXTS;
  * como `scroll-padding-bottom` de la página.
  * `aside`: contenido extra a la derecha (los enlaces legales en escritorio, donde el pie del sitio no se ve).
  */
-export function PrototypeNotice({ aside }: { aside?: ReactNode }) {
+export function PrototypeNotice({ aside, sticky = true }: { aside?: ReactNode; sticky?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const el = ref.current;
@@ -34,7 +34,7 @@ export function PrototypeNotice({ aside }: { aside?: ReactNode }) {
     };
   }, []);
   return (
-    <div ref={ref} data-zone="prototype-notice" className="sticky bottom-0 z-10 shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-1.5 text-sm">
+    <div ref={ref} data-zone="prototype-notice" className={`${sticky ? "sticky bottom-0 z-10 " : ""}shrink-0 border-t-2 border-mostaza bg-superficie px-4 py-1.5 text-sm`}>
       <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
         <p className="min-w-0">
           <strong>{T.prototipo.etiqueta}.</strong> {T.prototipo.aviso}

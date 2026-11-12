@@ -39,7 +39,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     return (
       <Shell name={name} title={base.data.title}>
         {noDesign ? (
-          <p className="text-tinta-suave">{PROJECT_TEXTS.proyectos.sinDiseno}. Este proyecto guarda solo su estado.</p>
+          <p className="text-tinta-suave">{PROJECT_TEXTS.proyectos.sinDiseno}. {PROJECT_TEXTS.proyectos.soloEstado}</p>
         ) : (
           <>
             <FormMessage message={r.code === "NOT_SAVABLE" ? PROJECT_TEXTS.proyectos.noSavable : r.error} tone="error" />

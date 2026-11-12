@@ -267,15 +267,15 @@ describe("render estático: estado del avance y «Pasar a la versión actual»",
     const base = { sameDocument: false, from: { version: 1, workedIn: "rows" as const, totalRows: 20 }, to: { workedIn: "rows" as const, totalRows: 24 }, currentPointer: { rowsDone: 11, stitchesDone: 4 }, pointer: { rowsDone: 11, stitchesDone: 0 }, clamped: false, rowChanged: true, progressUpdatedAt: null };
     const changed = renderToStaticMarkup(createElement(RepinDetails, { preview: base }));
     expect(changed).toContain("Tu avance ahora: la fila 12. Después del cambio: la fila 12.");
-    expect(changed).toContain(PROJECT_TEXTS.repin.filaCambio);
-    expect(changed).toContain(PROJECT_TEXTS.repin.casillasACero);
+    expect(changed).toContain(PROJECT_TEXTS.repin.filaCambio("rows"));
+    expect(changed).toContain(PROJECT_TEXTS.repin.casillasACero("rows"));
     expect(changed).toContain("20 filas");
     const clamped = renderToStaticMarkup(createElement(RepinDetails, { preview: { ...base, to: { workedIn: "rows", totalRows: 6 }, pointer: { rowsDone: 6, stitchesDone: 0 }, clamped: true } }));
     expect(clamped).toContain(PROJECT_TEXTS.repin.acotado);
     expect(clamped).toContain("Después del cambio: el gráfico terminado.");
     const kept = renderToStaticMarkup(createElement(RepinDetails, { preview: { ...base, rowChanged: false, currentPointer: { rowsDone: 11, stitchesDone: 0 } } }));
-    expect(kept).toContain(PROJECT_TEXTS.repin.conservaFila);
-    expect(kept).not.toContain(PROJECT_TEXTS.repin.casillasACero);
+    expect(kept).toContain(PROJECT_TEXTS.repin.conservaFila("rows"));
+    expect(kept).not.toContain(PROJECT_TEXTS.repin.casillasACero("rows"));
     expect(renderToStaticMarkup(createElement(RepinDetails, { preview: { ...base, sameDocument: true } }))).toContain(PROJECT_TEXTS.repin.igual);
   });
 });
@@ -295,7 +295,7 @@ describe("deleteProject", () => {
     const actions = await import("@/app/proyectos/actions");
     const d = doc();
     db.seedPattern({ id: d.id, owner_id: ANA, document: d as unknown as Record<string, unknown> });
-    const r = await actions.startProjectFromDesign(d.id);
+    const r = await actions.startProjectFromDesign(d.id, db.updatedAt(d.id));
     if (!r.ok) throw new Error(r.code);
     return { actions, projectId: r.projectId };
   };

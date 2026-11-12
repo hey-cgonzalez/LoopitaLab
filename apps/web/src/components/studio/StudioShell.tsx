@@ -20,6 +20,7 @@ import {
 } from "@/lib/studio/select.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 import type { Tool } from "@/lib/studio/tools.ts";
+import { PROJECT_TEXTS } from "@/lib/projects/texts.ts";
 import { STUDIO_TEXTS, yarnTitle, zoomAnnouncement } from "@/lib/studio-texts.ts";
 import { CHART_CANVAS_ID, ChartEditor } from "./ChartEditor";
 import { EditorToolbar } from "./EditorToolbar";
@@ -248,7 +249,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
     } catch {
       /* cae al mensaje */
     }
-    return { ok: false, message: "Antes de tejer hay que guardar los cambios, y todavía no se pudo. Revisa el estado del guardado." };
+    return { ok: false, message: PROJECT_TEXTS.tejer.guardarAntes };
   }, [autosave]);
 
   function reloadFromServer() {
