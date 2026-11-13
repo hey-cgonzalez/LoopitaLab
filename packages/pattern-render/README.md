@@ -21,6 +21,8 @@ const texto = describeChart(pattern, { paletteName: (id) => PALETTE.find((c) => 
 | `ChartSvgOptions` | `cellPx` (por defecto 16, acotado entre 4 y 64), `showRepeats`, `rowNumbers`, `symbols`, `mirror` |
 | `describeChart(pattern, opts?)` | Descripción breve en español, en texto plano |
 | `DescribeOptions` | `paletteName(paletteId)`: nombre del color de la paleta propia. `pattern-render` no depende de `yarn-catalog`: quien llama le pasa la búsqueda |
+| `describeWritten(pattern, opts?)` | Descripción estructurada y textual de un patrón escrito (T9 de la fase 4). Ver "Qué dice `describeWritten`" |
+| `DescribeWrittenOptions` | `dialect` (`es` por omisión; `us`, `uk`), `assumedGauge` (muestra supuesta si el documento no trae) e `includeRounds` |
 | `CHART_SVG_MAX_CELLS` | 40 000: casillas dibujadas como máximo (ver abajo) |
 | `DEFAULT_CELL_PX`, `DESCRIBE_MAX_ISSUES` | 16 y 3 |
 
@@ -74,6 +76,16 @@ Por ejemplo, para una banda de 4 × 3 repetida 5 × 2 veces:
 - Cita textualmente hasta 3 avisos del validador (errores de tejido y advertencias; omite la información) y resume el resto.
 - Números en español sin depender de la configuración regional: "9999", "12.500", "7,1".
 
+## Qué dice `describeWritten`
+
+Devuelve `{ ok, dialect, parts, placements, gaugeStatus, text }`: los datos estructurados (por parte: vueltas con su conteo, etiquetas de copias y medidas) y el texto plano para lectores de pantalla. Nunca lanza; con un documento no `savable` devuelve `ok: false` y una frase.
+
+- **Conteos**: de `summarizePart` y `concreteRounds`; las medidas, de `shapeMetrics`, `partProfile` y `partDimensions`. Aquí no se cuenta nada (regla de oro 2).
+- **Copias**: "Se teje 2 veces: Oreja (1 de 2), Oreja (2 de 2). Las copias son idénticas, sin espejo."
+- **Dónde va cada pieza** (enmienda C-17 del ADR 0011): "Oreja (1 de 2): se cose a «Cabeza», entre la V10 y la V11, contando desde el anillo mágico." Sin distancia en puntos desde el inicio de la vuelta (`SurfaceAt.stitch` no se usa). Con cadeneta inicial, "contando desde la cadeneta inicial"; en hileras, H en vez de V y "la cadeneta base"; con `attach: "start"`, "por el centro de su inicio". Las copias sin entrada en `layout` salen como "se ubica de forma automática".
+- **Medidas**: "≈ N cm" y siempre "estimación". Con la muestra del documento, "a partir de la muestra del patrón". Sin muestra del documento y con `assumedGauge`, además "muestra supuesta" y "supuesto". Sin ninguna, "Sin muestra: no se pueden dar medidas" y ningún "≈" (regla de oro 6).
+- **Dialecto**: el prefijo de vuelta (V, H o R) y las abreviaturas de cada vuelta salen con `formatRound` de `pattern-core`; la prosa es siempre español.
+
 ## Pruebas
 
 ```bash
@@ -90,6 +102,7 @@ SEED=7 node --test "test/**/*.test.ts"   # otra semilla para las propiedades
 | `test/escape.test.ts` | `</svg><script>` en título y notas no aparece crudo; un color inválido no llega al atributo; mensajes e identificadores escapados |
 | `test/property.test.ts` | Con el generador con semilla (ADR 0002): para todo documento `savable`, el SVG es XML bien formado (lector propio en `test/support/xml.ts`), dibuja tantas casillas como el tamaño y tantas con punto como `stitchTotal`; la numeración sigue la regla del ADR 0003; `mirror` no cambia las casillas; es determinista y no modifica el documento; la descripción nombra el total |
 | `test/t7b.test.ts` | Rótulo del motivo solo con alto impar, numeración rala (casos y propiedad contra la regla escrita en la prueba), prefijo de ids con opciones raras y con colores distintos, letras dobles desde la lana 27 |
+| `test/describe-written.test.ts` | Fixtures A y B de `pattern-core` (importados), oreja con 2 copias anclada, muestra del documento, supuesta y ausente, dialectos, y propiedades: conteos iguales a los del motor, determinista, no modifica el documento y nunca lanza |
 | `test/performance.test.ts` | Motivo de 200 × 200 con todas las opciones (mediana de 5 corridas, informada en la salida) |
 
 `test/support/property.ts` es una copia del generador de `pattern-core`.
