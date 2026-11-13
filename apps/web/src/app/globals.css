@@ -61,6 +61,20 @@ body:has([data-studio]) > [data-site-footer] {
   display: none;
 }
 
+/* "Tejiendo" en pantallas angostas (< 1024 px): la página desplaza entera y la barra de avance queda fija abajo
+   (`sticky`). Así, en un teléfono bajo (320 × 568) el gráfico no queda aplastado entre la cabecera, los interruptores y
+   la barra. Desde 1024 px se mantiene el estudio a pantalla completa con dos columnas que desplazan por dentro.
+   `scroll-padding-bottom` deja libre el alto de la barra al llevar el foco a un elemento (WCAG 2.4.11). */
+@media (max-width: 1023.98px) {
+  body:has([data-knit]) {
+    height: auto;
+    min-height: 100dvh;
+  }
+  html:has([data-knit]) {
+    scroll-padding-bottom: 11rem;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,

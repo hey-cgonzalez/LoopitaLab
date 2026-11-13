@@ -177,6 +177,8 @@ jobs:
     env:
       NEXT_TELEMETRY_DISABLED: "1"
       E2E_SUPABASE: "1"
+      # Misma guardia de latencia que el job "E2E (estudio)" (row-to-paint de "Tejiendo", CA3-P3).
+      E2E_LATENCY_BUDGET_MS: "160"
       # Ajustes de Auth SOLO para esta Supabase local (la CLI lee SUPABASE_<SECCIÓN>_<CLAVE> por encima de
       # config.toml): sitio y vuelta de los correos en el puerto de las E2E, y Google apagado (no hay cliente OAuth
       # de prueba). config.toml no cambia: es la configuración del proyecto real.

@@ -2,12 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { PALETTE, weightLabel } from "@loopitalab/yarn-catalog";
+import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 import { describeComposition } from "@/lib/yarns/form";
 import { SAVED_YARNS_LIMIT, type SavedYarn } from "@/lib/yarns/saved";
 import { deleteUserYarn } from "./actions";
 import { YarnForm } from "./YarnForm";
 
-const btn = "rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white";
+const G = STUDIO_TEXTS.gestorLanas;
+const btn = "min-h-11 rounded-full border-2 border-marino px-4 py-2 font-bold hover:bg-marino hover:text-white";
 const colorName = (y: SavedYarn) => (y.color.paletteId ? PALETTE.find((c) => c.id === y.color.paletteId)?.nombre : undefined);
 const yarnTitle = (y: SavedYarn) => `${weightLabel(y.weight)}, ${describeComposition(y.composition)}`;
 
@@ -31,7 +33,7 @@ export function YarnManager({ initial }: { initial: SavedYarn[] }) {
     const isEdit = form?.editing != null;
     setYarns((list) => (isEdit ? list.map((x) => (x.id === y.id ? y : x)) : [y, ...list]));
     setForm(null);
-    announce({ tone: "ok", text: isEdit ? "Guardaste los cambios de la lana." : "Guardaste la lana en «Mis lanas»." });
+    announce({ tone: "ok", text: isEdit ? G.guardadaEditada : G.guardadaNueva });
   }
 
   async function onDelete(y: SavedYarn) {
@@ -41,10 +43,10 @@ export function YarnManager({ initial }: { initial: SavedYarn[] }) {
       if (r.ok || r.code === "NOT_FOUND") {
         setYarns((list) => list.filter((x) => x.id !== y.id));
         setConfirming(null);
-        announce({ tone: "ok", text: "Borraste la lana." });
+        announce({ tone: "ok", text: G.borrada });
       } else announce({ tone: "error", text: r.error });
     } catch {
-      announce({ tone: "error", text: "No pudimos borrar la lana. Revisa tu conexión e intenta de nuevo." });
+      announce({ tone: "error", text: G.borrarError });
     } finally {
       setBusy(null);
     }
@@ -118,13 +120,22 @@ export function YarnManager({ initial }: { initial: SavedYarn[] }) {
                 </p>
               ) : null}
               {confirming === y.id ? (
-                <div role="group" aria-label="Confirmar borrado" className="mt-auto flex flex-wrap items-center gap-2">
-                  <span className="font-bold">¿Borrar esta lana? No se puede deshacer.</span>
-                  <button type="button" onClick={() => onDelete(y)} disabled={busy === y.id} className="rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
-                    Sí, borrar
+                <div role="group" aria-label={G.confirmarGrupo} className="mt-auto flex flex-wrap items-center gap-2">
+                  <span className="font-bold">{G.borrarPregunta}</span>
+                  <button type="button" onClick={() => onDelete(y)} disabled={busy === y.id} className="min-h-11 rounded-full bg-error px-4 py-2 font-bold text-white hover:opacity-90 disabled:opacity-60">
+                    {G.borrarConfirmar}
                   </button>
-                  <button type="button" onClick={() => setConfirming(null)} className={btn}>
-                    Cancelar
+                  {/* El foco empieza en «Cancelar» (acción irreversible) y vuelve a «Borrar» si se cancela. */}
+                  <button
+                    type="button"
+                    autoFocus
+                    onClick={() => {
+                      setConfirming(null);
+                      requestAnimationFrame(() => document.getElementById(`borrar-lana-${y.id}`)?.focus());
+                    }}
+                    className={btn}
+                  >
+                    {G.cancelar}
                   </button>
                 </div>
               ) : (
@@ -141,8 +152,8 @@ export function YarnManager({ initial }: { initial: SavedYarn[] }) {
                   >
                     Editar
                   </button>
-                  <button type="button" aria-label={`Borrar ${yarnTitle(y)}`} onClick={() => setConfirming(y.id)} className="rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
-                    Borrar
+                  <button id={`borrar-lana-${y.id}`} type="button" aria-label={G.borrarDe(yarnTitle(y))} onClick={() => setConfirming(y.id)} className="min-h-11 rounded-full border-2 border-error px-4 py-2 font-bold text-error hover:bg-error hover:text-white">
+                    {G.borrar}
                   </button>
                 </div>
               )}

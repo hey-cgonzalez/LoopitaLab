@@ -1,6 +1,6 @@
 # Seguridad: estado y pendientes
 
-Última revisión: 2026-11-06 (T15, revisión de T4; correcciones en esta rama) y 2026-11-05, agente `revisor-seguridad`, sobre la rama `fase-2/preparacion` (antes: 2026-11-04, rama `fase-1/supabase-auth`). Sin hallazgos críticos. Las comprobaciones de RLS están en `supabase/checks/10_rls_check.sql` y corren en CI. Corren dos veces: sobre Postgres con stubs (job "Migraciones y RLS") y sobre la Supabase local de la CLI (job "E2E con sesión").
+Última revisión: 2026-11-12 (T17, fase 3; ver "Revisión final de la fase 3"). Antes: 2026-11-06 (T15, revisión de T4; correcciones en esta rama) y 2026-11-05, agente `revisor-seguridad`, sobre la rama `fase-2/preparacion` (antes: 2026-11-04, rama `fase-1/supabase-auth`). Sin hallazgos críticos. Las comprobaciones de RLS están en `supabase/checks/10_rls_check.sql` y corren en CI. Corren dos veces: sobre Postgres con stubs (job "Migraciones y RLS") y sobre la Supabase local de la CLI (job "E2E con sesión").
 
 **E2E con sesión.** Las E2E usan Supabase local (Docker, CLI 2.122.1) con claves de desarrollo; nunca el proyecto real. `playwright.config.ts` y `e2e/sesion/support.ts` fallan si la URL no es `127.0.0.1` o `localhost`; las cuentas de prueba (`@e2e.loopitalab.test`) se crean y se borran en cada corrida, y la clave secreta local solo llega al servidor de pruebas (`apps/web/e2e/README.md`).
 
@@ -169,6 +169,45 @@ Revisión de `revisor-seguridad` sobre la rama `fase-2/cierre`. Sin hallazgos cr
 | Fase 5 | Activar `LOOPITA_UPLOADS_ENABLED` junto con la interfaz de subida. Aviso de derechos al subir. Aviso de cuota antes de lanzar un trabajo de IA (T15 B-2) |
 | Fase 7 | Publicar: revalidar en el servidor con `valid` (M-1), avisar qué sale público (M-2), `valid` al guardar un diseño público (B4), listado público como resumen con paginación por cursor, límites de tasa en el borde, interfaz de moderación, `pg_jsonschema` |
 
+### Revisión final de la fase 3 (T17, 2026-11-12)
+
+Revisión de `revisor-seguridad`. Sin hallazgos críticos ni altos; `pnpm audit` limpio.
+
+**Alcance.** Migraciones `20261111031138_revocar_execute_triggers.sql` y `20261111031813_tejer_disenos.sql`; acciones de `app/proyectos/actions.ts`; `lib/projects/list.ts`; la cola local del avance; páginas `/proyectos/[id]` y `/proyectos/[id]/tejer`; notas privadas; y el plan de despliegue (`docs/despliegue-publico.md`).
+
+**Verificado**
+
+- Las funciones `security definer` tienen `search_path` vacío. `start_chart_project` y `repin_project` solo las ejecuta `service_role`; `pin_current_version` no la ejecuta nadie.
+- La dueña sale de `auth.getUser()`, `kind = 'chart'` se exige, y el `updated_at` es exacto con la fila bloqueada. El documento validado se lee de la base, no del cliente.
+- Las versiones son inmutables. El cliente solo escribe `title`, `status` y su puntero de avance.
+- Las páginas exigen sesión en dos capas y responden 404 sin distinguir lo ajeno de lo inexistente. No hay `dangerouslySetInnerHTML`. La pantalla previa no recibe notas privadas.
+- La cola local guarda solo identificadores y el puntero, con la dueña en la clave y en el contenido y un TTL de 14 días. Se borra al confirmar, al cerrar sesión y al eliminar la cuenta.
+
+**Hallazgos**
+
+| Hallazgo | Estado | Detalle |
+|---|---|---|
+| T17-M1 (medio) | Corregido (migración `20261113145129_tope_part_id_y_detalle_cuotas.sql`, aplicada en el proyecto real el 2026-11-13) | `project_progress.part_id` no tenía tope y PostgREST permitía escribirlo |
+| T17-M2 (medio) | Incorporado al plan de despliegue | El plan no verifica que vinext conserve las protecciones de Next: Origin de las Server Actions, rutas protegidas, clave secreta fuera del bundle, cabeceras en 200, 404, redirección y estáticos, y `Cache-Control: private, no-store` |
+| T17-M3 (medio) | Incorporado al plan de despliegue | `*.workers.dev` es un segundo origen fuera de las reglas de la zona; la prueba de viabilidad no debe usar el proyecto real |
+| T17-M4 (medio) | Incorporado al plan de despliegue | La regla gratuita de límite de peticiones debe ir sobre `POST` al host por IP: las Server Actions no tienen ruta propia y el ingreso va directo a Supabase. Revisar además los límites de Auth de Supabase |
+| T17-B1 (bajo) | Corregido en el repo | Depurar la cola del avance al entrar otra cuenta o al borrar el proyecto |
+| T17-B2 (bajo) | Corregido en el repo | Descartar las entradas locales rechazadas por el servidor y acotar la cola |
+| T17-B3 (bajo) | Corregido en el repo | `loadProject` ya no trae notas privadas |
+| T17-B4 (bajo) | Requisito de la fase 7 | Las versiones fijadas conservan las notas privadas. Si en la fase 7 se abren a terceros, hay que leerlas por una función que las quite |
+| T17-B5 (bajo) | Corregido (migración `20261113145129_tope_part_id_y_detalle_cuotas.sql`, aplicada en el proyecto real el 2026-11-13) | Los topes 54000 se distinguen por un `detail` estable |
+| T17-B6 (bajo) | Parcial: `.env.example` y plan corregidos; `/privacidad` pendiente de la revisión legal | `.env.example`, plan y `/privacidad` desalineados: faltan Cloudflare y Resend como encargados y el avance local |
+| T17-B7 (bajo) | Incorporado al plan de despliegue | `LOOPITA_ENV=production` y `NODE_ENV=production` también en el entorno de build y despliegue, y una E2E que afirme 404 en `/dev/*` sobre workerd |
+
+**Falta antes de la beta**
+
+- [ ] Avisos por correo de identidad vinculada y desvinculada (y contraseña cambiada).
+- [ ] Prueba M3. Decidir dónde se hace: no se crean cuentas de prueba en el proyecto real.
+- [ ] Verificar la purga programada (`cron.job`, `loopitalab-purga-diaria`).
+- [ ] Comprobaciones en la base real: `session_id`, `amr` y token tras el bloqueo.
+- [ ] Repetir `10_rls_check.sql` en el proyecto real sin dejar datos (transacción con rollback o una rama).
+- [ ] Política de logs del Worker: sin cuerpos ni query strings, con la retención declarada.
+
 ## Riesgos aceptados
 
 - **F2-M7 (medio, de plataforma; requisito antes de activar los proveedores).** Con `secure_password_change`, Supabase Auth solo exige el nonce de re-autenticación si la sesión tiene más de 24 horas. Quien obtenga el `access_token` de una sesión reciente (por ejemplo, en un equipo compartido; la cookie no es httpOnly porque la necesita el cliente del navegador) puede cambiar la contraseña con `PUT /auth/v1/user` directo a Supabase, sin pasar por la aplicación. M4 y F2-M5 protegen solo el camino de la aplicación. Mitigaciones en el panel (pendientes, ver abajo): aviso por correo de "contraseña cambiada", sesiones con tiempo máximo e inactividad, y evaluar MFA (aal2) para acciones sensibles. Con OAuth el riesgo crece: vincular Google o Microsoft agrega un método de ingreso que no se revoca al cambiar la contraseña, y la vinculación automática no pide la contraseña actual. Por eso estas mitigaciones pasan a ser requisito **antes** de activar los proveedores, no solo antes de la beta.
@@ -182,8 +221,9 @@ Revisión de `revisor-seguridad` sobre la rama `fase-2/cierre`. Sin hallazgos cr
 
 | Tema | Cuándo | Qué hacer |
 |---|---|---|
-| Migración de T7 (tejer diseños) | Antes de desplegar T11 y T12 | **Aplicada en el proyecto real el 2026-11-11** (verificado: `pattern_version` eliminada, `pattern_version_id` presente, `start_chart_project` y `repin_project` solo para `service_role`, `pin_current_version` sin EXECUTE para nadie, el cliente no actualiza `pattern_version_id` ni `device`, disparador de inmutabilidad activo). Falta repetir `10_rls_check.sql` allí. La guardia aborta si algún proyecto tiene `pattern_version`. La interfaz actual (`app/proyectos/actions.ts`) solo inserta `title` y actualiza `status`: sigue funcionando |
-| Revisión T17 de T7 | Fase 3 | Mirar: (1) que T11 llame a `start_chart_project`/`repin_project` solo con el cliente admin del servidor, **después** de `migratePattern` + `validatePattern` sin opciones con `valid` sobre el documento **leído de la base** (nunca del cliente), con el `updated_at` leído junto con ese documento y `p_owner_id` de `auth.getUser()` (no de un parámetro del cliente), y que no devuelva errores de la base al navegador; (2) códigos: `PT409` conflicto (`detail` `pattern` o `progress`), `P0002` no encontrado o ajeno, `22023` no es gráfico o proyecto sin diseño, `54000` topes, `23514` título; (3) `saveProgress` con `where updated_at = esperado` y comprobación de la versión fijada; `repin_project` renueva el `updated_at` del avance, así una escritura en vuelo con la versión vieja da conflicto; (4) `deletePattern` traduce 23503; (5) el avance en `localStorage` (ADR 0009, sección 4); (6) que nadie vuelva a dar a `authenticated` permiso sobre `pattern_id`/`pattern_version_id` ni EXECUTE sobre las funciones (el check lo detecta); (7) **desvío del ADR 0009**: el ADR decía grant a `authenticated` y firmas sin `p_owner_id`; `repin_project` además recibe el puntero reubicado y el `updated_at` esperado del avance, y devuelve `progress_updated_at`. `arquitecto` debe enmendar el ADR |
+| Migración de T7 (tejer diseños) | Hecho (2026-11-11) | **Aplicada en el proyecto real el 2026-11-11** (verificado: `pattern_version` eliminada, `pattern_version_id` presente, `start_chart_project` y `repin_project` solo para `service_role`, `pin_current_version` sin EXECUTE para nadie, el cliente no actualiza `pattern_version_id` ni `device`, disparador de inmutabilidad activo). Falta repetir `10_rls_check.sql` allí. La guardia aborta si algún proyecto tiene `pattern_version`. La interfaz actual (`app/proyectos/actions.ts`) solo inserta `title` y actualiza `status`: sigue funcionando |
+| Migración T17 (`20261113145129_tope_part_id_y_detalle_cuotas.sql`) | Antes de desplegar | Aplicada en el proyecto real el 2026-11-13 (tope de `project_progress.part_id` y `detail` estable en los 54000). Falta repetir `10_rls_check.sql` contra el proyecto real cuando haya cuentas de prueba allí |
+| Revisión T17 de T7 | Hecha (2026-11-12, ver "Revisión final de la fase 3"); hallazgos T17-M1 a B7 abiertos o corregidos allí | Se miró: (1) que T11 llame a `start_chart_project`/`repin_project` solo con el cliente admin del servidor, **después** de `migratePattern` + `validatePattern` sin opciones con `valid` sobre el documento **leído de la base** (nunca del cliente), con el `updated_at` leído junto con ese documento y `p_owner_id` de `auth.getUser()` (no de un parámetro del cliente), y que no devuelva errores de la base al navegador; (2) códigos: `PT409` conflicto (`detail` `pattern` o `progress`), `P0002` no encontrado o ajeno, `22023` no es gráfico o proyecto sin diseño, `54000` topes, `23514` título; (3) `saveProgress` con `where updated_at = esperado` y comprobación de la versión fijada; `repin_project` renueva el `updated_at` del avance, así una escritura en vuelo con la versión vieja da conflicto; (4) `deletePattern` traduce 23503; (5) el avance en `localStorage` (ADR 0009, sección 4); (6) que nadie vuelva a dar a `authenticated` permiso sobre `pattern_id`/`pattern_version_id` ni EXECUTE sobre las funciones (el check lo detecta); (7) **desvío del ADR 0009**: el ADR decía grant a `authenticated` y firmas sin `p_owner_id`; `repin_project` además recibe el puntero reubicado y el `updated_at` esperado del avance, y devuelve `progress_updated_at`. `arquitecto` debe enmendar el ADR |
 | Limpieza menor: EXECUTE en funciones de trigger (T3) | **Aplicada en el proyecto real el 2026-11-11** (verificado: `set_updated_at` y `patterns_quota` sin EXECUTE para `anon` ni `authenticated`) | Falta repetir `10_rls_check.sql` allí; el check ya verifica que `anon` y `authenticated` no tienen EXECUTE en ninguna función de trigger de `public` |
 | Clave secreta del servidor | Solo falta el hosting | `SUPABASE_SECRET_KEY` ya está en `.env.local`; falta configurarla en el gestor de secretos del hosting (solo servidor). La migración `20261105133225_denuncias_y_derechos.sql` ya está aplicada en el proyecto real (2026-11-05, con pg_cron activo y la purga programada) y `10_rls_check.sql` pasó sobre esa base. La necesitan subir, exportar y eliminar. Si se recrea el proyecto: activar pg_cron **antes** de aplicar la migración, o programar la purga a mano con `select cron.schedule('loopitalab-purga-diaria', '17 4 * * *', 'select public.purge_expired_data()');` |
 | Comprobaciones en la base real | Al aplicar la migración | Que un token emitido antes del bloqueo deja de servir en `getUser`; que los JWT traen `session_id` (sin él la re-autenticación falla siempre, de forma cerrada); que `amr[].timestamp` no cambia con un refresh |
@@ -208,4 +248,4 @@ Revisión de `revisor-seguridad` sobre la rama `fase-2/cierre`. Sin hallazgos cr
 | Publicar patrones | Fase 7, antes de ofrecer la opción | Ya existen la denuncia (`pattern_reports`, `ReportPatternForm`) y los términos en borrador. Falta montar el formulario en la vista pública, una interfaz de moderación (hoy se revisa en el editor de tablas con `status = 'open'`) y la revisión legal |
 | Aviso de derechos al subir imágenes | Fase 5, con la interfaz de subida | Confirmación obligatoria en el formulario de subida |
 | Ley 21.719 (protección de datos, Chile) | Antes de cualquier beta con personas externas | Ya existen exportar y eliminar la cuenta, y `/privacidad` y `/terminos` en borrador. Falta completar los marcadores ([RAZÓN SOCIAL], [RUT], plazos, bases de licitud) y la revisión legal. Según Diario Constitucional (junio de 2026), entra en vigencia el 1 de diciembre de 2026; no se pudo confirmar una posible postergación a 2027. Mientras tanto rige la Ley 19.628. Si hay usuarias en la UE, también aplica el RGPD |
-| CSP completa | Antes del lanzamiento | Debe permitir `https://challenges.cloudflare.com` en `script-src` y `frame-src` para Turnstile |
+| CSP completa | Antes del lanzamiento | Con `object-src 'none'` y `base-uri 'self'` (ver `docs/despliegue-publico.md`, P3.1). Debe permitir `https://challenges.cloudflare.com` en `script-src` y `frame-src` para Turnstile |

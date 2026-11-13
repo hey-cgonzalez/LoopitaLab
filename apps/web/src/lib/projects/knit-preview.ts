@@ -2,7 +2,35 @@ import { planChart } from "@loopitalab/follow";
 import { yarnUsage, type ChartPattern } from "@loopitalab/pattern-core";
 import { estimateYarnLength, type LengthEstimate } from "@loopitalab/yarn-catalog";
 import { gaugeInUse, lengthLowConfidence, validateForPanel } from "../studio/measures.ts";
-import type { KnitPreview, KnitPreviewYarn } from "./types.ts";
+import type { KnitPreview, KnitPreviewYarn, NotInChartKey } from "./types.ts";
+
+/**
+ * Documento de la versión fijada tal como lo recibe el navegador en "Tejiendo" y en la ficha (T17, B3): sin las notas
+ * privadas que esas pantallas no muestran (`yarns[*].note`, texto libre de la usuaria, y `notes` del patrón). No muta
+ * el original. Así esas notas no viajan en el HTML ni en la carga de React aunque la pantalla no las pinte.
+ */
+export function knitDocument(doc: ChartPattern): ChartPattern {
+  const { notes: _notes, ...rest } = doc;
+  void _notes;
+  return {
+    ...rest,
+    yarns: doc.yarns.map((y) => {
+      const { note: _note, ...yarn } = y;
+      void _note;
+      return yarn;
+    }),
+  };
+}
+
+/**
+ * Lo que el gráfico no incluye según la técnica y la forma de trabajo (T18, M1). Palillo: montaje, elástico o borde,
+ * forma previa, cierre y armado. Crochet: cadeneta base o anillo, cadeneta de vuelta (solo en filas), forma previa,
+ * remate y armado. // validar con tejedora
+ */
+export function notInChartFor(technique: "knit" | "crochet", workedIn: "rounds" | "rows"): NotInChartKey[] {
+  if (technique === "crochet") return ["foundation", ...(workedIn === "rows" ? (["turning_chain"] as const) : []), "prior_shaping", "fasten_off", "assembly"];
+  return ["cast_on", "edging", "prior_shaping", "bind_off", "assembly"];
+}
 
 /**
  * Datos de la pantalla previa a "Tejer este diseño" (ADR 0009, T1-7; caso F3-39). Nada se calcula aquí: la muestra
@@ -39,7 +67,7 @@ export function buildKnitPreview(doc: ChartPattern, patternUpdatedAt: string): K
     lengthScope: "chart_only",
     warnings: groups.warnings,
     info: groups.info,
-    notInChart: ["cast_on", "edging", "bind_off", "assembly"],
+    notInChart: notInChartFor(doc.technique, doc.chart.workedIn),
   };
 }
 

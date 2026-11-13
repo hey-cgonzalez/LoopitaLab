@@ -104,7 +104,7 @@ describe("búsqueda de grosores (ADR 0008, T1-8)", () => {
   });
 
   it("caso F3-32: ply da vacío con ayuda", () => {
-    // pendiente de validar por tejedora
+    // validar con tejedora (el documento lo deja "pendiente de validar por tejedora": no se mapea sin fuente)
     for (const q of ["4 ply", "8 ply", "Ply"]) {
       assert.deepEqual(findWeights(q), []);
       assert.equal(weightQueryHint(q), "ply_varies_by_country");

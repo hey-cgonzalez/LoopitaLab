@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-13, agentes `arquitecto` y `documentador` (cierre de la fase 3, T19; ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3)). Revisión anterior: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -8,7 +8,7 @@
 |---|---|---|---|
 | 1 | Base: modelo canónico, validador, lanas, Supabase con RLS, acceso, proyectos y cuenta | Lista | — |
 | 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Lista en código; ADR 0003 a 0006 aceptados. Faltan CA-P6, T1b, T16 y el E2E con sesión | Alta |
-| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Planificada; ADR 0007 a 0009 aceptados y enmendados (T1); T0, T1 y T3 hechas | Media-alta |
+| 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Implementada en código (grupos A a E; rama `fase-3/grupo-d`, último commit `6c23a65`). Pendiente lo que no es código: T1b (tras T1c), CA-P6, lector de pantalla real y la puesta en público. Ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3) | Media-alta |
 | 4 | Estudio amigurumi 3D | Pendiente | Alta |
 | 5 | Imagen → patrón (IA) | Pendiente | Alta |
 | 6 | Modo tejiendo completo (amigurumi punto a punto, contadores, tiempo) | Pendiente | Media |
@@ -864,7 +864,7 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 | T16 | E | QA: propiedades (P1 a P16, `yarnUsage`, `estimateYarnLength`), casos de `docs/casos-dominio-fase-3.md`, E2E con sesión (CA3-T5 a CA3-T9), latencia, matriz de criterios en `docs/qa-fase-3.md`. Revisión con opus de T4, T7, T8 y T15 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T10 a T15 |
 | T17 | E | Seguridad: migración y funciones `security definer` de T7 (permisos, `search_path`, `updated_at` exacto, cascadas, lista permitida), acciones de T10 y T11 (validación en el servidor, `valid` sin confiar en el cliente, notas privadas, topes), cola local del avance. Con opus, porque T7 es de complejidad alta | `revisor-seguridad` | Alta (opus) | T7, T10, T11, T12 |
 | T18 | E | Revisión final de la lógica de tejido: `follow`, metraje, aspecto por fibra y textos. Espera las respuestas de T1b | `experto-tejido` | Media (sonnet) | T1b, T16 |
-| T19 | E | README, este roadmap y los ADR 0007 a 0009 a "aceptado" con sus enmiendas | `arquitecto` + `documentador` | Baja (haiku) | T17, T18 |
+| T19 | E | **Hecha (2026-11-13)**. README, este roadmap y los ADR 0007 a 0009 (aceptados, con las enmiendas de la implementación de T11 a T18). T18 sigue abierta en su aprobación final hasta que cierre T1b | `arquitecto` + `documentador` | Baja (haiku) | T17, T18 |
 
 ### Criterios de salida de la fase 3
 
@@ -874,6 +874,41 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 - T1b cerrada (fase 2 y fase 3): lo marcado "validar con tejedora" está confirmado o corregido.
 - `experto-tejido`, `qa-tester` y `revisor-seguridad` aprueban.
 - Los ADR 0007 a 0009 quedan "aceptado" o enmendados.
+
+### Estado al cierre de la fase 3
+
+Fecha: 2026-11-13. Los grupos A a E están implementados en la rama `fase-3/grupo-d` (último commit `6c23a65`, con las correcciones de T17 y T18). Evidencia: [docs/qa-fase-3.md](qa-fase-3.md) (matriz de criterios) y [docs/seguridad.md](seguridad.md), sección "Revisión final de la fase 3".
+
+**Criterios de salida**
+
+| Criterio | Estado |
+|---|---|
+| CA3-* con evidencia | Cumplen según la matriz de QA, salvo: CA3-P2 con CPU ×4 (1 de 5 corridas sobre el umbral, 105,0 ms en el círculo; lo decide CA-P6), CA3-A1 (lector de pantalla real en "Tejiendo") y CA3-A3 (verificación manual del 200 % y del contraste de la fila resaltada). Falta también la captura de las cuatro formas con fibras para el PR (CA3-L6) |
+| `pnpm test` y `pnpm typecheck` | En verde en local. Las E2E sin sesión dependen de la carga del equipo: revisar la primera corrida de CI del PR |
+| CA-P6 | Pendiente (medición manual) |
+| T1b cerrada (fases 2 y 3) | Pendiente. Depende de T1c |
+| Aprobaciones | `qa-tester`: apto para PR con observaciones. `revisor-seguridad`: revisión hecha el 2026-11-12, sin hallazgos críticos ni altos. Medios: M1 corregido en el repo (pendiente de aplicar), M2 a M4 incorporados al plan de despliegue. Bajos: B1, B2, B3 y B5 corregidos en el repo (B5, pendiente de aplicar), B7 incorporado al plan, B6 parcial, B4 es requisito de la fase 7. `experto-tejido`: correcciones de T18 aplicadas; aprobación final pendiente de T1b |
+| ADR 0007 a 0009 | Aceptados, con enmiendas. Las de implementación están al final de cada ADR |
+
+**Pendientes que no son código**
+
+1. **Validación con tejedoras (T1b, fases 2 y 3).** Depende de T1c: revisión legal de `/privacidad` y `/terminos`, y de la lista "antes de beta" de [docs/seguridad.md](seguridad.md). La Ley 21.719 entra en vigencia el 2026-12-01. Incluye:
+   - ampliar [docs/validacion-tejedoras.md](validacion-tejedoras.md) con los temas de la fase 3 (comprobado el 2026-11-13: la hoja no los incluye);
+   - la lista "Pendiente de validar por tejedora" de [docs/casos-dominio-fase-3.md](casos-dominio-fase-3.md#pendiente-de-validar-por-tejedora);
+   - el [glosario pendiente](#glosario-pendiente) de la fase 3.
+2. **Textos marcados `validar con tejedora`.** Están en `apps/web/src/lib/studio-texts.ts` y `apps/web/src/lib/projects/texts.ts`. Hay que confirmar o corregir cada uno después de T1b.
+3. **CA-P6 en el equipo de referencia.** Guía en [docs/qa-fase-3.md](qa-fase-3.md), "Guía para medir CA-P6": tres corridas del estudio sin limitar la CPU y una de "Tejiendo" (con Docker). Criterio: p95 bajo 100 ms en `pintar`, `repeticiones`, `hover` y `fila`, en los cuatro escenarios y en "Tejiendo". Si el círculo de rombos queda sobre 90 ms, avisar a `render-puntos` antes de cerrar. Si la puesta en público cambia el build, repetir contra el sitio real (P5 de [docs/despliegue-publico.md](despliegue-publico.md)).
+4. **Prueba con VoiceOver y NVDA de las pantallas nuevas**, como en la fase 2 (2026-11-09): "Tejiendo" (anuncios de fila y de casilla), la pantalla previa de "Tejer este diseño", el diálogo de conflicto, el selector de lanas con la paleta, "Mis lanas" (`/lanas`) y `/proyectos`. Anotar en el PR el navegador y el lector de cada prueba.
+5. **Base real de Supabase.** `20261113145129_tope_part_id_y_detalle_cuotas.sql` y `20261111031813_tejer_disenos.sql` están aplicadas. Falta repetir `supabase/checks/10_rls_check.sql` contra el proyecto real (necesita cuentas de prueba allí) y, en una limpieza, quitar los bloques `TRANSITORIO` de `apps/web/src/lib/designs/messages.ts` y `apps/web/src/lib/projects/messages.ts`.
+6. **Puesta en público** ([docs/despliegue-publico.md](despliegue-publico.md), fases P0 a P5). Se deja para el final, después de los puntos 1 a 5. Su orden y sus dependencias están en la sección "Orden y dependencias" del plan. La apertura a tejedoras depende de P5.
+
+**Abiertos de código o CI** (no bloquean el cierre documental; detalle en [docs/qa-fase-3.md](qa-fase-3.md)):
+
+- O-F3-1: latencia del círculo de 40.000 puntos con CPU ×4 (`render-puntos`).
+- O-F3-3: no hay E2E de "Tejiendo" en plano, círculo, `top_down` ni espejo.
+- Propuesta de `devops`: agregar `E2E_LATENCY_BUDGET_MS: "160"` al job "E2E con sesión", y mover la medición de hover del selector al proyecto `latencia`.
+- O-F3-7: `apps/web/e2e/README.md` no menciona `qa-fase3-tejer.spec.ts` ni `E2E_FLAT_COLORS` (`documentador`).
+- Comentario de `apps/web/src/lib/projects/messages.ts` con un nombre de migración que no coincide con el archivo (ver la enmienda 9 de [ADR 0009](adr/0009-tejer-este-diseno-y-proyectos.md)).
 
 ---
 

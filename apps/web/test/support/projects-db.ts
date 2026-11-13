@@ -59,6 +59,10 @@ export function createProjectsDb(me: { id: string } | null) {
       r.title = String(document.title);
       r.updated_at = db.tick();
     },
+    /** `updated_at` que devolvería `getKnitPreview` (`patternUpdatedAt`); con un id desconocido, un instante válido cualquiera. */
+    updatedAt(id: string): string {
+      return (db.patterns.find((p) => p.id === id)?.updated_at as string | undefined) ?? ts(0);
+    },
     touchPattern(id: string) {
       db.patterns.find((p) => p.id === id)!.updated_at = db.tick();
     },
@@ -194,6 +198,13 @@ export function createProjectsDb(me: { id: string } | null) {
         db.patterns = db.patterns.filter((r) => !hit.includes(r));
         db.versions = db.versions.filter((v) => !ids.includes(v.pattern_id as string));
         for (const pr of db.projects) if (ids.includes(pr.pattern_id as string)) pr.pattern_id = null;
+        return { data: hit.map((r) => ({ ...r })), error: null };
+      }
+      if (table === "projects") {
+        // RLS "proyectos: borrar propios"; el avance se va en cascada.
+        const ids = hit.map((r) => r.id);
+        db.projects = db.projects.filter((r) => !hit.includes(r));
+        db.progress = db.progress.filter((r) => !ids.includes(r.project_id as string));
         return { data: hit.map((r) => ({ ...r })), error: null };
       }
       if (table === "user_yarns") {

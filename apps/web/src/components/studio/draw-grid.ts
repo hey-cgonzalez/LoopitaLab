@@ -217,3 +217,42 @@ export function cellsOfMotifIndex(chart: Chart, cols: number, rows: number, inde
   }
   return out;
 }
+
+/**
+ * Resaltado del modo tejiendo (T12): un marco sobre la fila `row` (base 0, fila 1 abajo) y, si se da, un marco más
+ * grueso sobre la repetición en curso `[xStart, xEnd)` (columnas del gráfico dibujado). Va encima de todo lo demás;
+ * se dibuja con `paintAll` previo, así avanzar una fila repinta la cuadrícula entera (O(casillas), muy por debajo de
+ * los 100 ms en los tamaños que caben en la vista completa).
+ */
+export function paintRowHighlight(ctx: CanvasRenderingContext2D, l: GridLayout, dpr: number, row: number, repeat: { xStart: number; xEnd: number } | null): void {
+  if (!Number.isInteger(row) || row < 0 || row >= l.rows) return;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const s = l.cellPx;
+  const y = l.top + (l.rows - 1 - row) * s;
+  const w = l.cols * s;
+  // Velo sobre las filas que no son la actual: la fila en curso queda con sus colores intactos.
+  ctx.fillStyle = "rgba(255,255,255,0.45)";
+  if (y > l.top) ctx.fillRect(l.left, l.top, w, y - l.top);
+  if (y + s < l.top + l.rows * s) ctx.fillRect(l.left, y + s, w, l.top + l.rows * s - (y + s));
+  // Marco de la fila: blanco por fuera y marino por dentro (se ve sobre cualquier lana).
+  ctx.lineWidth = 5;
+  ctx.strokeStyle = "#FFFFFF";
+  ctx.strokeRect(l.left - 2.5, y - 2.5, w + 5, s + 5);
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = INK;
+  ctx.strokeRect(l.left - 1.5, y - 1.5, w + 3, s + 3);
+  if (repeat && repeat.xEnd > repeat.xStart && repeat.xStart >= 0 && repeat.xEnd <= l.cols) {
+    const x = l.left + repeat.xStart * s;
+    const rw = (repeat.xEnd - repeat.xStart) * s;
+    // Marco de la repetición: borde blanco por fuera y tinta discontinua por dentro. No depende del color de la lana
+    // (se ve sobre lanas claras y oscuras) ni del color en sí: se distingue del marco de la fila por ser discontinuo.
+    ctx.lineWidth = 5;
+    ctx.strokeStyle = "#FFFFFF";
+    ctx.strokeRect(x + 2.5, y + 2.5, rw - 5, s - 5);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = INK;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(x + 2.5, y + 2.5, rw - 5, s - 5);
+    ctx.setLineDash([]);
+  }
+}

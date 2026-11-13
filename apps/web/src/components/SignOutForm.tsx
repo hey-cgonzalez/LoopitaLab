@@ -1,5 +1,6 @@
 "use client";
 
+import { clearBrowserProgressQueues } from "@/lib/projects/progress-queue.ts";
 import { clearBrowserBackups } from "@/lib/studio/backup.ts";
 
 /**
@@ -14,6 +15,8 @@ export function SignOutForm() {
       method="post"
       onSubmit={() => {
         clearBrowserBackups();
+        // También el avance de tejido que no alcanzó a enviarse (`loopitalab:<uid>:avance:*`, ADR 0009 §4).
+        clearBrowserProgressQueues();
       }}
     >
       <button type="submit" className="rounded-full border-2 border-marino px-4 py-1.5 font-bold hover:bg-marino hover:text-white">

@@ -6,14 +6,15 @@ import type { ChartPattern } from "@loopitalab/pattern-core";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { projectErrorMessage } from "@/lib/project-messages";
-import { buildKnitPreview } from "@/lib/projects/knit-preview";
+import { buildKnitPreview, knitDocument } from "@/lib/projects/knit-preview";
 import {
   progressConflictMessage,
+  patternConflict,
   projectFailure,
   versionChangedMessage,
   type ProjectFailure,
 } from "@/lib/projects/messages";
-import { columnsToPointer, columnsToRawPointer, parseClientPointer, pointerToColumns } from "@/lib/projects/progress-codec";
+import { MAX_ROW_NUMBER, MAX_STITCH_INDEX, columnsToPointer, columnsToRawPointer, parseClientPointer, pointerToColumns } from "@/lib/projects/progress-codec";
 import {
   dbFailure,
   isTimestamp,
@@ -28,6 +29,8 @@ import {
   type SessionClient,
 } from "@/lib/projects/server";
 import type {
+  DeleteProjectResult,
+  GetProgressResult,
   KnitPreviewResult,
   LoadProjectResult,
   RepinPreviewResult,
@@ -59,10 +62,28 @@ export async function setProjectStatus(form: FormData): Promise<void> {
   const id = String(form.get("id") ?? "");
   const status = String(form.get("status") ?? "");
   if (!isUuid(id) || !STATUSES.includes(status as (typeof STATUSES)[number])) return;
-  const supabase = await createClient();
-  // RLS garantiza que solo se actualice si el proyecto es de la usuaria.
-  await supabase.from("projects").update({ status }).eq("id", id);
+  // T17, I2: sesión con `auth.getUser()` y filtro por dueña además de RLS (defensa en profundidad).
+  const { supabase, user } = await session();
+  if (!user) return;
+  const { error } = await supabase.from("projects").update({ status }).eq("id", id).eq("owner_id", user.id);
+  if (error) logDb("cambiar el estado del proyecto", error);
   revalidatePath("/proyectos");
+}
+
+/**
+ * Borra un proyecto propio (T12). Irreversible: el avance se va con él (`project_progress` en cascada); la versión
+ * fijada del diseño queda (es del diseño, no del proyecto). RLS limita a los propios; el filtro por dueña es defensa
+ * en profundidad. Es lo que `HAS_PROJECTS` de los diseños pide hacer antes de borrar un diseño (ADR 0009, D1).
+ */
+export async function deleteProject(projectId: string): Promise<DeleteProjectResult> {
+  const { supabase, user } = await session();
+  if (!user) return projectFailure("UNAUTHENTICATED");
+  if (!isUuid(projectId)) return projectFailure("INVALID_REQUEST");
+  const { data, error } = await supabase.from("projects").delete().eq("id", projectId).eq("owner_id", user.id).select("id");
+  if (error) return dbFailure("borrar el proyecto", error);
+  if (!data || data.length === 0) return projectFailure("NOT_FOUND");
+  revalidatePath("/proyectos");
+  return { ok: true };
 }
 
 /*
@@ -120,18 +141,22 @@ export async function getKnitPreview(patternId: string): Promise<KnitPreviewResu
 
 /**
  * Empieza un proyecto con la versión actual del diseño fijada. Atómico en la base (`start_chart_project`).
+ * `expectedUpdatedAt` es el `patternUpdatedAt` de `getKnitPreview`: si el diseño ya es otro, CONFLICT (pattern).
  * Respuestas: `{ ok, projectId, version, reused }`, o NOT_KNITTABLE (con los errores), CONFLICT (el diseño cambió),
  * QUOTA / MAX_VERSIONS / VERSIONS_QUOTA, NOT_FOUND, NOT_A_CHART, INVALID_REQUEST, REJECTED (título).
  */
-export async function startProjectFromDesign(patternId: string, title?: string): Promise<StartProjectResult> {
+export async function startProjectFromDesign(patternId: string, expectedUpdatedAt: string, title?: string): Promise<StartProjectResult> {
   const { supabase, user } = await session();
   if (!user) return projectFailure("UNAUTHENTICATED");
-  if (!isUuid(patternId)) return projectFailure("INVALID_REQUEST");
+  if (!isUuid(patternId) || !isTimestamp(expectedUpdatedAt)) return projectFailure("INVALID_REQUEST");
   const cleaned = cleanTitle(title);
   if (cleaned === null) return projectFailure("REJECTED");
 
   const design = await readKnittableDesign(supabase, user.id, patternId);
   if (!design.ok) return design;
+  // Lo que se fija es lo que mostró la pantalla previa (ADR 0009, T1-7): si el diseño cambió desde entonces, CONFLICT
+  // sin tocar admin. Misma cadena que devolvió `getKnitPreview` (ambas salen de la misma lectura de PostgREST).
+  if (design.updatedAt !== expectedUpdatedAt) return patternConflict();
 
   const client = admin();
   if (!client) return projectFailure("DATABASE");
@@ -176,13 +201,37 @@ export async function loadProject(projectId: string): Promise<LoadProjectResult>
   return {
     ok: true,
     project: { id: pinned.projectId, title: pinned.title, status: pinned.status, patternId: pinned.patternId ?? "", versionId: pinned.versionId, version: pinned.version },
-    document: pinned.document,
+    // T17, B3: sin notas privadas que Tejiendo y la ficha no muestran.
+    document: knitDocument(pinned.document),
     valid: pinned.valid,
     issues: pinned.issues,
     mirror,
     pointer: columnsToPointer(plan, progress.row),
     progressUpdatedAt: progress.row?.updated_at ?? null,
     newerVersionAvailable: newer,
+  };
+}
+
+/**
+ * Relectura ligera del avance (T17, I4) para cuando "Tejiendo" vuelve a primer plano: sesión, dueña y solo el puntero
+ * (sin acotar: lo acota la pantalla con su plan), su `updated_at` y la versión fijada. No lee ni valida documentos.
+ */
+export async function getProgress(projectId: string): Promise<GetProgressResult> {
+  const { supabase, user } = await session();
+  if (!user) return projectFailure("UNAUTHENTICATED");
+  if (!isUuid(projectId)) return projectFailure("INVALID_REQUEST");
+  const project = await supabase.from("projects").select("pattern_version_id").eq("id", projectId).eq("owner_id", user.id).maybeSingle<{ pattern_version_id: string | null }>();
+  if (project.error) return dbFailure("leer el avance (proyecto)", project.error);
+  if (!project.data) return projectFailure("NOT_FOUND");
+  if (project.data.pattern_version_id === null) return projectFailure("NO_DESIGN");
+  const progress = await readProgress(supabase, projectId);
+  if (!progress.ok) return progress;
+  const raw = columnsToRawPointer(progress.row);
+  return {
+    ok: true,
+    versionId: project.data.pattern_version_id,
+    pointer: { rowsDone: Math.min(raw.rowsDone, MAX_ROW_NUMBER), stitchesDone: Math.min(raw.stitchesDone, MAX_STITCH_INDEX) },
+    progressUpdatedAt: progress.row?.updated_at ?? null,
   };
 }
 

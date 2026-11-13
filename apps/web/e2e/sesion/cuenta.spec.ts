@@ -37,20 +37,30 @@ test.describe("Cerrar sesión", () => {
   // cata: cerrar sesión revoca todas sus sesiones, así que no comparte cuenta con otras pruebas.
   test.use({ storageState: stateFile("cata") });
 
-  test("borra los respaldos locales de diseños (de cualquier cuenta y formato) y nada más", async ({ page, accounts }) => {
+  test("borra los respaldos locales de diseños y el avance de tejido sin enviar (de cualquier cuenta y formato) y nada más", async ({ page, accounts }) => {
     await page.goto("/disenos");
     const uid = accounts.cata.id;
-    const keys = [`loopitalab:${uid}:diseno:11111111-1111-4111-8111-111111111111`, "loopitalab:otra-cuenta:diseno:22222222-2222-4222-8222-222222222222", "loopitalab:diseno:viejo"];
+    const keys = [
+      `loopitalab:${uid}:diseno:11111111-1111-4111-8111-111111111111`,
+      "loopitalab:otra-cuenta:diseno:22222222-2222-4222-8222-222222222222",
+      "loopitalab:diseno:viejo",
+      // CA3-T7 (QA T16): el avance de "Tejiendo" que no alcanzó a enviarse, de esta cuenta y de otra.
+      `loopitalab:${uid}:avance:33333333-3333-4333-8333-333333333333`,
+      "loopitalab:otra-cuenta:avance:44444444-4444-4444-8444-444444444444",
+    ];
     await page.evaluate((list) => {
       for (const k of list) localStorage.setItem(k, "{}");
       localStorage.setItem("otra-app:preferencia", "se queda");
+      localStorage.setItem("loopitalab:tejiendo:pantalla", "0"); // preferencia del dispositivo, sin datos de la cuenta: se queda
     }, keys);
 
     await page.getByRole("button", { name: "Cerrar sesión" }).click();
     await page.waitForURL((u) => u.pathname === "/");
     const left = await page.evaluate(() => Object.keys(localStorage).sort());
     expect(left.filter((k) => /^loopitalab:(?:[^:]+:)?diseno:/.test(k)), "sin respaldos loopitalab:*:diseno:*").toEqual([]);
+    expect(left.filter((k) => /^loopitalab:[^:]+:avance:/.test(k)), "sin avance local loopitalab:*:avance:*").toEqual([]);
     expect(left).toContain("otra-app:preferencia");
+    expect(left).toContain("loopitalab:tejiendo:pantalla");
 
     await page.goto("/disenos");
     await expect(page).toHaveURL(/\/ingresar\?next=%2Fdisenos$/);

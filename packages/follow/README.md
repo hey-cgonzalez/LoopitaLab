@@ -21,11 +21,12 @@ const siguiente = nextRepeat(plan, ptr);      // un toque = una repetición hori
 | Exporta | Qué hace |
 |---|---|
 | `planChart(pattern, opts?)` | `ChartPlan` congelado: `totalRows`, `totalStitches`, `motifWidth`, `motifHeight`, `repeatX`, `repeatY`, `workedIn`, `technique`, `mirror` y una referencia (no copia) a `pattern`. O(motivo): no depende de `repeat.y` |
+| `totalRowsOf(height, repeatY)` | `height × repeat.y` con las mismas guardas que `planChart` (0 con valores dañados). Para la lista de proyectos, que lee el alto y las repeticiones desde las rutas JSON de la versión sin traer el documento |
 | `stepAt(plan, row)` | `ChartStep` de la fila `row` del gráfico completo, o `null` fuera de rango o con `row` no entero. O(ancho del motivo) |
 | `startPointer()` | `{ rowsDone: 0, stitchesDone: 0 }` |
 | `clampPointer(plan, input: unknown)` | Puntero del dominio a partir de cualquier valor. Idempotente |
 | `isFinished(plan, p)` | `rowsDone === totalRows`: **gráfico** terminado, no la pieza |
-| `position(plan, p)` | `ChartPosition`: paso actual, `horizontalRepeat`, `verticalRepeat`, avance en filas y en puntos |
+| `position(plan, p)` | `ChartPosition`: paso actual, `horizontalRepeat`, `repeatCells` (casillas de la repetición en curso, "casillas 10 a 18 de 72"), `verticalRepeat`, avance en filas y en puntos |
 | `nextRow`, `prevRow` | Fila siguiente (`{ rowsDone + 1, 0 }`, tope en terminado) y anterior (con casillas hechas, vuelve al inicio de la fila) |
 | `nextRepeat`, `prevRepeat` | Próximo o anterior borde de repetición horizontal. La última repetición pasa a la fila siguiente; una fila sin puntos se salta de una vez |
 | `remapPointer(from, to, p)` | `RemapResult { pointer, clamped, rowChanged }` para pasar a otra versión fijada |
@@ -38,7 +39,7 @@ Tipos: `FollowOptions`, `ChartPlan`, `ChartStep`, `ColorRun`, `ChartPointer`, `C
 - `side`: en redondo siempre `"right"`; en ida y vuelta, fila par `"right"` e impar `"wrong"`. El espejo no lo cambia.
 - `reading`: `readingDirection(chart, row, { mirror })`.
 - `stitches`, `stitchesPerRepeat`: casillas producidas de la fila (enmienda T1-5) y de una repetición.
-- `change`, `perRepeat`: como `shaping` (0 en la fila 0). `decreaseColumns`, `increaseColumns`: de `rowShapingColumns`, columnas del motivo.
+- `change`, `perRepeat`: como `shaping` (0 en la fila 0). `decreaseColumns`, `increaseColumns`: de `rowShapingColumns`, columnas del motivo. `decreaseBefore` (casilla antes de la cual se pierde cada punto) e `increaseAt` (casilla nueva), 1-based en el orden en que se teje una repetición; `decreases` e `increases`: totales de la fila (`increases − decreases = change`). Sin técnica de disminución (ADR 0007).
 - `runs`: tramos `{ yarn, count }` de **una** repetición horizontal, en el orden en que se tejen (sin espejo, de derecha a izquierda por el derecho y de izquierda a derecha por el revés), sin `NO_STITCH`, con los colores **como se ven por el derecho** (enmienda T1-3). No se fusionan entre repeticiones: la fila completa es la misma lista `repeatX` veces. Ningún tramo tiene `count = 0` ni dos seguidos la misma lana.
 - `yarns`: lanas de la fila sin repetir, en el orden en que aparecen al tejerla.
 
@@ -62,7 +63,7 @@ interface ChartPointer { rowsDone: number; stitchesDone: number }
 
 ### Cambio de versión (`remapPointer`)
 
-Conserva el número de fila acotado al plan nuevo (`clamped` si quedaba fuera; queda en terminado). No busca "la misma fila" por contenido. `rowChanged` es `true` si la fila actual se teje distinto en los dos planes (tramos, puntos, forma, lado o sentido; también al cambiar el espejo). Si la fila cambió o se acotó, `stitchesDone` vuelve a 0; si se teje igual, se conserva, de modo que `remapPointer(plan, plan, p)` devuelve `p` (propiedad P14).
+Conserva el número de fila acotado al plan nuevo (`clamped` si la fila en curso ya no existe en el plan nuevo, también cuando el diseño se acorta justo hasta ella; queda en terminado). No busca "la misma fila" por contenido. `rowChanged` es `true` si la fila actual se teje distinto en los dos planes (tramos, puntos, forma, lado o sentido; también al cambiar el espejo). Si la fila cambió o se acotó, `stitchesDone` vuelve a 0; si se teje igual, se conserva, de modo que `remapPointer(plan, plan, p)` devuelve `p` (propiedad P14).
 
 ## Lo que no hace `follow`
 

@@ -50,7 +50,7 @@ export function designMessage(code: DesignErrorCode): string {
  * `op` desambigua 54000: al crear o duplicar es la cuota de diseños (patterns_quota); en cualquier
  * otra operación es el tope de versiones (snapshot_pattern).
  */
-export function dbErrorCode(error: { code?: string } | null | undefined, op: "create" | "other" = "other"): DesignErrorCode {
+export function dbErrorCode(error: { code?: string; details?: string | null; detail?: string | null } | null | undefined, op: "create" | "other" = "other"): DesignErrorCode {
   switch (error?.code) {
     case "23514": // check_violation: título distinto del documento, tamaño, notas privadas en compartidos…
     case "23502": // not_null_violation
@@ -60,8 +60,14 @@ export function dbErrorCode(error: { code?: string } | null | undefined, op: "cr
     case "42501": // RLS o privilegio: no es suyo
     case "P0002": // snapshot_pattern: patrón no encontrado
       return "NOT_FOUND";
-    case "54000": // cuota de diseños (al crear) o tope de versiones (snapshot_pattern)
+    case "54000": {
+      // `detail` estable (migración 20261113145129): patterns | versions_per_pattern | versions_total.
+      const detail = error.details ?? error.detail;
+      if (detail === "patterns") return "QUOTA";
+      if (detail === "versions_per_pattern" || detail === "versions_total") return "MAX_VERSIONS";
+      // TRANSITORIO: sin detail (migración aún no aplicada en el proyecto real) se desambigua por `op`. Borrar al aplicarla.
       return op === "create" ? "QUOTA" : "MAX_VERSIONS";
+    }
     default:
       return "DATABASE";
   }

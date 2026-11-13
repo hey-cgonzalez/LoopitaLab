@@ -250,3 +250,13 @@ Registro de lo que implementó `render-puntos` (aspecto por fibra y vista previa
 - **`PreviewEngine`**: `previewYarn(index, candidate | null)` no toca el documento (medida `loopita:hover-to-paint`, como pedía la alternativa descartada de la vista previa sin edición), `setFlatColors` y `setHighlightRow` (`loopita:row-to-paint`). `previewControls(store)` por estudio. "Colores planos" vive en `localStorage` (`loopita:vista:colores-planos`), nunca en el documento.
 - **Instrumentación**: `pointerout`, `pointerover` y `focusin` son entradas débiles del recolector (caducan a los 50 ms y solo originan mediciones `hover`), porque React sintetiza `onPointerEnter` desde el `pointerout` previo y daba 300 a 600 ms falsos.
 - **Limitaciones**: CA3-P3 mide solo la vista previa (el resaltado en la cuadrícula llega con T12). En el nivel de detalle sin V (círculo con más de 15.000 puntos visibles o puntos de menos de 3 px) la fibra solo se nota en el tono.
+
+## Enmiendas tras implementar T9 a T11 (2026-11-13)
+
+Registro de lo que se implementó distinto de las secciones 3 a 5. Fuentes: `apps/web/src/components/studio/preview-controls.ts`, `apps/web/src/app/lanas/actions.ts` y `packages/yarn-catalog/src/index.ts`. Los nombres de `findWeights`, `weightQueryHint`, `nearestPaletteColors`, `NEAR_COLOR_DELTA_E`, `YARN_LENGTH_ASSUMPTIONS` y `estimateYarnLength` coinciden con la sección 2 y la sección 6.
+
+**E-1. Tipo del candidato de la vista previa.** `previewYarn(index, candidate)` recibe `YarnCandidate = Pick<Yarn, "color"> & Partial<Pick<Yarn, "composition">>`. La composición es opcional: pasar el cursor por un color de la paleta no necesita la composición. La regla no cambia: la vista previa no toca el documento ni el historial.
+
+**E-2. Server Actions de `user_yarns`** (`apps/web/src/app/lanas/actions.ts`). Nombres según la sección 5: `listUserYarns()`, `saveUserYarn(input, opts?)`, `updateUserYarn(id, input, opts?)` y `deleteUserYarn(id)`. El recorte de una nota de más de 200 caracteres se pide con `opts.truncateNote`, solo después de que la usuaria confirme. La página `/lanas` existe (`apps/web/src/app/lanas/page.tsx`).
+
+**E-3. Tope de 500 lanas.** La migración de T17 fija `detail = 'user_yarns'` para el 54000 de `user_yarns_quota`. La sección 5 pedía traducir el tope a un mensaje claro; ese mensaje debe elegirse por `detail` y no por el texto de la base (ver la enmienda 9 de ADR 0009). En `user_yarns` el único 54000 posible es ese tope, así que `yarnDbFailure` (`apps/web/src/lib/yarns/messages.ts`) lo traduce por el código sin leer `detail`; es correcto y no depende del texto de la base.

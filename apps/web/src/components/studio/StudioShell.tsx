@@ -4,6 +4,7 @@ import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitala
 import Link from "next/link";
 import { memo, useCallback, useDeferredValue, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
 import { savePatternVersion } from "@/app/disenos/actions";
+import { KnitStartButton } from "@/components/knit/KnitStartButton";
 import { LegalLinks } from "@/components/SiteFooter";
 import { nextTabId } from "@/lib/studio/a11y.ts";
 import { DEFAULT_CELL_PX, type GridView } from "@/lib/studio/editor-grid.ts";
@@ -19,6 +20,7 @@ import {
 } from "@/lib/studio/select.ts";
 import type { DocumentStore } from "@/lib/studio/store.ts";
 import type { Tool } from "@/lib/studio/tools.ts";
+import { PROJECT_TEXTS } from "@/lib/projects/texts.ts";
 import { STUDIO_TEXTS, yarnTitle, zoomAnnouncement } from "@/lib/studio-texts.ts";
 import { CHART_CANVAS_ID, ChartEditor } from "./ChartEditor";
 import { EditorToolbar } from "./EditorToolbar";
@@ -240,6 +242,16 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
     }
   }
 
+  /** Antes de "Tejer este diseño" se vacía el autoguardado: el servidor fija lo que está guardado (ADR 0009 §3). */
+  const flushBeforeKnit = useCallback(async (): Promise<{ ok: true } | { ok: false; message: string }> => {
+    try {
+      if (await autosave.saveNow()) return { ok: true };
+    } catch {
+      /* cae al mensaje */
+    }
+    return { ok: false, message: PROJECT_TEXTS.tejer.guardarAntes };
+  }, [autosave]);
+
   function reloadFromServer() {
     autosave.stop();
     autosave.discardBackup();
@@ -279,6 +291,12 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
       <p className="text-sm text-tinta-suave">
         {technique === "knit" ? T.subtitulo.palillo : T.subtitulo.crochet}
       </p>
+      {detached ? null : (
+        <div className="grid gap-1" data-testid="knit-from-studio">
+          <KnitStartButton patternId={initial.id} designTitle={titleText} beforeOpen={flushBeforeKnit} />
+          <p className="text-sm text-tinta-suave">{T.panel.tejerAyuda}</p>
+        </div>
+      )}
       <div className="grid gap-2">
         <label htmlFor={`${titleId}-version`} className="font-bold">
           Nombre de la versión (opcional)

@@ -10,6 +10,7 @@ export {
   remapPointer,
   startPointer,
   stepAt,
+  totalRowsOf,
   type ChartPlan,
   type ChartPointer,
   type ChartPosition,

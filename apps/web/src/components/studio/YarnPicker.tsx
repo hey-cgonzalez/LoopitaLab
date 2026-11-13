@@ -181,6 +181,7 @@ export function YarnPicker({ store, index, yarn, letter, technique, gaugeAssumed
           <YarnColorPicker
             store={store}
             index={index}
+            letter={letter}
             color={draft.color}
             onPick={(c) => commit(withColor(draft, c), `Lana ${letter}: color ${colorName(c)}.`)}
             onCustom={(hex) => change(withColor(draft, { hex }))}

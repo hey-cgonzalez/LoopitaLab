@@ -3,9 +3,12 @@ import type { ChartPattern, Issue } from "@loopitalab/pattern-core";
 import type { LengthEstimate } from "@loopitalab/yarn-catalog";
 import type { ProjectFailure, WorkedIn } from "./messages.ts";
 
-export type { ProjectFailure, ProjectErrorCode } from "./messages.ts";
+export type { ProjectFailure, ProjectErrorCode, WorkedIn } from "./messages.ts";
 
 export type StartProjectResult = { ok: true; projectId: string; version: number; reused: boolean } | ProjectFailure;
+
+/** Lo que el gráfico no incluye (ADR 0009, T1-7; T18, M1). Palillo y crochet tienen listas distintas (`notInChartFor`). */
+export type NotInChartKey = "cast_on" | "edging" | "bind_off" | "foundation" | "turning_chain" | "fasten_off" | "prior_shaping" | "assembly";
 
 /** Muestra que se usó para las cifras: la del documento o la supuesta por grosor (rotulada "supuesto"). */
 export interface KnitPreviewGauge {
@@ -50,8 +53,8 @@ export interface KnitPreview {
   /** Advertencias que no bloquean (por ejemplo `CHART_FLOAT_LONG`). */
   warnings: Issue[];
   info: Issue[];
-  /** Lo que el gráfico no incluye; la interfaz lo redacta con el glosario. */
-  notInChart: readonly ["cast_on", "edging", "bind_off", "assembly"];
+  /** Lo que el gráfico no incluye, según la técnica (T18, M1); la interfaz lo redacta con el glosario. */
+  notInChart: readonly NotInChartKey[];
 }
 
 export type KnitPreviewResult = ({ ok: true } & KnitPreview) | ProjectFailure;
@@ -87,6 +90,9 @@ export type LoadProjectResult =
     }
   | ProjectFailure;
 
+/** Relectura ligera del avance (T17, I4): puntero sin acotar al plan, su `updated_at` y la versión fijada. */
+export type GetProgressResult = { ok: true; versionId: string; pointer: ChartPointer; progressUpdatedAt: string | null } | ProjectFailure;
+
 export type SaveProgressResult = { ok: true; updatedAt: string } | ProjectFailure;
 
 /** Qué cambiaría "Pasar a la versión actual": el puntero reubicado con `remapPointer`, para mostrarlo antes. */
@@ -108,3 +114,31 @@ export type RepinPreviewResult = ({ ok: true } & RepinPreview) | ProjectFailure;
 export type RepinResult =
   | { ok: true; version: number; reused: boolean; pointer: ChartPointer; progressUpdatedAt: string; clamped: boolean; rowChanged: boolean; workedIn: WorkedIn; totalRows: number }
   | ProjectFailure;
+
+export type DeleteProjectResult = { ok: true } | ProjectFailure;
+
+/** Fila de "Tus proyectos" (ADR 0009, T1-2): el avance y el tamaño salen de las rutas JSON de la versión fijada. */
+export interface ProjectListItem {
+  id: string;
+  title: string;
+  status: "planned" | "in_progress" | "paused" | "finished";
+  updatedAt: string;
+  /** `null` en los proyectos sueltos (sin diseño): conservan el flujo de estado. */
+  design: {
+    patternId: string | null;
+    /** Título actual del diseño (`null` si el diseño ya no existe). */
+    patternTitle: string | null;
+    version: number;
+    workedIn: WorkedIn;
+    /** `totalRowsOf(height, repeat.y)` de `follow`; 0 si la versión no se pudo leer. */
+    totalRows: number;
+    /** Puntero sin acotar al plan completo (solo `rowsDone` acotado a `totalRows`). */
+    pointer: ChartPointer;
+    progressUpdatedAt: string | null;
+    /**
+     * Pista de que el diseño cambió después de fijar la versión: `patterns.updated_at` posterior a la versión y al
+     * proyecto. Es una heurística para la lista (sin leer documentos); la ficha compara los documentos (exacto).
+     */
+    mayHaveNewer: boolean;
+  } | null;
+}

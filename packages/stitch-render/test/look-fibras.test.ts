@@ -34,6 +34,7 @@ test("F3-35: 70/30 lana/mohair queda ponderada y pasar a 30/70 cambia el aspecto
   const b = yarn([{ fiber: "lana", percent: 30 }, { fiber: "mohair", percent: 70 }]);
   const la = yarnLook(a, FIBERS, fx);
   const lb = yarnLook(b, FIBERS, fx);
+  // validar con tejedora: la ponderación lineal de pequeños porcentajes de mohair o lurex (F3-35)
   close(la.halo, 0.3, "halo 70/30");
   close(la.definition, 0.7 * 0.5, "definición 70/30");
   close(lb.halo, 0.7, "halo 30/70");

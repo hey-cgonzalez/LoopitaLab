@@ -94,8 +94,9 @@ function PreviewBench({ store, controls, engineRef }: { store: DocumentStore; co
  *
  * "Colores planos" y la vista previa al pasar el cursor son estado de la vista (`previewControls(store)`), no del
  * documento (ADR 0008 §3 y §4). `devBench`: banco de medición de `/dev/estudio?perf=1`.
+ * `highlightRow`: fila del gráfico completo resaltada por el modo tejiendo (T12); `null` sin resaltado.
  */
-export function PreviewPane({ store, devBench = false }: { store: DocumentStore; devBench?: boolean }) {
+export function PreviewPane({ store, devBench = false, highlightRow = null }: { store: DocumentStore; devBench?: boolean; highlightRow?: number | null }) {
   const hostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const engineRef = useRef<PreviewEngine | null>(null);
@@ -147,6 +148,8 @@ export function PreviewPane({ store, devBench = false }: { store: DocumentStore;
   }, [store]);
 
   useEffect(() => engineRef.current?.setTubeRotation(rotation), [rotation]);
+  // Fila resaltada del modo tejiendo (T12): llega al motor (`setHighlightRow`, medición `row-to-paint`) tras el commit.
+  useEffect(() => engineRef.current?.setHighlightRow(highlightRow), [highlightRow]);
 
   const drag = useRef<{ x: number; y: number } | null>(null);
   const zoomBy = (f: number) => {

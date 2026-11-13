@@ -20,7 +20,7 @@ const AUTH_DIR = fileURLToPath(new URL("../../playwright/.auth/", import.meta.ur
 export const ACCOUNTS_FILE = `${AUTH_DIR}cuentas.json`;
 export const stateFile = (who: Who) => `${AUTH_DIR}${who}.json`;
 
-export type Who = "ana" | "bea" | "cata" | "dani" | "eva";
+export type Who = "ana" | "bea" | "cata" | "dani" | "eva" | "fer";
 export interface Account {
   id: string;
   email: string;

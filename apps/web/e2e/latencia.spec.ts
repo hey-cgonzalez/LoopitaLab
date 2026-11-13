@@ -20,6 +20,11 @@ import { cellPoint, chartGeom, expect, nextFrames, openStudio, test } from "./su
 const BUDGET_MS = Number(process.env.E2E_LATENCY_BUDGET_MS ?? 100);
 /** CPU limitada por CDP (`Emulation.setCPUThrottlingRate`). `E2E_CPU_RATE=4` reproduce las condiciones del ADR 0004. */
 const CPU_RATE = Number(process.env.E2E_CPU_RATE ?? 1);
+/**
+ * `E2E_FLAT_COLORS=1` mide con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto
+ * por fibra (CA3-P2). Por defecto se mide con el aspecto por fibra activado, que es lo que exige el criterio.
+ */
+const FLAT_COLORS = process.env.E2E_FLAT_COLORS === "1";
 
 const SCENARIOS = [
   { name: "plano", query: "forma=plano&reps=10&perf=1", fields: ["A lo ancho", "A lo alto"] },
@@ -49,8 +54,10 @@ for (const s of SCENARIOS) {
       const cdp = await page.context().newCDPSession(page);
       await cdp.send("Emulation.setCPUThrottlingRate", { rate: CPU_RATE });
     }
+    if (FLAT_COLORS) await page.addInitScript(() => localStorage.setItem("loopita:vista:colores-planos", "1"));
     await openStudio(page, s.query);
     await page.waitForFunction(() => "__loopitaPerf" in window);
+    if (FLAT_COLORS) await expect(page.getByTestId("flat-colors")).toHaveAttribute("aria-pressed", "true");
     const rnd = rng(20261106);
 
     // ---------------------------------------------------------------- CA-P1: pintar (clics y teclado)
@@ -118,6 +125,7 @@ for (const s of SCENARIOS) {
       escenario: s.name,
       umbralMs: BUDGET_MS,
       cpu: CPU_RATE,
+      coloresPlanos: FLAT_COLORS,
       pintar: { n: paint.edits.paint?.n, p50: round(paint.edits.paint?.p50), p95: round(paint.edits.paint?.p95), max: round(paint.edits.paint?.max), editorP95: round(paint.edits.paint?.editorP95), vistaP95: round(paint.edits.paint?.previewP95) },
       repeticiones: { n: repeats.edits.repeats?.n, p50: round(repeats.edits.repeats?.p50), p95: round(repeats.edits.repeats?.p95), max: round(repeats.edits.repeats?.max), vistaP95: round(repeats.edits.repeats?.previewP95) },
       hover: { n: hover.edits.hover?.n, p50: round(hover.edits.hover?.p50), p95: round(hover.edits.hover?.p95), max: round(hover.edits.hover?.max) },

@@ -14,6 +14,7 @@ import {
   remapPointer,
   startPointer,
   stepAt,
+  totalRowsOf,
 } from "../src/index.ts";
 import { cellsFrom, chartPattern } from "./support/fixtures.ts";
 
@@ -126,5 +127,41 @@ describe("puntero", () => {
   it("los pasos se devuelven congelados", () => {
     const s = stepAt(plan, 0)!;
     assert.ok(Object.isFrozen(s) && Object.isFrozen(s.runs) && Object.isFrozen(s.runs[0]));
+  });
+});
+
+describe("posición de las disminuciones y aumentos en la repetición (T18, R2 y R3)", () => {
+  it("decreaseBefore cuenta las casillas con punto en el orden de lectura; el espejo lo cambia", () => {
+    const p = chartPattern({ width: 4, height: 2, cells: cellsFrom(["AAAA", "AA.A"]), repeat: { x: 3, y: 1 } });
+    const s = stepAt(planChart(p), 1)!;
+    assert.deepEqual([...s.decreaseColumns], [2]);
+    // De derecha a izquierda: x = 3 es la casilla 1; en x = 2 se pierde el punto, antes de la casilla 2.
+    assert.deepEqual([...s.decreaseBefore], [2]);
+    assert.deepEqual([...stepAt(planChart(p, { mirror: true }), 1)!.decreaseBefore], [3]);
+    assert.equal(s.perRepeat, -1);
+    assert.deepEqual([...s.increaseAt], []);
+  });
+
+  it("al final de la repetición la casilla es stitchesPerRepeat + 1; los aumentos dicen qué casilla es nueva", () => {
+    const end = stepAt(planChart(chartPattern({ width: 3, height: 2, cells: cellsFrom(["AAA", ".AA"]) })), 1)!;
+    assert.deepEqual([...end.decreaseBefore], [3]);
+    assert.equal(end.stitchesPerRepeat, 2);
+    const inc = stepAt(planChart(chartPattern({ width: 4, height: 2, cells: cellsFrom(["AA.A", "AAAA"]), repeat: { x: 2, y: 1 } })), 1)!;
+    assert.deepEqual([...inc.increaseAt], [2]);
+    assert.equal(inc.perRepeat, 1);
+  });
+});
+
+describe("totalRowsOf", () => {
+  it("coincide con plan.totalRows para alto y repeticiones válidos y da 0 con valores dañados", () => {
+    for (const [h, y] of [
+      [1, 1],
+      [3, 2],
+      [200, 500],
+    ] as const) {
+      const p = chartPattern({ width: 2, height: h, cells: Array.from({ length: 2 * h }, () => 0), repeat: { x: 1, y } });
+      assert.equal(totalRowsOf(h, y), planChart(p).totalRows);
+    }
+    for (const bad of [[0, 1], [1.5, 1], [NaN, 1], [1, Infinity], ["3", 2], [null, 1], [3, -1]] as const) assert.equal(totalRowsOf(bad[0], bad[1]), 0);
   });
 });

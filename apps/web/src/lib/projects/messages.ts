@@ -54,7 +54,7 @@ export const PROJECT_MESSAGES: Record<Exclude<ProjectErrorCode, "CONFLICT" | "VE
   NOT_FOUND: "No encontramos ese proyecto o diseño. Puede que lo hayas borrado desde otro dispositivo.",
   NOT_A_CHART: "Por ahora solo se pueden tejer gráficos de colorwork.",
   NO_DESIGN: "Este proyecto no tiene un diseño asociado, así que no hay un patrón que seguir.",
-  NOT_SAVABLE: "El diseño tiene errores que impiden abrirlo. Revísalo en el estudio.",
+  NOT_SAVABLE: "El diseño tiene errores que impiden abrirlo, así que no se puede seguir tejiendo con esta versión. Revísalo en el estudio.", // F3-42
   NOT_KNITTABLE: "El diseño tiene errores de tejido que impiden tejerlo. Corrígelos en el estudio e intenta de nuevo.",
   MAX_VERSIONS: DESIGN_MESSAGES.MAX_VERSIONS,
   VERSIONS_QUOTA: `Llegaste al máximo de ${spaced(5000)} versiones guardadas entre todos tus diseños. Borra diseños que ya no uses.`,
@@ -66,13 +66,21 @@ export const PATTERN_CONFLICT_MESSAGE = "El diseño cambió mientras preparabas 
 
 export const PROGRESS_CONFLICT_FALLBACK = "El avance cambió en otro dispositivo. Recarga para ver dónde vas.";
 
+/**
+ * Frase del conflicto de avance, con o sin la hora del otro dispositivo (`stamp` ya viene con paréntesis y espacio):
+ * "En otro dispositivo vas en la vuelta 40 (hace 3 min). Aquí vas en la vuelta 36. ¿Con cuál sigues?".
+ * Única fuente: la usan el servidor (`progressConflictMessage`) y el diálogo de Tejiendo (`conflictQuestionText`).
+ */
+export function conflictSentence(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, yours: ChartPointer, stamp = ""): string {
+  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
+  const head = finished ? `En otro dispositivo ya terminaste el gráfico${stamp}.` : `En otro dispositivo vas en ${positionText(workedIn, totalRows, theirs)}${stamp}.`;
+  return `${head} Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
+}
+
 /** Conflicto de avance: "En otro dispositivo vas en la vuelta 40. Aquí vas en la vuelta 36. ¿Con cuál sigues?". */
 export function progressConflictMessage(workedIn: WorkedIn | undefined, totalRows: number, theirs: ChartPointer, yours: ChartPointer | undefined): string {
-  const other = positionText(workedIn, totalRows, theirs);
-  const finished = totalRows > 0 && theirs.rowsDone >= totalRows;
-  if (finished && yours) return `En otro dispositivo ya terminaste el gráfico. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
-  if (!yours) return `El avance cambió en otro dispositivo: vas en ${other}. Recarga para seguir desde ahí.`;
-  return `En otro dispositivo vas en ${other}. Aquí vas en ${positionText(workedIn, totalRows, yours)}. ¿Con cuál sigues?`;
+  if (!yours) return `El avance cambió en otro dispositivo: vas en ${positionText(workedIn, totalRows, theirs)}. Recarga para seguir desde ahí.`;
+  return conflictSentence(workedIn, totalRows, theirs, yours);
 }
 
 /** La versión fijada cambió en otro dispositivo (VERSION_CHANGED): el puntero que se enviaba era de otro plan. */
@@ -124,8 +132,8 @@ export interface DbError {
 
 /**
  * Traduce el error de una consulta o de `start_chart_project` / `repin_project` (ver el mapa arriba). Solo mira
- * `code` y `details`; el texto de `message` se usa únicamente para distinguir cuál de los tres topes de 54000 fue
- * (no se devuelve).
+ * `code` y `details` (en 54000: `projects`, `versions_total`, `versions_per_pattern`); el texto de `message` es solo
+ * un respaldo transitorio (no se devuelve).
  */
 export function mapDbError(error: DbError | null | undefined): ProjectFailure {
   switch (error?.code) {
@@ -144,6 +152,19 @@ export function mapDbError(error: DbError | null | undefined): ProjectFailure {
     case "23514":
       return projectFailure("REJECTED");
     case "54000": {
+      // El detail estable lo pone la migración 20261113145129_tope_part_id_y_detalle_cuotas.sql.
+      switch (error.details ?? error.detail) {
+        case "versions_total":
+          return projectFailure("VERSIONS_QUOTA");
+        case "versions_per_pattern":
+          return projectFailure("MAX_VERSIONS");
+        case "projects":
+          return quotaFailure();
+        default:
+          break;
+      }
+      // TRANSITORIO: respaldo por el texto del mensaje mientras la migración no esté aplicada en el proyecto real.
+      // Borrar este bloque cuando lo esté.
       const text = error.message ?? "";
       if (/5000/.test(text)) return projectFailure("VERSIONS_QUOTA");
       if (/200/.test(text)) return projectFailure("MAX_VERSIONS");
