@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { NO_STITCH, parsePattern, validatePattern, type Issue } from "../src/index.ts";
+import { NO_STITCH, SCHEMA_VERSION, parsePattern, validatePattern, type Issue } from "../src/index.ts";
 import { ballPattern, smallChart, yarnB } from "./support/fixtures.ts";
 
 const codes = (issues: Issue[], severity?: Issue["severity"]) =>
@@ -176,7 +176,7 @@ describe("gráfico", () => {
 
 describe("entradas inválidas", () => {
   it("nunca lanza excepciones", () => {
-    const junk: unknown[] = [null, 42, "hola", [], {}, { schemaVersion: 1 }, { kind: "chart", chart: { cells: "x" } }, { kind: "written", parts: [{ rounds: [{ items: [{ type: "group", items: null }] }] }] }];
+    const junk: unknown[] = [null, 42, "hola", [], {}, { schemaVersion: SCHEMA_VERSION }, { kind: "chart", chart: { cells: "x" } }, { kind: "written", parts: [{ rounds: [{ items: [{ type: "group", items: null }] }] }] }];
     for (const j of junk) {
       const r = validatePattern(j);
       assert.equal(r.valid, false);

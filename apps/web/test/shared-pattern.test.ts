@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { NO_STITCH, validatePattern } from "@loopitalab/pattern-core";
+import { NO_STITCH, SCHEMA_VERSION, validatePattern } from "@loopitalab/pattern-core";
 import { ballPattern, smallChart } from "../../../packages/pattern-core/test/support/fixtures.ts";
 
 const rpc = vi.fn();
@@ -15,7 +15,7 @@ function row(document: unknown, extra: Record<string, unknown> = {}) {
     title: "Gorro de Ana",
     technique: "knit",
     kind: "chart",
-    schema_version: 1,
+    schema_version: SCHEMA_VERSION,
     origin: "manual",
     document,
     author_name: "Ana",

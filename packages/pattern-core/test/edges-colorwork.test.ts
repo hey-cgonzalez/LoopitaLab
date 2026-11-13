@@ -460,7 +460,7 @@ describe("bordes: migratePattern", () => {
   });
 
   it("un arreglo con schemaVersion no es un documento", () => {
-    assert.equal(migratePattern(Object.assign([], { schemaVersion: 1 })).ok, false);
+    assert.equal(migratePattern(Object.assign([], { schemaVersion: SCHEMA_VERSION })).ok, false);
   });
 });
 
