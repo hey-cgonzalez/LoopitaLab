@@ -152,7 +152,7 @@ export function mapDbError(error: DbError | null | undefined): ProjectFailure {
     case "23514":
       return projectFailure("REJECTED");
     case "54000": {
-      // El detail estable lo pone la migración 20261113010000_tope_part_id_y_detalle_cuotas.sql.
+      // El detail estable lo pone la migración 20261113145129_tope_part_id_y_detalle_cuotas.sql.
       switch (error.details ?? error.detail) {
         case "versions_total":
           return projectFailure("VERSIONS_QUOTA");

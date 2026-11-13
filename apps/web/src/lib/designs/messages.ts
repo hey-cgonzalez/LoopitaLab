@@ -61,7 +61,7 @@ export function dbErrorCode(error: { code?: string; details?: string | null; det
     case "P0002": // snapshot_pattern: patrón no encontrado
       return "NOT_FOUND";
     case "54000": {
-      // `detail` estable (migración 20261113010000): patterns | versions_per_pattern | versions_total.
+      // `detail` estable (migración 20261113145129): patterns | versions_per_pattern | versions_total.
       const detail = error.details ?? error.detail;
       if (detail === "patterns") return "QUOTA";
       if (detail === "versions_per_pattern" || detail === "versions_total") return "MAX_VERSIONS";
