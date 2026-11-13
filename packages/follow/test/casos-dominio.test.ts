@@ -258,13 +258,21 @@ describe("casos de dominio de follow (fase 3)", () => {
     const big = chartPattern({ width: side, height: side, cells, repeat: { x: 500, y: 500 }, workedIn: "rows", renderAs: "flat" }, [yarnA, yarnB, yarnC]);
     const plan = planChart(big);
     assert.equal(plan.totalRows, 100_000);
-    // Filas distintas para no medir la caché de pasos.
-    const n = 500;
-    const t0 = performance.now();
-    for (let i = 0; i < n; i++) stepAt(plan, (i * 7919) % plan.totalRows);
-    const perStep = (performance.now() - t0) / n;
-    assert.ok(perStep < 1, `stepAt tardó ${perStep.toFixed(3)} ms`);
+    // Guardia robusta frente a CPU cargada (QA T16): calentamiento y mediana de varias tandas. El criterio no
+    // se relaja (CA3-P6: menos de 1 ms por `stepAt`); una pausa del planificador o del recolector en una tanda
+    // no decide el resultado. Filas distintas en cada llamada para no medir la caché de pasos (64 entradas).
+    let k = 0;
+    const batch = (n: number) => {
+      const t0 = performance.now();
+      for (let i = 0; i < n; i++) stepAt(plan, (k++ * 7919) % plan.totalRows);
+      return (performance.now() - t0) / n;
+    };
+    batch(300); // calentamiento (JIT)
+    const batches = Array.from({ length: 9 }, () => batch(200)).sort((x, y) => x - y);
+    const perStep = batches[4]!;
+    assert.ok(perStep < 1, `stepAt tardó ${perStep.toFixed(3)} ms (mediana de 9 tandas; peor tanda ${batches[8]!.toFixed(3)} ms)`);
     // planChart con repeat.y = 1 y = 500 tarda lo mismo (orden de magnitud): no depende de repeat.y.
+    // Se compara el mínimo de 5 mediciones de cada uno (el mínimo es la medida menos sensible a la carga).
     const one = chartPattern({ ...big.chart, repeat: { x: 500, y: 1 } }, [yarnA, yarnB, yarnC]);
     const time = (p: typeof big) => {
       const t = performance.now();
@@ -272,8 +280,10 @@ describe("casos de dominio de follow (fase 3)", () => {
       return (performance.now() - t) / 20;
     };
     time(one);
-    const a = time(one);
-    const b = time(big);
+    time(big);
+    const best = (p: typeof big) => Math.min(...Array.from({ length: 5 }, () => time(p)));
+    const a = best(one);
+    const b = best(big);
     assert.ok(b < Math.max(a * 5, 5), `planChart + position: ${a.toFixed(3)} ms con repeat.y = 1 y ${b.toFixed(3)} ms con 500`);
     console.log(`stepAt 200 de ancho: ${perStep.toFixed(4)} ms; planChart + position: ${a.toFixed(3)} / ${b.toFixed(3)} ms`);
   });

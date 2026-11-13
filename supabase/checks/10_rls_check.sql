@@ -1204,6 +1204,20 @@ begin
     update public.project_progress set stitch_index = 100001 where project_id = pid;
     raise exception 'FALLO: cota de stitch_index';
   exception when check_violation then null; end;
+  -- QA T16 (fase 3): las cotas exactas se aceptan (gráfico terminado en el diseño más largo, 200 × 500 filas) y
+  -- los mínimos se respetan; después se deja el puntero como estaba.
+  update public.project_progress set round_number = 100001, stitch_index = 100000 where project_id = pid;
+  get diagnostics n = row_count;
+  assert n = 1, 'las cotas exactas (round_number 100001 y stitch_index 100000) se aceptan';
+  begin
+    update public.project_progress set round_number = 0 where project_id = pid;
+    raise exception 'FALLO: round_number mínimo (1)';
+  exception when check_violation then null; end;
+  begin
+    update public.project_progress set stitch_index = -1 where project_id = pid;
+    raise exception 'FALLO: stitch_index mínimo (0)';
+  exception when check_violation then null; end;
+  update public.project_progress set round_number = 6, stitch_index = 12 where project_id = pid;
   begin
     update public.project_progress set device = 'tableta' where project_id = pid;
     raise exception 'FALLO: device no se escribe en la fase 3';
