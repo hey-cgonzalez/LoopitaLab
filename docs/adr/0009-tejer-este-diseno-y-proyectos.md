@@ -188,7 +188,7 @@ Aprobadas por el orquestador; la migración es `supabase/migrations/202611110318
 
 ## Enmiendas tras implementar T11 a T18 (2026-11-13)
 
-Registro de lo que se implementó distinto de las secciones 2 a 4. Cierra el punto 7 de la revisión T17 de [docs/seguridad.md](../seguridad.md) ("arquitecto debe enmendar el ADR"). Migraciones: `20261111031813_tejer_disenos.sql` (T7) y `20261113010000_tope_part_id_y_detalle_cuotas.sql` (T17).
+Registro de lo que se implementó distinto de las secciones 2 a 4. Cierra el punto 7 de la revisión T17 de [docs/seguridad.md](../seguridad.md) ("arquitecto debe enmendar el ADR"). Migraciones: `20261111031813_tejer_disenos.sql` (T7) y `20261113145129_tope_part_id_y_detalle_cuotas.sql` (T17).
 
 6. **Firmas de las Server Actions** (`apps/web/src/app/proyectos/actions.ts`). Cambian respecto de la tabla de la sección 3:
    - `repinProject(projectId, expectedProgressUpdatedAt)`: el cliente ya no envía el puntero. El servidor lo reubica con `remapPointer` desde el avance guardado y lo escribe en `repin_project`, en la misma transacción. Antes de llamar, compara `expectedProgressUpdatedAt` con el `updated_at` actual del avance; si no coincide, responde `CONFLICT` sin escribir.
