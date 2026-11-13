@@ -58,19 +58,83 @@ export interface StoredProgress {
   savedAt: number;
 }
 
-const isInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0;
+/** Tope de `rowsDone` y `stitchesDone` guardados (T17, B2): las mismas cotas generales de la base (`progress-codec.ts`). */
+export const MAX_STORED_POINTER = 100_000;
+const isInt = (v: unknown): v is number => typeof v === "number" && Number.isSafeInteger(v) && v >= 0 && v <= MAX_STORED_POINTER;
+/** `updated_at` como lo devuelve PostgREST (misma forma que `isTimestamp` del servidor). */
+const TIMESTAMP_RE = /^\d{4}-\d{2}-\d{2}[T ]\d{2}:\d{2}:\d{2}(\.\d{1,6})?(Z|[+-]\d{2}(:?\d{2})?)$/;
+const ID_RE = /^[A-Za-z0-9-]{1,64}$/;
 
-/** Interpreta una entrada guardada; `null` si no sirve (grande, dañada, de otra cuenta o versión, caducada). */
-export function parseStoredProgress(raw: string | null, ownerId: string, projectId: string, versionId: string, now: number): StoredProgress | null {
+/** Valida una entrada de `ownerId` sin mirar proyecto ni versión. `null` si no sirve. */
+function parseEntry(raw: string | null, ownerId: string, now: number): StoredProgress | null {
   if (!raw || raw.length > MAX_PROGRESS_ENTRY_CHARS) return null;
   try {
     const e = JSON.parse(raw) as Partial<StoredProgress> | null;
-    if (!e || typeof e !== "object" || e.v !== 1 || e.ownerId !== ownerId || e.projectId !== projectId || e.versionId !== versionId) return null;
+    if (!e || typeof e !== "object" || e.v !== 1 || e.ownerId !== ownerId) return null;
+    if (typeof e.projectId !== "string" || !ID_RE.test(e.projectId) || typeof e.versionId !== "string" || !ID_RE.test(e.versionId)) return null;
     if (typeof e.savedAt !== "number" || !Number.isFinite(e.savedAt) || now - e.savedAt > PROGRESS_TTL_MS || e.savedAt - now > PROGRESS_TTL_MS) return null;
-    if (!(e.baseUpdatedAt === null || typeof e.baseUpdatedAt === "string")) return null;
+    if (!(e.baseUpdatedAt === null || (typeof e.baseUpdatedAt === "string" && e.baseUpdatedAt.length <= 40 && TIMESTAMP_RE.test(e.baseUpdatedAt)))) return null;
     const p = e.pointer;
     if (!p || typeof p !== "object" || !isInt(p.rowsDone) || !isInt(p.stitchesDone)) return null;
-    return { v: 1, ownerId, projectId, versionId, pointer: { rowsDone: p.rowsDone, stitchesDone: p.stitchesDone }, baseUpdatedAt: e.baseUpdatedAt, savedAt: e.savedAt };
+    return { v: 1, ownerId, projectId: e.projectId, versionId: e.versionId, pointer: { rowsDone: p.rowsDone, stitchesDone: p.stitchesDone }, baseUpdatedAt: e.baseUpdatedAt, savedAt: e.savedAt };
+  } catch {
+    return null;
+  }
+}
+
+/** Interpreta una entrada guardada; `null` si no sirve (grande, dañada, de otra cuenta o versión, caducada, fuera de cotas). */
+export function parseStoredProgress(raw: string | null, ownerId: string, projectId: string, versionId: string, now: number): StoredProgress | null {
+  const e = parseEntry(raw, ownerId, now);
+  return e && e.projectId === projectId && e.versionId === versionId ? e : null;
+}
+
+function progressKeys(storage: EnumerableProgressStorage): string[] {
+  const keys: string[] = [];
+  for (let i = 0; i < storage.length; i++) {
+    const k = storage.key(i);
+    if (k && isProgressKey(k)) keys.push(k);
+  }
+  return keys;
+}
+
+/**
+ * Limpieza al abrir "Tejiendo" o el estudio (T17, B1; como `pruneBackups`): borra las entradas de avance de otra cuenta,
+ * las caducadas, las de más de 1 KB, las dañadas y las cuya clave no coincide con su contenido. Conserva solo las
+ * vigentes de `ownerId`. Devuelve cuántas borró. Nunca lanza.
+ */
+export function pruneProgressQueues(storage: EnumerableProgressStorage | null | undefined, ownerId: string, now: number = Date.now()): number {
+  if (!storage) return 0;
+  try {
+    const remove: string[] = [];
+    for (const k of progressKeys(storage)) {
+      const m = KEY_RE.exec(k);
+      const owner = m?.[1];
+      const e = owner === ownerId && OWNER_RE.test(ownerId) ? parseEntry(storage.getItem(k), ownerId, now) : null;
+      if (!e || e.projectId !== m?.[2]) remove.push(k);
+    }
+    for (const k of remove) storage.removeItem(k);
+    return remove.length;
+  } catch {
+    return 0;
+  }
+}
+
+/** Quita la entrada de avance de un proyecto, de cualquier cuenta (tras borrarlo; T17, B1). Nunca lanza. */
+export function clearProjectProgress(storage: EnumerableProgressStorage | null | undefined, projectId: string): number {
+  if (!storage) return 0;
+  try {
+    const keys = progressKeys(storage).filter((k) => KEY_RE.exec(k)?.[2] === projectId);
+    for (const k of keys) storage.removeItem(k);
+    return keys.length;
+  } catch {
+    return 0;
+  }
+}
+
+/** `localStorage` del navegador como almacenamiento enumerable, o `null`. Nunca lanza. */
+export function browserProgressStorage(): EnumerableProgressStorage | null {
+  try {
+    return typeof window === "undefined" ? null : (window.localStorage as EnumerableProgressStorage);
   } catch {
     return null;
   }
@@ -80,11 +144,7 @@ export function parseStoredProgress(raw: string | null, ownerId: string, project
 export function clearAllProgressQueues(storage: EnumerableProgressStorage | null | undefined): number {
   if (!storage) return 0;
   try {
-    const keys: string[] = [];
-    for (let i = 0; i < storage.length; i++) {
-      const k = storage.key(i);
-      if (k && isProgressKey(k)) keys.push(k);
-    }
+    const keys = progressKeys(storage);
     for (const k of keys) storage.removeItem(k);
     return keys.length;
   } catch {
@@ -127,12 +187,16 @@ export interface ProgressQueueDeps {
   clearTimer?: (handle: unknown) => void;
   debounceMs?: number;
   retryDelaysMs?: readonly number[];
+  /** Acota un puntero al plan de la pantalla (`clampPointer`) al adoptar uno local o del servidor (T17, B2). */
+  clamp?: (p: ChartPointer) => ChartPointer;
 }
 
 type Listener = () => void;
 
 const samePointer = (a: ChartPointer, b: ChartPointer) => a.rowsDone === b.rowsDone && a.stitchesDone === b.stitchesDone;
 const RETRYABLE: ReadonlySet<ProjectFailure["code"]> = new Set(["DATABASE"]);
+/** Fallas que dicen que lo local no sirve (T17, B2): se descarta la entrada y se vuelve al puntero del servidor. */
+const DISCARD: ReadonlySet<ProjectFailure["code"]> = new Set(["INVALID_REQUEST", "NOT_FOUND", "NO_DESIGN"]);
 
 export class ProgressQueue {
   readonly #d: Required<Pick<ProgressQueueDeps, "now" | "setTimer" | "clearTimer" | "debounceMs" | "retryDelaysMs">> & ProgressQueueDeps;
@@ -192,8 +256,9 @@ export class ProgressQueue {
    */
   start(): boolean {
     this.#stopped = false;
-    const stored = this.#read();
-    if (!stored) return false;
+    const read = this.#read();
+    if (!read) return false;
+    const stored = { ...read, pointer: this.#clamp(read.pointer) };
     this.#desired = stored.pointer;
     this.#base = stored.baseUpdatedAt;
     const changed = !samePointer(stored.pointer, this.#lastSaved);
@@ -219,6 +284,8 @@ export class ProgressQueue {
     const next = { rowsDone: pointer.rowsDone, stitchesDone: pointer.stitchesDone };
     if (samePointer(next, this.#desired)) return;
     this.#desired = next;
+    // Proyecto borrado, sin diseño o pedido inválido: no se vuelve a guardar nada en este dispositivo (T17, B2).
+    if (this.#state.kind === "failed" && DISCARD.has(this.#state.code)) return;
     this.#write();
     const k = this.#state.kind;
     if (k === "conflict" || k === "version-changed" || k === "failed") return; // la pantalla resuelve primero
@@ -250,7 +317,8 @@ export class ProgressQueue {
   /** Conflicto: seguir con la posición del otro dispositivo. */
   takeTheirs(): void {
     if (this.#state.kind !== "conflict") return;
-    const { theirs, theirsAt } = this.#state;
+    const { theirsAt } = this.#state;
+    const theirs = this.#clamp(this.#state.theirs);
     this.#desired = { ...theirs };
     this.#lastSaved = { ...theirs };
     this.#base = theirsAt;
@@ -263,14 +331,20 @@ export class ProgressQueue {
   adoptServer(pointer: ChartPointer, updatedAt: string | null): boolean {
     if (this.hasPending || this.#state.kind !== "saved") return false;
     this.#base = updatedAt;
-    if (samePointer(pointer, this.#desired)) return false;
-    this.#desired = { ...pointer };
-    this.#lastSaved = { ...pointer };
+    const p = this.#clamp(pointer);
+    if (samePointer(p, this.#desired)) return false;
+    this.#desired = { ...p };
+    this.#lastSaved = { ...p };
     this.onPointer?.(this.#desired);
     return true;
   }
 
   // ------------------------------------------------------------ interno
+
+  #clamp(p: ChartPointer): ChartPointer {
+    const q = this.#d.clamp ? this.#d.clamp(p) : p;
+    return { rowsDone: q.rowsDone, stitchesDone: q.stitchesDone };
+  }
 
   #set(s: QueueState): void {
     this.#state = s;
@@ -354,6 +428,14 @@ export class ProgressQueue {
       return;
     }
     if (RETRYABLE.has(f.code) || f.code === "CONFLICT") return this.#retryLater("server");
+    if (DISCARD.has(f.code)) {
+      // Lo local no sirve (dañado, de un proyecto borrado o sin diseño): no se reintenta ni se guarda; la pantalla
+      // vuelve al último puntero que confirmó el servidor.
+      this.#clearStored();
+      this.#desired = { ...this.#lastSaved };
+      this.#again = false;
+      this.onPointer?.(this.#desired);
+    }
     this.#set({ kind: "failed", code: f.code, message: f.error });
   }
 

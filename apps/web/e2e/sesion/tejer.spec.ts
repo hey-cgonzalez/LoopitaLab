@@ -47,7 +47,9 @@ test.describe("Tejer este diseño", () => {
     await expect(dialog.getByTestId("knit-preview-gauge")).toContainText("(supuesta)");
     await expect(dialog.getByTestId("knit-preview-yarn")).toHaveCount(2);
     await expect(dialog.getByTestId("knit-preview-yarn").first()).toContainText(/≈ .* m \(entre .* y .* m\), estimación/);
-    await expect(dialog.getByTestId("knit-preview-not-in-chart").getByRole("listitem")).toHaveCount(4);
+    // Palillo (T18, M1): montaje, elástico o borde, forma previa, cierre y armado.
+    await expect(dialog.getByTestId("knit-preview-not-in-chart").getByRole("listitem")).toHaveCount(5);
+    await expect(dialog.getByTestId("knit-preview-motif")).toHaveText("Motivo de 8 × 8, repetido 12 veces a lo ancho y sin repetir a lo alto.");
     await expect(dialog.getByTestId("knit-preview-prototype")).toContainText("Teje una muestra");
     const projectTitle = `${title} (proyecto)`;
     await dialog.getByLabel("Nombre del proyecto (opcional)").fill(projectTitle);
@@ -133,7 +135,7 @@ test.describe("Tejer este diseño", () => {
     // Hasta el final: "Gráfico terminado" (nunca "Pieza terminada"), con lo que falta.
     for (let k = 0; k < 5; k++) await page.getByTestId("knit-next").click();
     await expect(page.getByTestId("knit-finished")).toContainText("Gráfico terminado");
-    await expect(page.getByTestId("knit-finished")).toContainText("Falta rematar o cerrar la pieza. Quedan 96 puntos de la última vuelta");
+    await expect(page.getByTestId("knit-finished")).toContainText("Tejiste todas las vueltas del gráfico. Quedan 96 puntos: ciérralos.");
     await expect(page.getByText("Pieza terminada")).toHaveCount(0);
     await expect(page.getByTestId("knit-next")).toBeDisabled();
     await expectProgressSaved(page);

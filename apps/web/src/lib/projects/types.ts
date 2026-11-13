@@ -7,6 +7,9 @@ export type { ProjectFailure, ProjectErrorCode, WorkedIn } from "./messages.ts";
 
 export type StartProjectResult = { ok: true; projectId: string; version: number; reused: boolean } | ProjectFailure;
 
+/** Lo que el gráfico no incluye (ADR 0009, T1-7; T18, M1). Palillo y crochet tienen listas distintas (`notInChartFor`). */
+export type NotInChartKey = "cast_on" | "edging" | "bind_off" | "foundation" | "turning_chain" | "fasten_off" | "prior_shaping" | "assembly";
+
 /** Muestra que se usó para las cifras: la del documento o la supuesta por grosor (rotulada "supuesto"). */
 export interface KnitPreviewGauge {
   stitchesPer10cm: number;
@@ -50,8 +53,8 @@ export interface KnitPreview {
   /** Advertencias que no bloquean (por ejemplo `CHART_FLOAT_LONG`). */
   warnings: Issue[];
   info: Issue[];
-  /** Lo que el gráfico no incluye; la interfaz lo redacta con el glosario. */
-  notInChart: readonly ["cast_on", "edging", "bind_off", "assembly"];
+  /** Lo que el gráfico no incluye, según la técnica (T18, M1); la interfaz lo redacta con el glosario. */
+  notInChart: readonly NotInChartKey[];
 }
 
 export type KnitPreviewResult = ({ ok: true } & KnitPreview) | ProjectFailure;
@@ -86,6 +89,9 @@ export type LoadProjectResult =
       newerVersionAvailable: boolean;
     }
   | ProjectFailure;
+
+/** Relectura ligera del avance (T17, I4): puntero sin acotar al plan, su `updated_at` y la versión fijada. */
+export type GetProgressResult = { ok: true; versionId: string; pointer: ChartPointer; progressUpdatedAt: string | null } | ProjectFailure;
 
 export type SaveProgressResult = { ok: true; updatedAt: string } | ProjectFailure;
 

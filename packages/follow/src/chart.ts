@@ -72,6 +72,17 @@ export interface ChartStep {
   /** De `rowShapingColumns`: columnas del motivo (ascendentes). */
   decreaseColumns: readonly number[];
   increaseColumns: readonly number[];
+  /**
+   * Dónde se pierde un punto, en el orden en que se teje **una** repetición (T18, R2): por cada columna de
+   * `decreaseColumns`, la casilla (1-based, contando solo las casillas con punto de esta fila) antes de la cual se
+   * pierde. `stitchesPerRepeat + 1` = al final de la repetición. No decide la técnica de la disminución (ADR 0007).
+   */
+  decreaseBefore: readonly number[];
+  /** Puntos que se pierden y que se agregan en la fila completa (`decreaseBefore.length × repeatX`, ídem aumentos). `increases − decreases = change`. */
+  decreases: number;
+  increases: number;
+  /** Por cada columna de `increaseColumns`, la casilla (1-based, en el orden en que se teje una repetición) que es nueva (R3). */
+  increaseAt: readonly number[];
   /** Lanas de la fila, en el orden en que aparecen al tejerla (sin repetir). */
   yarns: readonly number[];
   /**
@@ -99,6 +110,11 @@ export interface ChartPosition {
    * null si está terminado o si la fila no tiene puntos.
    */
   horizontalRepeat: { index: number; of: number; xStart: number; xEnd: number } | null;
+  /**
+   * Casillas de la fila que forman la repetición en curso, 1-based y en el orden de lectura ("casillas 10 a 18 de 72",
+   * T18 R1): `first = index × stitchesPerRepeat + 1`, `last = first + stitchesPerRepeat − 1`. null con `horizontalRepeat` null.
+   */
+  repeatCells: { first: number; last: number; of: number } | null;
   /** Repetición vertical de la fila actual; terminado, la de la última fila. */
   verticalRepeat: { index: number; of: number };
   rowsDone: number;
@@ -110,7 +126,11 @@ export interface ChartPosition {
 
 export interface RemapResult {
   pointer: ChartPointer;
-  /** La fila quedó fuera del plan nuevo y se acotó. */
+  /**
+   * La versión nueva es más corta que el avance: la fila en curso (o el final del gráfico, si estaba terminado) ya no
+   * existe en el plan nuevo y el puntero se acotó a terminado. Incluye el caso de un diseño que se acorta justo hasta la
+   * fila en curso (O-F3-2 de QA): iba en una fila real del plan viejo y en el nuevo queda en terminado.
+   */
   clamped: boolean;
   /** La fila actual cambió de contenido (tramos, puntos, forma, lado o sentido) entre los dos planes. */
   rowChanged: boolean;
@@ -207,10 +227,20 @@ function buildStep(plan: ChartPlan, row: number): ChartStep {
   const w = plan.motifWidth;
   const runs: ColorRun[] = [];
   const yarns: number[] = [];
+  const dec = new Set(columns.decreases);
+  const inc = new Set(columns.increases);
+  const decreaseBefore: number[] = [];
+  const increaseAt: number[] = [];
+  let made = 0;
   for (let i = 0; i < w; i++) {
     const x = reading === "right_to_left" ? w - 1 - i : i;
     const v = cellAt(chart, x, row);
-    if (v === NO_STITCH) continue;
+    if (v === NO_STITCH) {
+      if (dec.has(x)) decreaseBefore.push(made + 1);
+      continue;
+    }
+    made++;
+    if (inc.has(x)) increaseAt.push(made);
     const last = runs[runs.length - 1];
     if (last && last.yarn === v) last.count++;
     else {
@@ -233,6 +263,10 @@ function buildStep(plan: ChartPlan, row: number): ChartStep {
     perRepeat: change / plan.repeatX + 0,
     decreaseColumns: Object.freeze(columns.decreases),
     increaseColumns: Object.freeze(columns.increases),
+    decreases: decreaseBefore.length * plan.repeatX,
+    increases: increaseAt.length * plan.repeatX,
+    decreaseBefore: Object.freeze(decreaseBefore),
+    increaseAt: Object.freeze(increaseAt),
     yarns: Object.freeze(yarns),
     runs: Object.freeze(runs),
   });
@@ -279,6 +313,7 @@ export function position(plan: ChartPlan, p: ChartPointer): ChartPosition {
   const q = clampPointer(plan, p);
   const step = stepAt(plan, q.rowsDone);
   let horizontalRepeat: ChartPosition["horizontalRepeat"] = null;
+  let repeatCells: ChartPosition["repeatCells"] = null;
   if (step && step.stitches > 0) {
     const index = Math.floor(q.stitchesDone / step.stitchesPerRepeat);
     // En el orden de lectura, la primera repetición es la de la derecha si se lee de
@@ -286,12 +321,15 @@ export function position(plan: ChartPlan, p: ChartPointer): ChartPosition {
     const slot = step.reading === "right_to_left" ? plan.repeatX - 1 - index : index;
     const xStart = slot * plan.motifWidth;
     horizontalRepeat = { index, of: plan.repeatX, xStart, xEnd: xStart + plan.motifWidth };
+    const first = index * step.stitchesPerRepeat + 1;
+    repeatCells = { first, last: first + step.stitchesPerRepeat - 1, of: step.stitches };
   }
   const lastRow = Math.max(Math.min(q.rowsDone, plan.totalRows - 1), 0);
   return {
     step,
     finished: step === null,
     horizontalRepeat,
+    repeatCells,
     verticalRepeat: { index: plan.motifHeight > 0 ? Math.floor(lastRow / plan.motifHeight) : 0, of: plan.repeatY },
     rowsDone: q.rowsDone,
     totalRows: plan.totalRows,
@@ -366,13 +404,13 @@ function sameStep(a: ChartStep | null, b: ChartStep | null): boolean {
 
 /**
  * Lleva un puntero a otro plan (cambio explícito de versión fijada, ADR 0007 §5). Conserva
- * el número de fila acotado; no busca "la misma fila" por contenido. `stitchesDone` vuelve
+ * el número de fila acotado (`clamped` si la fila en curso ya no existe en el plan nuevo); no busca "la misma fila" por contenido. `stitchesDone` vuelve
  * a 0 si la fila cambió o se acotó; si la fila se teje igual en los dos planes se conserva
  * (así `remapPointer(plan, plan, p)` devuelve `p`, propiedad P14).
  */
 export function remapPointer(from: ChartPlan, to: ChartPlan, p: ChartPointer): RemapResult {
   const q = clampPointer(from, p);
-  const clamped = q.rowsDone > to.totalRows;
+  const clamped = q.rowsDone > to.totalRows || (q.rowsDone === to.totalRows && q.rowsDone < from.totalRows);
   const rowsDone = Math.min(q.rowsDone, to.totalRows);
   const rowChanged = clamped || !sameStep(stepAt(from, q.rowsDone), stepAt(to, rowsDone));
   const pointer = rowChanged ? { rowsDone, stitchesDone: 0 } : clampPointer(to, { rowsDone, stitchesDone: q.stitchesDone });

@@ -1,6 +1,7 @@
 import { yarnLetter } from "@loopitalab/pattern-core";
 import type { ChartPointer, ColorRun } from "@loopitalab/follow";
 import { PROJECT_MESSAGES, conflictSentence, positionText, rowWord, type WorkedIn } from "./messages.ts";
+import type { NotInChartKey } from "./types.ts";
 import { STUDIO_TEXTS, directionName, shapeName, workedInName } from "../studio-texts.ts";
 
 /*
@@ -12,7 +13,9 @@ import { STUDIO_TEXTS, directionName, shapeName, workedInName } from "../studio-
  *  - en filas por el revés se dice "por el revés, de izquierda a derecha" y que los colores del gráfico son los del
  *    derecho; nunca que "se invierten"; en crochet no se afirma "punto revés";
  *  - "Gráfico terminado", nunca "Pieza terminada";
- *  - "casilla N de M" en filas con disminuciones (las casillas producidas, no los puntos que salen de la aguja).
+ *  - "casillas N a M de T" (la repetición en curso) en filas con disminuciones o aumentos: el avance va de a una
+ *    repetición, así que no se afirma una casilla exacta (T18, R1). Con una sola repetición no se muestra;
+ *  - la lectura para lector de pantalla dice "3 de la lana A, 2 de la lana B"; "3 A · 2 B" es solo visual (T18, R6).
  * Los términos marcados `// validar con tejedora` esperan la revisión de T1b.
  */
 
@@ -54,13 +57,17 @@ export const PROJECT_TEXTS = {
     idaYVueltaYCose: "Se teje de ida y vuelta y se cose para cerrar la forma.", // validar con tejedora
   },
 
-  /** Lo que no está en el gráfico (ADR 0009, T1-7, punto 5). */
+  /** Lo que no está en el gráfico (ADR 0009, T1-7, punto 5; T18, M1). La lista según la técnica la da `notInChartFor`. */
   noEnGrafico: {
     cast_on: "Montaje de los puntos", // validar con tejedora
     edging: "Elástico, borde u orillo", // validar con tejedora
-    bind_off: "Remate o cierre de los puntos", // validar con tejedora
+    bind_off: "Cerrar los puntos", // validar con tejedora
+    foundation: "Cadeneta base o anillo mágico", // validar con tejedora
+    turning_chain: "Cadeneta de vuelta al empezar cada fila", // validar con tejedora
+    fasten_off: "Remate: cortar y pasar la hebra", // validar con tejedora
+    prior_shaping: "Aumentos o disminuciones previos, forma del cuello o sisa", // validar con tejedora
     assembly: "Armado y costuras", // validar con tejedora
-  },
+  } satisfies Record<NotInChartKey, string>,
 
   /** Lista y ficha de proyectos. */
   proyectos: {
@@ -105,7 +112,9 @@ export const PROJECT_TEXTS = {
     titulo: "Pasar a la versión actual del diseño",
     revisando: "Comparando con el diseño actual…",
     igual: "El diseño actual es idéntico a la versión fijada: no hay nada que cambiar.",
-    conservaFila: (workedIn: WorkedIn) => `Tu avance se conserva en el mismo número de ${rowWord(workedIn)}.`,
+    /** T18, R7. `where` es `positionText` del puntero reubicado ("la fila 5"). // validar con tejedora */
+    conservaFila: (workedIn: WorkedIn, where: string) =>
+      `Tu avance queda en ${where}. Solo se compara la ${rowWord(workedIn)} en la que vas: si cambiaste ${rowWord(workedIn)}s anteriores o el ancho, lo que ya tejiste puede no coincidir.`,
     filaCambio: (workedIn: WorkedIn) => `La ${rowWord(workedIn)} en la que vas se teje distinto en la versión nueva: revisa que tu tejido coincida antes de seguir.`, // F3-12
     acotado: "La versión nueva es más corta: tu avance queda al final del gráfico (gráfico terminado).", // ADR 0007, enmienda T4-3; validar con tejedora
     casillasACero: (workedIn: WorkedIn) => `El avance dentro de la ${rowWord(workedIn)} vuelve al inicio de la ${rowWord(workedIn)}.`,
@@ -125,6 +134,9 @@ export const PROJECT_TEXTS = {
     volverAlProyecto: "Volver al proyecto",
     siguiente: "Siguiente",
     anterior: "Anterior",
+    /** Nombres accesibles de los botones grandes (T18, M3): contienen el texto visible. */
+    siguienteEtiqueta: (workedIn: WorkedIn) => `${capital(rowWord(workedIn))} siguiente`,
+    anteriorEtiqueta: (workedIn: WorkedIn) => `${capital(rowWord(workedIn))} anterior`,
     repeticionSiguiente: "Repetición siguiente",
     repeticionAnterior: "Repetición anterior",
     repeticion: "Repetición",
@@ -140,10 +152,16 @@ export const PROJECT_TEXTS = {
     grafico: "Gráfico",
     vistaPrevia: "Vista previa",
     graficoTerminado: "Gráfico terminado",
-    graficoTerminadoAyuda: "Tejiste todas las filas del gráfico. Falta rematar o cerrar la pieza.", // F3-7
-    graficoTerminadoAyudaRedondo: "Tejiste todas las vueltas del gráfico. Falta rematar o cerrar la pieza.", // F3-7
-    quedanPuntos: (n: number) => `Quedan ${n} ${n === 1 ? "punto" : "puntos"} de la última vuelta para rematar o cerrar.`, // F3-7 (bottom_up); validar con tejedora
-    quedanPuntosFila: (n: number) => `Quedan ${n} ${n === 1 ? "punto" : "puntos"} de la última fila para rematar o cerrar.`, // validar con tejedora
+    graficoTerminadoAyuda: "Tejiste todas las filas del gráfico.", // F3-7
+    graficoTerminadoAyudaRedondo: "Tejiste todas las vueltas del gráfico.", // F3-7
+    /** Cierre según técnica, forma y dirección (T18, R4). // validar con tejedora */
+    cerrarCopa: (n: number) => `Pasa la hebra por ${n === 1 ? "el punto" : `los ${n} puntos`} y tira para cerrar la copa.`, // validar con tejedora
+    cerrarPuntos: (n: number) => `${n === 1 ? "Queda 1 punto: ciérralo." : `Quedan ${n} puntos: ciérralos.`}`, // validar con tejedora
+    bordeArriba: (n: number) => `${n === 1 ? "Queda 1 punto en el borde: falta el elástico o borde y cerrarlo." : `Quedan ${n} puntos en el borde: falta el elástico o borde y cerrarlos.`}`, // validar con tejedora
+    rematarCrochet: "Corta la hebra y pásala por el último lazo. Si es una copa, pásala por los puntos de la última vuelta y tira.", // validar con tejedora
+    faltaCerrar: "Falta rematar o cerrar la pieza.",
+    /** Leyenda del gráfico en `top_down` (T18, M4). */
+    leyendaArribaAbajo: "El gráfico se lee de abajo hacia arriba, en el orden en que se teje. La vista previa muestra la pieza como queda puesta.", // validar con tejedora
     sinPuntos: (workedIn: WorkedIn) => `Esta ${rowWord(workedIn)} no tiene puntos: pasa a la siguiente.`,
     atajos: "Teclas: flechas, Espacio o Enter avanzan; Retroceso retrocede. Av Pág y Re Pág (o un pasapáginas Bluetooth) también sirven. Con Mayús, las flechas mueven por repetición.",
     pantallaEncendida: "Pantalla encendida",
@@ -163,6 +181,7 @@ export const PROJECT_TEXTS = {
     puntosEnLa: (workedIn: WorkedIn, n: number) => `${n} ${n === 1 ? "punto" : "puntos"} en la ${rowWord(workedIn)}`,
     enLa: (workedIn: WorkedIn, n: number) => `${n} en la ${rowWord(workedIn)}`,
     puntosMenos: (n: number) => `${n} ${n === 1 ? "punto menos" : "puntos menos"} que la anterior`,
+    masTramos: (n: number) => `y ${n} ${n === 1 ? "tramo más" : "tramos más"}`,
     repeticionActualTexto: "actual",
     repeticionHechaTexto: "hecha",
     repeticionPorHacerTexto: "por hacer",
@@ -208,8 +227,7 @@ export const STATUS_LABEL = {
 
 /** "Vuelta 12 de 60" / "Fila 12 de 60". `number` ya viene en base 1 (de `step.number`). */
 export function rowCounterText(workedIn: WorkedIn, number: number, totalRows: number): string {
-  const w = rowWord(workedIn);
-  return `${w.charAt(0).toUpperCase()}${w.slice(1)} ${number} de ${totalRows}`;
+  return `${capital(rowWord(workedIn))} ${number} de ${totalRows}`;
 }
 
 /** "8 vueltas" / "1 fila": la unidad en singular o plural según `workedIn`. Única fuente de "vuelta"/"fila" con número. */
@@ -233,9 +251,22 @@ export function sideAndReadingText(side: "right" | "wrong", reading: "right_to_l
   return `${side === "wrong" ? T.ladoReves : T.ladoDerecho}, ${reading === "right_to_left" ? T.deDerechaAIzquierda : T.deIzquierdaADerecha}`;
 }
 
-/** "3 A · 2 B · 3 A". Las letras salen de `yarnLetter` (pattern-core). Una fila sin puntos da "". */
+/** "3 A · 2 B · 3 A": solo visual. Las letras salen de `yarnLetter` (pattern-core). Una fila sin puntos da "". */
 export function runsText(runs: readonly ColorRun[]): string {
   return runs.map((r) => `${r.count} ${yarnLetter(r.yarn)}`).join(" · ");
+}
+
+/** Máximo de tramos que se leen en voz alta en el anuncio completo (T18, M5). */
+export const SPOKEN_RUNS_MAX = 5;
+
+/**
+ * Lectura para lector de pantalla (T18, R6): "3 de la lana A, 2 de la lana B". Con más de `max` tramos, "… y 4 tramos
+ * más" (M5). Una fila sin puntos da "".
+ */
+export function runsSpoken(runs: readonly ColorRun[], max: number = Number.POSITIVE_INFINITY): string {
+  const shown = runs.slice(0, max).map((r) => `${r.count} de la lana ${yarnLetter(r.yarn)}`);
+  const rest = runs.length - shown.length;
+  return rest > 0 ? `${shown.join(", ")} ${PROJECT_TEXTS.tejiendo.masTramos(rest)}` : shown.join(", ");
 }
 
 /** "repetición 3 de 8" (índice en base 0, como `position().horizontalRepeat.index`). */
@@ -244,39 +275,103 @@ export function repeatCounterText(index: number, of: number): string {
 }
 
 /**
- * "casilla N de M" en filas con disminuciones (enmienda T1-5): N es la próxima casilla a producir (`stitchesDone + 1`)
- * y M las casillas de la fila (`step.stitches`). Nunca "puntos tejidos". // validar con tejedora
+ * "casillas 10 a 18 de 72" (T18, R1): las casillas de la repetición en curso (`position().repeatCells`, de `follow`).
+ * El avance va de a una repetición, así que no se afirma una casilla exacta. Nunca "puntos tejidos". // validar con tejedora
  */
-export function cellCounterText(stitchesDone: number, stitches: number): string {
-  return `${STUDIO_TEXTS.unidades.casilla} ${Math.min(stitchesDone + 1, Math.max(stitches, 1))} de ${stitches}`;
+export function repeatCellsText(cells: { first: number; last: number; of: number }): string {
+  const u = STUDIO_TEXTS.unidades.casilla;
+  return cells.first === cells.last ? `${u} ${cells.first} de ${cells.of}` : `${u}s ${cells.first} a ${cells.last} de ${cells.of}`;
 }
 
-/** Anuncio corto para la región viva al avanzar: "Vuelta 13 de 60: 3 A · 2 B". */
+/** Lo que `shapingText` necesita de un paso de `follow`. */
+export interface ShapingStep {
+  decreases: number;
+  increases: number;
+  decreaseBefore: readonly number[];
+  increaseAt: readonly number[];
+  stitchesPerRepeat: number;
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+
+function listJoin(items: readonly string[]): string {
+  if (items.length <= 1) return items[0] ?? "";
+  return `${items.slice(0, -1).join(", ")} y ${items[items.length - 1]}`;
+}
+
+/** Agrupa posiciones iguales y consecutivas: [3, 3, 7] -> [{ at: 3, n: 2 }, { at: 7, n: 1 }]. */
+function groupPositions(list: readonly number[]): { at: number; n: number }[] {
+  const out: { at: number; n: number }[] = [];
+  for (const at of list) {
+    const last = out[out.length - 1];
+    if (last && last.at === at) last.n++;
+    else out.push({ at, n: 1 });
+  }
+  return out;
+}
+
+/**
+ * Disminuciones y aumentos de la fila (T18, R2 y R3), con los conteos y las posiciones que da `follow`
+ * (`decreases`, `decreaseBefore`, `increases`, `increaseAt`). Dice cuántos y dónde, nunca la técnica ("2 juntos"):
+ * eso espera la capa de símbolos (ADR 0007). Devuelve las frases (vacío si la fila no cambia).
+ * "Disminuye 8 puntos en la fila (1 por repetición). Se pierde un punto antes de la casilla 3 de cada repetición."
+ * // validar con tejedora
+ */
+export function shapingText(workedIn: WorkedIn, step: ShapingStep, repeatX: number): string[] {
+  const w = rowWord(workedIn);
+  const scope = repeatX > 1 ? "de cada repetición" : `de la ${w}`;
+  const out: string[] = [];
+  if (step.decreases > 0) {
+    const per = step.decreaseBefore.length;
+    out.push(`Disminuye ${plural(step.decreases, "punto", "puntos")} en la ${w}${repeatX > 1 ? ` (${per} por repetición)` : ""}.`);
+    const groups = groupPositions(step.decreaseBefore);
+    const place = (at: number) => (at > step.stitchesPerRepeat ? "al final" : `antes de la casilla ${at}`);
+    if (groups.every((g) => g.n === 1)) {
+      out.push(`Se pierde un punto ${listJoin(groups.map((g) => place(g.at)))} ${scope}.`);
+    } else {
+      out.push(`Se pierden puntos ${scope}: ${listJoin(groups.map((g) => `${g.n} ${place(g.at)}`))}.`);
+    }
+  }
+  if (step.increases > 0) {
+    const per = step.increaseAt.length;
+    out.push(`Aumenta ${plural(step.increases, "punto", "puntos")} en la ${w}${repeatX > 1 ? ` (${per} por repetición)` : ""}.`);
+    const at = step.increaseAt;
+    out.push(at.length === 1 ? `La casilla ${at[0]} ${scope} es un punto nuevo.` : `Las casillas ${listJoin(at.map(String))} ${scope} son puntos nuevos.`);
+  }
+  return out;
+}
+
+/** Anuncio corto para la región viva al avanzar: "Vuelta 13 de 60: 3 de la lana A, 2 de la lana B". */
 export function rowAnnouncement(workedIn: WorkedIn, number: number, totalRows: number, runs: readonly ColorRun[]): string {
-  const t = runsText(runs);
+  const t = runsSpoken(runs, SPOKEN_RUNS_MAX);
   return t ? `${rowCounterText(workedIn, number, totalRows)}: ${t}` : rowCounterText(workedIn, number, totalRows);
 }
 
 /**
- * Anuncio completo al cambiar de fila (CA3-A1): número, lado, sentido, puntos y lanas.
- * "Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos. En cada repetición: 3 A · 2 B."
+ * Anuncio completo al cambiar de fila (CA3-A1; T18, M5): número, lado, sentido, puntos y repeticiones, forma y lanas
+ * (hasta 5 tramos). "Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos en 8 repeticiones. En cada
+ * repetición: 3 de la lana A, 2 de la lana B."
  */
 export function rowAnnouncementFull(
   workedIn: WorkedIn,
-  step: { number: number; side: "right" | "wrong"; reading: "right_to_left" | "left_to_right"; stitches: number; runs: readonly ColorRun[] },
+  step: { number: number; side: "right" | "wrong"; reading: "right_to_left" | "left_to_right"; stitches: number; runs: readonly ColorRun[] } & Partial<ShapingStep>,
   totalRows: number,
   repeatX: number,
 ): string {
   const head = `${rowCounterText(workedIn, step.number, totalRows)}, ${sideAndReadingText(step.side, step.reading)}`;
   if (step.stitches === 0) return `${head}. ${PROJECT_TEXTS.tejiendo.sinPuntos(workedIn)}`;
-  const points = `${step.stitches} ${step.stitches === 1 ? "punto" : "puntos"}`;
-  const runs = runsText(step.runs);
-  return `${head}, ${points}. ${repeatX > 1 ? "En cada repetición: " : "Colores: "}${runs}.`;
+  const points = `${plural(step.stitches, "punto", "puntos")}${repeatX > 1 ? ` en ${repeatX} ${PROJECT_TEXTS.tejiendo.repeticiones}` : ""}`;
+  const shaping =
+    step.decreases !== undefined && step.increases !== undefined && step.decreaseBefore && step.increaseAt && step.stitchesPerRepeat !== undefined
+      ? shapingText(workedIn, step as ShapingStep, repeatX)
+      : [];
+  const runs = runsSpoken(step.runs, SPOKEN_RUNS_MAX);
+  return [`${head}, ${points}.`, ...shaping, `${repeatX > 1 ? "En cada repetición: " : "Colores: "}${runs}.`].join(" ");
 }
 
-/** Anuncio al pasar de repetición dentro de la misma fila: "Repetición 3 de 8 de la vuelta 13: 3 A · 2 B". */
+/** Anuncio al pasar de repetición dentro de la misma fila: "Repetición 3 de 8 de la vuelta 13: 3 de la lana A, 2 de la lana B". */
 export function repeatAnnouncement(workedIn: WorkedIn, number: number, index: number, of: number, runs: readonly ColorRun[]): string {
-  const t = runsText(runs);
+  const t = runsSpoken(runs, SPOKEN_RUNS_MAX);
   const base = `${PROJECT_TEXTS.tejiendo.repeticion} ${index + 1} de ${of} de la ${rowWord(workedIn)} ${number}`;
   return t ? `${base}: ${t}` : base;
 }
@@ -287,12 +382,29 @@ export function repeatDotText(i: number, current: number): string {
   return `${T.repeticion.toLowerCase()} ${i + 1} (${i === current ? T.repeticionActualTexto : i < current ? T.repeticionHechaTexto : T.repeticionPorHacerTexto})`;
 }
 
-/** Texto de "Gráfico terminado" (F3-7, T1-4). `lastStitches` viene de `stepAt(plan, totalRows − 1).stitches`. */
-export function finishedText(workedIn: WorkedIn, direction: "bottom_up" | "top_down", lastStitches: number | null): string {
+/**
+ * Texto de "Gráfico terminado" (F3-7, T1-4; T18, R4): el cierre depende de la técnica, la forma y la dirección.
+ * `lastStitches` viene de `stepAt(plan, totalRows − 1).stitches`. Nunca "Pieza terminada". // validar con tejedora
+ */
+export function finishedText(opts: {
+  technique: "knit" | "crochet";
+  workedIn: WorkedIn;
+  direction: "bottom_up" | "top_down";
+  renderAs: string;
+  lastStitches: number | null;
+}): string {
   const T = PROJECT_TEXTS.tejiendo;
-  const base = workedIn === "rounds" ? T.graficoTerminadoAyudaRedondo : T.graficoTerminadoAyuda;
-  if (direction !== "bottom_up" || lastStitches === null || lastStitches <= 0) return base;
-  return `${base} ${workedIn === "rounds" ? T.quedanPuntos(lastStitches) : T.quedanPuntosFila(lastStitches)}`;
+  const base = opts.workedIn === "rounds" ? T.graficoTerminadoAyudaRedondo : T.graficoTerminadoAyuda;
+  if (opts.technique === "crochet") return `${base} ${T.rematarCrochet}`;
+  const n = opts.lastStitches;
+  if (n === null || n <= 0) return `${base} ${T.faltaCerrar}`;
+  if (opts.direction === "top_down") return `${base} ${T.bordeArriba(n)}`;
+  if (opts.renderAs === "circle") return `${base} ${T.cerrarCopa(n)}`;
+  return `${base} ${T.cerrarPuntos(n)}`;
+}
+
+function capital(t: string): string {
+  return `${t.charAt(0).toUpperCase()}${t.slice(1)}`;
 }
 
 // ------------------------------------------------------------------ pantalla previa
@@ -303,10 +415,21 @@ export function workShapeText(workedIn: WorkedIn, direction: "bottom_up" | "top_
   return `${workedInName(workedIn)}, ${directionName(direction).toLowerCase()}: ${rowCountText(workedIn, totalRows)} en total (${shape.toLowerCase()}).`;
 }
 
-/** "20 puntos × 28 filas en 10 cm (supuesta)". */
-export function gaugeText(g: { stitchesPer10cm: number; rowsPer10cm: number; assumed: boolean }): string {
+/**
+ * "20 puntos × 28 vueltas en 10 cm (supuesta)" (T18, R5): "vueltas" o "filas" según `workedIn`.
+ * // validar con tejedora: la muestra a menudo se mide en plano aunque la pieza se teja en redondo.
+ */
+export function gaugeText(g: { stitchesPer10cm: number; rowsPer10cm: number; assumed: boolean }, workedIn: WorkedIn): string {
   const fmt = (n: number) => n.toLocaleString("es-CL", { maximumFractionDigits: 1 });
-  return `${fmt(g.stitchesPer10cm)} ${STUDIO_TEXTS.unidades.puntos} × ${fmt(g.rowsPer10cm)} filas en 10 cm${g.assumed ? ` (${PROJECT_TEXTS.tejer.muestraSupuesta})` : ""}`;
+  return `${fmt(g.stitchesPer10cm)} ${STUDIO_TEXTS.unidades.puntos} × ${fmt(g.rowsPer10cm)} ${rowWord(workedIn)}s en 10 cm${g.assumed ? ` (${PROJECT_TEXTS.tejer.muestraSupuesta})` : ""}`;
+}
+
+/** "Motivo de 8 × 8, repetido 12 veces a lo ancho y sin repetir a lo alto." (T18, M7). */
+export function motifText(width: number, height: number, repeatX: number, repeatY: number): string {
+  const head = `Motivo de ${width} × ${height}`;
+  if (repeatX === 1 && repeatY === 1) return `${head}, sin repetir.`;
+  const part = (n: number, where: string) => (n === 1 ? `sin repetir ${where}` : `repetido ${n} veces ${where}`);
+  return `${head}, ${part(repeatX, "a lo ancho")} y ${part(repeatY, "a lo alto")}.`;
 }
 
 // ------------------------------------------------------------------ conflicto y tiempo relativo

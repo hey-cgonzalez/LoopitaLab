@@ -16,24 +16,38 @@ const step = { number: 13, side: "right", reading: "right_to_left", stitches: 36
 
 describe("rowAnnouncementFull", () => {
   it("en redondo: vuelta, lado, sentido, puntos y lanas de una repetición", () => {
-    expect(rowAnnouncementFull("rounds", step, 60, 8)).toBe("Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos. En cada repetición: 3 A · 2 B.");
+    expect(rowAnnouncementFull("rounds", step, 60, 8)).toBe("Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos en 8 repeticiones. En cada repetición: 3 de la lana A, 2 de la lana B.");
   });
   it("en filas dice fila, y por el revés lee de izquierda a derecha", () => {
     const t = rowAnnouncementFull("rows", { ...step, side: "wrong", reading: "left_to_right" }, 60, 8);
-    expect(t).toBe("Fila 13 de 60, por el revés, de izquierda a derecha, 36 puntos. En cada repetición: 3 A · 2 B.");
+    expect(t).toBe("Fila 13 de 60, por el revés, de izquierda a derecha, 36 puntos en 8 repeticiones. En cada repetición: 3 de la lana A, 2 de la lana B.");
     expect(t).not.toMatch(/vuelta/i);
   });
   it("sin repetición dice «Colores»; un punto va en singular; sin puntos lo avisa con la unidad correcta", () => {
-    expect(rowAnnouncementFull("rows", { ...step, stitches: 1, runs: [{ yarn: 0, count: 1 }] }, 4, 1)).toBe("Fila 13 de 4, por el derecho, de derecha a izquierda, 1 punto. Colores: 1 A.");
+    expect(rowAnnouncementFull("rows", { ...step, stitches: 1, runs: [{ yarn: 0, count: 1 }] }, 4, 1)).toBe("Fila 13 de 4, por el derecho, de derecha a izquierda, 1 punto. Colores: 1 de la lana A.");
     expect(rowAnnouncementFull("rounds", { ...step, stitches: 0, runs: [] }, 4, 1)).toBe(`Vuelta 13 de 4, por el derecho, de derecha a izquierda. ${PROJECT_TEXTS.tejiendo.sinPuntos("rounds")}`);
     expect(PROJECT_TEXTS.tejiendo.sinPuntos("rows")).toContain("Esta fila");
+  });
+  it("con forma: dice cuántos puntos y dónde; con muchos tramos, lee 5 y cuenta el resto (T18, M5)", () => {
+    const many = Array.from({ length: 7 }, (_, i) => ({ yarn: i % 2, count: 1 }));
+    const shaped = { ...step, runs: many, decreases: 8, increases: 0, decreaseBefore: [3], increaseAt: [], stitchesPerRepeat: 4 };
+    expect(rowAnnouncementFull("rounds", shaped, 60, 8)).toBe(
+      "Vuelta 13 de 60, por el derecho, de derecha a izquierda, 36 puntos en 8 repeticiones. Disminuye 8 puntos en la vuelta (1 por repetición). Se pierde un punto antes de la casilla 3 de cada repetición. En cada repetición: 1 de la lana A, 1 de la lana B, 1 de la lana A, 1 de la lana B, 1 de la lana A y 2 tramos más.",
+    );
+  });
+  it("etiquetas accesibles de los botones grandes (M3): contienen el texto visible", () => {
+    const T = PROJECT_TEXTS.tejiendo;
+    expect(T.siguienteEtiqueta("rounds")).toBe("Vuelta siguiente");
+    expect(T.anteriorEtiqueta("rows")).toBe("Fila anterior");
+    expect(T.siguienteEtiqueta("rows").toLowerCase()).toContain(T.siguiente.toLowerCase());
+    expect(T.repeticionSiguiente).toBe("Repetición siguiente");
   });
 });
 
 describe("repeatAnnouncement y repeatDotText", () => {
   it("el índice llega en base 0 y se anuncia en base 1, con la unidad de trabajo", () => {
-    expect(repeatAnnouncement("rounds", 13, 2, 8, runs)).toBe("Repetición 3 de 8 de la vuelta 13: 3 A · 2 B");
-    expect(repeatAnnouncement("rows", 13, 0, 8, runs)).toBe("Repetición 1 de 8 de la fila 13: 3 A · 2 B");
+    expect(repeatAnnouncement("rounds", 13, 2, 8, runs)).toBe("Repetición 3 de 8 de la vuelta 13: 3 de la lana A, 2 de la lana B");
+    expect(repeatAnnouncement("rows", 13, 0, 8, runs)).toBe("Repetición 1 de 8 de la fila 13: 3 de la lana A, 2 de la lana B");
     expect(repeatAnnouncement("rows", 13, 0, 8, [])).toBe("Repetición 1 de 8 de la fila 13");
   });
   it("cada punto dice si es actual, hecha o por hacer (el color nunca es lo único)", () => {
@@ -42,7 +56,9 @@ describe("repeatAnnouncement y repeatDotText", () => {
     expect(repeatDotText(5, 2)).toBe("repetición 6 (por hacer)");
   });
   it("las letras de lana salen de yarnLetter", () => {
-    expect(rowAnnouncementFull("rounds", step, 60, 8)).toContain(`3 ${yarnLetter(0)}`);
+    expect(rowAnnouncementFull("rounds", step, 60, 8)).toContain(`3 de la lana ${yarnLetter(0)}`);
+    // «·» es solo visual: el lector de pantalla oye comas (T18, R6).
+    expect(rowAnnouncementFull("rounds", step, 60, 8)).not.toContain("·");
   });
 });
 
@@ -92,8 +108,8 @@ describe("vuelta y fila según workedIn (F3-9)", () => {
   it("los textos de Tejiendo y de la ficha nunca mezclan las dos palabras", () => {
     const T = PROJECT_TEXTS.tejiendo;
     const R = PROJECT_TEXTS.repin;
-    const rowsOnly = [T.graficoConFila("rows"), T.repeticionesDeFila("rows"), T.sinPuntos("rows"), T.puntosEnLa("rows", 12), T.enLa("rows", 12), R.filaCambio("rows"), R.conservaFila("rows"), R.casillasACero("rows")];
-    const roundsOnly = [T.graficoConFila("rounds"), T.repeticionesDeFila("rounds"), T.sinPuntos("rounds"), T.puntosEnLa("rounds", 12), T.enLa("rounds", 12), R.filaCambio("rounds"), R.conservaFila("rounds"), R.casillasACero("rounds")];
+    const rowsOnly = [T.graficoConFila("rows"), T.repeticionesDeFila("rows"), T.sinPuntos("rows"), T.puntosEnLa("rows", 12), T.enLa("rows", 12), R.filaCambio("rows"), R.conservaFila("rows", "la fila 3"), R.casillasACero("rows"), T.siguienteEtiqueta("rows"), T.anteriorEtiqueta("rows")];
+    const roundsOnly = [T.graficoConFila("rounds"), T.repeticionesDeFila("rounds"), T.sinPuntos("rounds"), T.puntosEnLa("rounds", 12), T.enLa("rounds", 12), R.filaCambio("rounds"), R.conservaFila("rounds", "la vuelta 3"), R.casillasACero("rounds"), T.siguienteEtiqueta("rounds"), T.anteriorEtiqueta("rounds")];
     for (const t of rowsOnly) expect(t, t).not.toMatch(/vuelta/i);
     for (const t of roundsOnly) expect(t, t).not.toMatch(/\bfilas?\b/i);
     expect(R.filaCambio("rounds")).toBe("La vuelta en la que vas se teje distinto en la versión nueva: revisa que tu tejido coincida antes de seguir.");

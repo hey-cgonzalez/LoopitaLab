@@ -132,8 +132,8 @@ export interface DbError {
 
 /**
  * Traduce el error de una consulta o de `start_chart_project` / `repin_project` (ver el mapa arriba). Solo mira
- * `code` y `details`; el texto de `message` se usa únicamente para distinguir cuál de los tres topes de 54000 fue
- * (no se devuelve).
+ * `code` y `details` (en 54000: `projects`, `versions_total`, `versions_per_pattern`); el texto de `message` es solo
+ * un respaldo transitorio (no se devuelve).
  */
 export function mapDbError(error: DbError | null | undefined): ProjectFailure {
   switch (error?.code) {
@@ -152,6 +152,19 @@ export function mapDbError(error: DbError | null | undefined): ProjectFailure {
     case "23514":
       return projectFailure("REJECTED");
     case "54000": {
+      // El detail estable lo pone la migración 20261113010000_tope_part_id_y_detalle_cuotas.sql.
+      switch (error.details ?? error.detail) {
+        case "versions_total":
+          return projectFailure("VERSIONS_QUOTA");
+        case "versions_per_pattern":
+          return projectFailure("MAX_VERSIONS");
+        case "projects":
+          return quotaFailure();
+        default:
+          break;
+      }
+      // TRANSITORIO: respaldo por el texto del mensaje mientras la migración no esté aplicada en el proyecto real.
+      // Borrar este bloque cuando lo esté.
       const text = error.message ?? "";
       if (/5000/.test(text)) return projectFailure("VERSIONS_QUOTA");
       if (/200/.test(text)) return projectFailure("MAX_VERSIONS");

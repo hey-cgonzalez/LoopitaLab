@@ -4,10 +4,10 @@ import Link from "next/link";
 import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from "react";
 import { clampPointer, nextRepeat, nextRow, planChart, position, prevRepeat, prevRow, stepAt, type ChartPointer } from "@loopitalab/follow";
 import type { ChartPattern, Issue } from "@loopitalab/pattern-core";
-import { loadProject, saveProgress, setProjectStatus } from "@/app/proyectos/actions";
+import { getProgress, saveProgress, setProjectStatus } from "@/app/proyectos/actions";
 import { LegalLinks } from "@/components/SiteFooter";
 import { isTextTarget, knitKeyAction, type KnitKeyAction } from "@/lib/projects/knit-keys.ts";
-import { ProgressQueue, type ProgressStorage } from "@/lib/projects/progress-queue.ts";
+import { ProgressQueue, browserProgressStorage, pruneProgressQueues, type ProgressStorage } from "@/lib/projects/progress-queue.ts";
 import { readHandPreference, writeHandPreference, type Hand } from "@/lib/projects/hand-pref.ts";
 import { PROJECT_TEXTS, conflictQuestionText, positionText, repeatAnnouncement, rowAnnouncementFull } from "@/lib/projects/texts.ts";
 import type { LoadedProject } from "@/lib/projects/types.ts";
@@ -66,23 +66,31 @@ export function KnitScreen(props: KnitScreenProps) {
   const plan = useMemo(() => planChart(doc, { mirror }), [doc, mirror]);
   const [pointer, setPointer] = useState<ChartPointer>(() => clampPointer(plan, props.pointer));
   const [store] = useState(() => new DocumentStore(doc));
-  const [queue] = useState(
-    () =>
-      new ProgressQueue({
-        projectId: project.id,
-        ownerId,
-        versionId: project.versionId,
-        initialPointer: clampPointer(plan, props.pointer),
-        initialUpdatedAt: props.progressUpdatedAt,
-        save: saveProgress,
-        storage: localStorageOrNull(),
-      }),
-  );
+  const [queue] = useState(() => {
+    // T17, B1: antes de leer la entrada de este proyecto se borra lo de otra cuenta, lo caducado y lo dañado.
+    pruneProgressQueues(browserProgressStorage(), ownerId);
+    return new ProgressQueue({
+      projectId: project.id,
+      ownerId,
+      versionId: project.versionId,
+      initialPointer: clampPointer(plan, props.pointer),
+      initialUpdatedAt: props.progressUpdatedAt,
+      save: saveProgress,
+      storage: localStorageOrNull(),
+      clamp: (p) => clampPointer(plan, p),
+    });
+  });
   const queueState = useSyncExternalStore(queue.subscribe, queue.getState, queue.getState);
   const [announce, setAnnounce] = useState("");
   const [notice, setNotice] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
+  // `wakeOn` es lo que se pinta (empieza encendido, como en el servidor, y se corrige al montar). Lo que decide si se
+  // pide el bloqueo es `wakeRef`, que lee la preferencia guardada ANTES del primer pedido (BUG-QA3-2) y que el manejador
+  // de visibilidad lee siempre vigente (BUG-QA3-1).
   const [wakeOn, setWakeOn] = useState(true);
+  const wakeRef = useRef<boolean | null>(null);
+  const wakeRequesting = useRef(false);
+  const mounted = useRef(false);
   const [wakeSupported, setWakeSupported] = useState(true);
   const [wakeFailed, setWakeFailed] = useState(false);
   const [hand, setHand] = useState<Hand>(props.dominantHand ?? "right");
@@ -124,18 +132,40 @@ export function KnitScreen(props: KnitScreenProps) {
   );
 
   // ---------------------------------------------------------------- pantalla encendida
+  const wakeWanted = useCallback((): boolean => {
+    if (wakeRef.current === null) wakeRef.current = readWakeLockPreference(localStorageOrNull());
+    return wakeRef.current;
+  }, []);
+
+  const releaseWake = useCallback(() => {
+    const s = sentinel.current;
+    sentinel.current = null;
+    void s?.release().catch(() => undefined);
+  }, []);
+
+  // Estable (sin dependencias): siempre lee el estado vigente por refs.
   const reacquire = useCallback(async () => {
-    if (!wakeOn || window.document.visibilityState !== "visible") return;
+    if (!wakeWanted() || window.document.visibilityState !== "visible") return;
     if (sentinel.current && !sentinel.current.released) return;
+    if (wakeRequesting.current) return;
+    wakeRequesting.current = true;
     const s = await requestWakeLock(navigator);
-    setWakeFailed(!s && wakeLockSupported(navigator));
-    if (s) {
-      sentinel.current = s;
-      s.addEventListener?.("release", () => {
-        if (sentinel.current === s) sentinel.current = null;
-      });
+    wakeRequesting.current = false;
+    if (!s) {
+      setWakeFailed(wakeWanted() && wakeLockSupported(navigator));
+      return;
     }
-  }, [wakeOn]);
+    // Mientras el pedido estaba en vuelo se apagó el interruptor o se salió de la pantalla: se suelta de inmediato.
+    if (!wakeWanted() || !mounted.current) {
+      void s.release().catch(() => undefined);
+      return;
+    }
+    setWakeFailed(false);
+    sentinel.current = s;
+    s.addEventListener?.("release", () => {
+      if (sentinel.current === s) sentinel.current = null;
+    });
+  }, [wakeWanted]);
 
   // ---------------------------------------------------------------- cola del avance: ciclo de vida
   useEffect(() => {
@@ -156,9 +186,10 @@ export function KnitScreen(props: KnitScreenProps) {
       // Al volver: si no hay nada pendiente, se relee el avance (otro dispositivo pudo avanzar). Con pendientes, la
       // escritura normal detecta el conflicto.
       if (queue.hasPending || queue.getState().kind !== "saved") return;
-      void loadProject(project.id).then((r) => {
+      // T17, I4: relectura ligera (solo el puntero, su fecha y la versión), no el documento entero.
+      void getProgress(project.id).then((r) => {
         if (!r.ok) return;
-        if (r.project.versionId !== project.versionId) {
+        if (r.versionId !== project.versionId) {
           setNotice(T.versionCambio);
           return;
         }
@@ -175,8 +206,7 @@ export function KnitScreen(props: KnitScreenProps) {
       queue.stop();
       queue.onPointer = null;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [queue, plan, project.id, project.versionId]);
+  }, [queue, plan, project.id, project.versionId, announcementFor, reacquire]);
 
   // El foco empieza en "Siguiente": un toque o Enter avanza sin buscar nada (usable con una mano).
   useEffect(() => {
@@ -211,11 +241,11 @@ export function KnitScreen(props: KnitScreenProps) {
 
   useEffect(() => {
     setWakeSupported(wakeLockSupported(navigator));
-    setWakeOn(readWakeLockPreference(localStorageOrNull()));
+    setWakeOn(wakeWanted());
     // Mano de los botones: lo guardado en este dispositivo manda sobre la preferencia de la cuenta.
     const saved = readHandPreference(localStorageOrNull());
     if (saved) setHand(saved);
-  }, []);
+  }, [wakeWanted]);
 
   // Pregunta de conflicto: `<dialog>` modal (trampa de foco y resto inerte). El foco va al diálogo para que el lector
   // lea el título y la pregunta; al resolverse vuelve a "Siguiente". Esc no la descarta: hay que elegir.
@@ -235,24 +265,27 @@ export function KnitScreen(props: KnitScreenProps) {
     }
   }, [hasConflict]);
 
+  // Pantalla encendida: el primer pedido ya mira la preferencia guardada (`wakeWanted`); al salir se suelta.
   useEffect(() => {
-    if (wakeOn) void reacquire();
-    else {
-      void sentinel.current?.release().catch(() => undefined);
-      sentinel.current = null;
-    }
+    mounted.current = true;
+    void reacquire();
     return () => {
-      void sentinel.current?.release().catch(() => undefined);
-      sentinel.current = null;
+      mounted.current = false;
+      releaseWake();
     };
-  }, [wakeOn, reacquire]);
+  }, [reacquire, releaseWake]);
 
   function toggleWake() {
     if (!wakeSupported) return; // el interruptor sigue enfocable (aria-disabled) para poder leer por qué no funciona
-    const next = !wakeOn;
+    const next = !wakeWanted();
+    wakeRef.current = next;
     setWakeOn(next);
-    if (!next) setWakeFailed(false);
     writeWakeLockPreference(localStorageOrNull(), next);
+    if (next) void reacquire();
+    else {
+      setWakeFailed(false);
+      releaseWake();
+    }
   }
 
   function toggleHand() {
@@ -268,12 +301,12 @@ export function KnitScreen(props: KnitScreenProps) {
   const atStart = pos.rowsDone === 0 && pointer.stitchesDone === 0;
 
   const prevButton = (
-    <button key="prev" type="button" onClick={() => move("prev-row")} disabled={atStart} className={`${BIG} border-2 border-marino enabled:hover:bg-marino enabled:hover:text-white`} data-testid="knit-prev">
+    <button key="prev" type="button" aria-label={T.anteriorEtiqueta(plan.workedIn)} onClick={() => move("prev-row")} disabled={atStart} className={`${BIG} border-2 border-marino enabled:hover:bg-marino enabled:hover:text-white`} data-testid="knit-prev">
       {T.anterior}
     </button>
   );
   const nextButtonEl = (
-    <button key="next" ref={nextButton} type="button" onClick={() => move("next-row")} disabled={finished} className={`${BIG} bg-marino text-white enabled:hover:bg-indigo`} data-testid="knit-next">
+    <button key="next" ref={nextButton} type="button" aria-label={T.siguienteEtiqueta(plan.workedIn)} onClick={() => move("next-row")} disabled={finished} className={`${BIG} bg-marino text-white enabled:hover:bg-indigo`} data-testid="knit-next">
       {T.siguiente}
     </button>
   );
@@ -409,7 +442,7 @@ export function KnitScreen(props: KnitScreenProps) {
       <div className="flex min-h-0 min-w-0 flex-1 flex-col gap-3 overflow-y-auto overflow-x-hidden p-3 lg:grid lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:grid-rows-[minmax(0,1fr)] lg:overflow-hidden" data-testid="knit-layout">
         <div className="flex min-w-0 shrink-0 flex-col gap-3 lg:min-h-0 lg:overflow-y-auto">
           <div className="shrink-0">
-            <KnitRowCard plan={plan} position={pos} pointer={pointer} yarns={doc.yarns} direction={doc.chart.direction} lastRowStitches={lastRowStitches} />
+            <KnitRowCard plan={plan} position={pos} yarns={doc.yarns} direction={doc.chart.direction} renderAs={doc.chart.renderAs} lastRowStitches={lastRowStitches} />
           </div>
 
           {finished && project.status !== "finished" ? (
@@ -425,6 +458,11 @@ export function KnitScreen(props: KnitScreenProps) {
 
           <section aria-label={T.graficoConFila(plan.workedIn)} className="flex min-h-96 shrink-0 flex-col rounded-2xl lg:flex-1 border-2 border-linea bg-superficie p-3">
             <h2 className="mb-2 font-display text-base font-bold">{T.graficoConFila(plan.workedIn)}</h2>
+            {doc.chart.direction === "top_down" ? (
+              <p className="mb-2 text-sm text-tinta-suave" data-testid="knit-top-down-note">
+                {T.leyendaArribaAbajo}
+              </p>
+            ) : null}
             <KnitChart chart={doc.chart} yarns={doc.yarns} mirror={mirror} highlightRow={step?.row ?? null} motifRow={step?.motifRow ?? null} repeat={pos.horizontalRepeat ? { xStart: pos.horizontalRepeat.xStart, xEnd: pos.horizontalRepeat.xEnd } : null} label={step ? `${T.grafico}: ${rowAnnouncementFull(plan.workedIn, step, plan.totalRows, plan.repeatX)}` : `${T.grafico}: ${T.graficoTerminado}`} />
             <div className="mt-2">
               <KnitChartText plan={plan} currentRow={step?.row ?? null} />

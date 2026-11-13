@@ -1,5 +1,6 @@
 "use client";
 
+import { browserProgressStorage, clearProjectProgress } from "@/lib/projects/progress-queue.ts";
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
 import { deleteProject } from "@/app/proyectos/actions";
@@ -21,6 +22,7 @@ export function ProjectSheetDelete({ id, title }: { id: string; title: string })
     try {
       const r = await deleteProject(id);
       if (r.ok || r.code === "NOT_FOUND") {
+        clearProjectProgress(browserProgressStorage(), id); // T17, B1: el avance local de un proyecto borrado no queda
         router.push("/proyectos");
         router.refresh();
         return;

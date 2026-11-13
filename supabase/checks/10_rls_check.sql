@@ -97,7 +97,7 @@ do $$ begin
 end $$;
 
 do $$
-declare i integer;
+declare i integer; d text;
 begin
   begin
     insert into public.pattern_versions (pattern_id, version, document) values ('aaaaaaaa-0000-0000-0000-000000000001', 99, '{}');
@@ -156,7 +156,10 @@ begin
   begin
     perform public.snapshot_pattern('aaaaaaaa-0000-0000-0000-000000000002');
     raise exception 'FALLO: debe haber un tope de versiones';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'versions_per_pattern', 'detail del tope 201 por diseño (snapshot_pattern): ' || coalesce(d, 'null');
+  end;
   raise notice 'ok - integridad, columnas editables, privacidad y topes';
 end $$;
 
@@ -184,12 +187,15 @@ select '99999999-9999-4999-8999-999999999999', 'Cuota ' || i, 'knit', 'chart', 1
 from generate_series(1, 500) i;
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '99999999-9999-4999-8999-999999999999', true);
-do $$ begin
+do $$ declare d text; begin
   begin
     insert into public.patterns (title, technique, kind, schema_version, document)
     values ('Cuota 501', 'knit', 'chart', 1, '{"schemaVersion":1,"title":"Cuota 501","kind":"chart","technique":"knit","origin":{"kind":"manual"},"yarns":[]}');
     raise exception 'FALLO: el diseño 501 debe rechazarse';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'patterns', 'detail del tope patterns: ' || coalesce(d, 'null');
+  end;
   assert (select count(*) from public.patterns) = 500, 'quedan exactamente 500';
   delete from public.patterns where title = 'Cuota 1';
   insert into public.patterns (title, technique, kind, schema_version, document)
@@ -1135,12 +1141,16 @@ do $$
 declare
   eva constant uuid := 'e1e1e1e1-e1e1-4e1e-8e1e-e1e1e1e1e1e1';
   n integer;
+  d text;
 begin
   begin
     perform public.start_chart_project(eva, 'e1000000-0000-4000-8000-000000000003',
       (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000003'), null);
     raise exception 'FALLO: tope de 200 versiones por diseño';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'versions_per_pattern', 'detail del tope 200 por diseño (pin_current_version): ' || coalesce(d, 'null');
+  end;
 
   select count(*) into n from public.projects where owner_id = eva;
   insert into public.projects (owner_id, title) select eva, 'Relleno ' || i from generate_series(1, 1000 - n) i;
@@ -1148,7 +1158,10 @@ begin
     perform public.start_chart_project(eva, 'e1000000-0000-4000-8000-000000000004',
       (select updated_at from public.patterns where id = 'e1000000-0000-4000-8000-000000000004'), null);
     raise exception 'FALLO: tope de 1000 proyectos';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'projects', 'detail del tope 1000 proyectos (start_chart_project): ' || coalesce(d, 'null');
+  end;
   assert not exists (select 1 from public.pattern_versions where pattern_id = 'e1000000-0000-4000-8000-000000000004'),
     'el tope de proyectos deshace también la versión creada (atómica)';
   delete from public.projects where owner_id = eva and title like 'Relleno %';
@@ -1632,12 +1645,15 @@ insert into public.projects (owner_id, title) select '66666666-6666-4666-8666-66
 insert into public.user_yarns (owner_id, weight, composition, color_hex)
   select '66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE' from generate_series(1, 500) i;
 do $$
-declare pid uuid;
+declare pid uuid; d text;
 begin
   begin
     insert into public.projects (owner_id, title) values ('66666666-6666-4666-8666-666666666666', 'P1001');
     raise exception 'FALLO: el proyecto 1001 debe rechazarse';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'projects', 'detail del tope proyecto 1001: ' || coalesce(d, 'null');
+  end;
   delete from public.projects where title = 'P1';
   insert into public.projects (owner_id, title) values ('66666666-6666-4666-8666-666666666666', 'P1001');
   assert (select count(*) from public.projects where owner_id = '66666666-6666-4666-8666-666666666666') = 1000, 'borrar libera cupo de proyectos';
@@ -1649,7 +1665,10 @@ begin
     insert into public.user_yarns (owner_id, weight, composition, color_hex)
     values ('66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE');
     raise exception 'FALLO: la lana 501 debe rechazarse';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'user_yarns', 'detail del tope lana 501: ' || coalesce(d, 'null');
+  end;
   delete from public.user_yarns where ctid = (select ctid from public.user_yarns where owner_id = '66666666-6666-4666-8666-666666666666' limit 1);
   insert into public.user_yarns (owner_id, weight, composition, color_hex)
   values ('66666666-6666-4666-8666-666666666666', 3, '[{"fiber":"algodon","percent":100}]', '#E9DDBE');
@@ -1663,7 +1682,10 @@ begin
   begin
     insert into public.project_notes (project_id, body) values (pid, 'n10001');
     raise exception 'FALLO: la nota 10001 debe rechazarse';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'project_notes', 'detail del tope nota 10001: ' || coalesce(d, 'null');
+  end;
   delete from public.project_notes where ctid = (select ctid from public.project_notes where project_id = pid limit 1);
   insert into public.project_notes (project_id, body) values (pid, 'n10001');
   raise notice 'ok - topes por usuaria: 1000 proyectos, 500 lanas, 10 000 notas (54000); borrar libera';
@@ -1677,12 +1699,15 @@ from generate_series(1, 26) i;
 insert into public.pattern_versions (pattern_id, version, document)
 select ('66666666-0000-4000-8000-' || lpad(i::text, 12, '0'))::uuid, v, '{}'::jsonb
 from generate_series(1, 25) i, generate_series(1, 200) v;
-do $$ begin
+do $$ declare d text; begin
   begin
     insert into public.pattern_versions (pattern_id, version, document)
     values ('66666666-0000-4000-8000-000000000026', 1, '{}');
     raise exception 'FALLO: la versión 5001 debe rechazarse';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'versions_total', 'detail del tope versión 5001: ' || coalesce(d, 'null');
+  end;
   delete from public.pattern_versions where pattern_id = '66666666-0000-4000-8000-000000000001' and version = 1;
   insert into public.pattern_versions (pattern_id, version, document)
   values ('66666666-0000-4000-8000-000000000026', 1, '{}');
@@ -1691,11 +1716,14 @@ end $$;
 -- También por la función que usa la usuaria.
 set local role authenticated;
 select set_config('request.jwt.claim.sub', '66666666-6666-4666-8666-666666666666', true);
-do $$ begin
+do $$ declare d text; begin
   begin
     perform public.snapshot_pattern('66666666-0000-4000-8000-000000000026');
     raise exception 'FALLO: snapshot_pattern debe respetar el tope total';
-  exception when program_limit_exceeded then null; end;
+  exception when program_limit_exceeded then
+    get stacked diagnostics d = pg_exception_detail;
+    assert d = 'versions_total', 'detail del tope snapshot_pattern con 5000 en total: ' || coalesce(d, 'null');
+  end;
   raise notice 'ok - snapshot_pattern respeta el tope total de versiones';
 end $$;
 reset role;
@@ -1772,5 +1800,24 @@ end $$;
 drop view public.__vista_abierta;
 drop table public.__sin_rls;
 
+-- T17 (M1): part_id admite hasta 64 caracteres; 65 viola project_progress_part_id_len.
+reset role;
+insert into auth.users (id, email) values ('68686868-6868-4868-8868-686868686868', 'partid@example.test');
+insert into public.projects (id, owner_id, title) values ('68000000-0000-4000-8000-000000000001', '68686868-6868-4868-8868-686868686868', 'PartId');
+do $$ begin
+  insert into public.project_progress (project_id, part_id, round_number, stitch_index)
+  values ('68000000-0000-4000-8000-000000000001', repeat('p', 64), 1, 0);
+  update public.project_progress set part_id = null where project_id = '68000000-0000-4000-8000-000000000001';
+  begin
+    update public.project_progress set part_id = repeat('p', 65) where project_id = '68000000-0000-4000-8000-000000000001';
+    raise exception 'FALLO: part_id de 65 caracteres debe rechazarse';
+  exception when check_violation then null; end;
+  begin
+    update public.project_progress set part_id = repeat('p', 64) where project_id = '68000000-0000-4000-8000-000000000001';
+  exception when others then raise exception 'FALLO: part_id de 64 caracteres debe aceptarse (%)', sqlerrm; end;
+  raise notice 'ok - T17: part_id hasta 64 caracteres (65 es check_violation)';
+end $$;
+
 rollback;
+
 \echo 'RLS: todas las verificaciones pasaron'

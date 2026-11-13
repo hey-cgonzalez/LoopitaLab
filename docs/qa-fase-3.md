@@ -9,7 +9,7 @@
 
 **Apto para PR con dos fallas abiertas y una advertencia de latencia.** No bloquean el PR, pero CA3-T10 y CA3-P2 no quedan aprobados:
 
-1. **BUG-QA3-1 y BUG-QA3-2 (media)**: el interruptor "Pantalla encendida" apagado no se respeta en dos situaciones (`KnitScreen.tsx`). CA3-T10 queda **NO CUMPLE** hasta corregirlas.
+1. **BUG-QA3-1 y BUG-QA3-2 (media), corregidos**: el interruptor "Pantalla encendida" apagado no se respetaba en dos situaciones (`KnitScreen.tsx`). Se corrigieron en la ronda de cierre (T17/T18) y CA3-T10 pasa a **CUMPLE**.
 2. **Latencia con CPU ×4 en el círculo de 40.000 puntos**: 1 de 5 corridas pasó el umbral al cambiar repeticiones (105,0 ms). Sin limitar la CPU hay margen amplio (33 ms). CA3-P2 queda **en el límite**; decide CA-P6.
 3. Pendientes que no son código: T1b (tejedoras), CA-P6 (equipo de referencia), lector de pantalla real en "Tejiendo", capturas de las cuatro formas con fibras para el PR.
 
@@ -32,7 +32,7 @@ Con las pruebas nuevas incluidas (corrida final).
 | Web (Vitest) | `pnpm --filter @loopitalab/web test` | 48 archivos, 825/825 |
 | Web (build) | `pnpm --filter @loopitalab/web build` con las variables de ejemplo de la CI | OK (antes de agregar pruebas; no cambió código de producción) |
 | E2E sin sesión | `pnpm --filter @loopitalab/web e2e --workers=1` | **43/43 en 1 de 4 corridas completas**; ver "E2E sin sesión bajo carga" |
-| E2E con sesión | `E2E_SUPABASE=1 … e2e --project=sesion --workers=1` | 47/47 (incluye 2 pruebas `test.fail` que documentan BUG-QA3-1 y 2) |
+| E2E con sesión | `E2E_SUPABASE=1 … e2e --project=sesion --workers=1` | 47/47 (las 2 pruebas de BUG-QA3-1 y 2 ya pasan sin marca `test.fail`) |
 | RLS | `10_rls_check.sql` contra la Supabase local (15 migraciones) | 66 `ok`, "todas las verificaciones pasaron" |
 | RLS con stubs (job `base-de-datos` de la CI) | — | **No ejecutado** (sin `psql` ni Postgres 16 local). El bloque agregado al check es SQL estándar |
 
@@ -202,7 +202,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 | CA3-T7 | CUMPLE | `qa-fase3-tejer.spec.ts`: «con la red cortada se sigue avanzando, el estado lo dice, nada se pierde y al volver la red llega a la base»; `tejiendo-cola.test.ts`: «descarta y borra lo de otra cuenta, otra versión, caducado…»; `web/e2e/sesion/cuenta.spec.ts` (cerrar sesión borra `loopitalab:*:avance:*`, ampliada). Al eliminar la cuenta: llamada en `YourData.tsx:106`, sin E2E |
 | CA3-T8 | CUMPLE | `tejer.spec.ts`: «pasar a la versión actual tras editar el diseño: avisa qué cambia antes de confirmar (F3-12)» |
 | CA3-T9 | CUMPLE | `tejer.spec.ts`: «empezar desde Mis diseños, borrar el proyecto… y recién entonces el diseño»; check: 'T7: … un diseño con proyectos no se borra' y 'T7: eliminar la cuenta con proyectos y versiones fijadas borra todo' |
-| CA3-T10 | **NO CUMPLE** | Pasa: `qa-fase3-tejer.spec.ts`: «se pide al entrar, se vuelve a pedir al volver de segundo plano, y se suelta al apagar el interruptor y al salir» y «si el navegador rechaza el bloqueo, se avisa…». Fallan BUG-QA3-1 y BUG-QA3-2 |
+| CA3-T10 | **CUMPLE** | Pasa: `qa-fase3-tejer.spec.ts`: «se pide al entrar, se vuelve a pedir al volver de segundo plano, y se suelta al apagar el interruptor y al salir» y «si el navegador rechaza el bloqueo, se avisa…». BUG-QA3-1 y BUG-QA3-2 corregidos; sus pruebas pasan |
 | CA3-T11 | CUMPLE | `web/e2e/sesion/tejer-a11y.spec.ts`: «a 390 px la barra cabe, los controles miden ≥ 56 px y quedan en el 40 % inferior» e «interruptor de mano…» |
 | CA3-T12 | CUMPLE | `follow/test/property.test.ts`: P1 a P16, con las tres semillas |
 | CA3-T13 | CUMPLE (revisión) | En `components/knit` y `lib/projects` solo hay `+ 1` de presentación (fila, repetición y casilla en base 1). `web/test/qa-fase3-lista-proyectos.test.ts`: «el total de filas es el de follow…» |
@@ -222,7 +222,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 
 | Criterio | Estado |
 |---|---|
-| CA3-* cumplidos con la evidencia en el PR | Cumplen salvo CA3-T10 (NO CUMPLE), CA3-P2 con CPU ×4 (en el límite) y los pendientes no-código (CA3-A1 lector real, CA3-A3, capturas de CA3-L6) |
+| CA3-* cumplidos con la evidencia en el PR | Cumplen salvo CA3-P2 con CPU ×4 (en el límite) y los pendientes no-código (CA3-A1 lector real, CA3-A3, capturas de CA3-L6) |
 | Pruebas y tipos en verde | Sí en local. E2E sin sesión: sensible a la carga del equipo (ver diagnóstico) |
 | T1b cerrada | **PENDIENTE** (no es código) |
 | CA-P6 | **PENDIENTE** (no es código) |
@@ -236,7 +236,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 - **Esperado**: no se pide el bloqueo; ningún bloqueo activo.
 - **Obtenido**: `navigator.wakeLock.request("screen")` se llama otra vez y el bloqueo queda activo con el interruptor en "apagado" (3 pedidos y 1 activo en vez de 2 y 0).
 - **Archivo sospechoso**: `apps/web/src/components/knit/KnitScreen.tsx`. `onVisibility` (línea 150) llama a `reacquire` (línea 155) dentro de un efecto cuyas dependencias no lo incluyen (`eslint-disable` en la línea 178): usa el `reacquire` del primer render, con `wakeOn = true`.
-- **Prueba**: `apps/web/e2e/sesion/qa-fase3-tejer.spec.ts`, «BUG-QA3-1: …», marcada `test.fail`.
+- **Prueba**: `apps/web/e2e/sesion/qa-fase3-tejer.spec.ts`, «BUG-QA3-1: …», antes marcada `test.fail`; hoy pasa.
 
 ### BUG-QA3-2 (media): con la preferencia guardada en "apagada", entrar a "Tejiendo" deja la pantalla bloqueada
 
@@ -244,9 +244,9 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 - **Esperado**: interruptor apagado y ningún bloqueo activo.
 - **Obtenido**: interruptor apagado y 1 bloqueo activo hasta salir de la pantalla.
 - **Archivo sospechoso**: el mismo. `wakeOn` empieza en `true` (línea 85) y el primer efecto pide el bloqueo (línea 239) antes de leer la preferencia (línea 214). Al pasar a `false` el pedido sigue en vuelo, no hay nada que soltar, y `reacquire` guarda el centinela al resolverse (línea 130) sin volver a mirar `wakeOn`.
-- **Prueba**: mismo archivo, «BUG-QA3-2: …», marcada `test.fail`.
+- **Prueba**: mismo archivo, «BUG-QA3-2: …», antes marcada `test.fail`; hoy pasa.
 
-Las dos pruebas pasan mientras la falla exista y se ponen en rojo al corregirla: quitar entonces la marca `test.fail`. Se reprodujeron en tres corridas. No se corrigieron: no son cambios de una línea.
+**Estado**: corregidos (`wakeRef` lee la preferencia antes del primer pedido y `reacquire` ya no usa estado de React viejo). Se quitó la marca `test.fail` y las dos pruebas pasan.
 
 ### Observaciones
 

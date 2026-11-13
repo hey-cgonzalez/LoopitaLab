@@ -282,15 +282,17 @@ describe("diseño que se acorta (remapPointer)", () => {
     assert.deepEqual(remapPointer(from, plan(rows12.slice(0, 6)), { rowsDone: 3, stitchesDone: 5 }), { pointer: { rowsDone: 3, stitchesDone: 5 }, clamped: false, rowChanged: false });
   });
 
-  it("se acorta justo hasta la fila en curso: el resultado es terminado y la fila cuenta como cambiada", () => {
+  it("se acorta justo hasta la fila en curso: terminado, fila cambiada y acotado (la versión nueva es más corta)", () => {
     // Iba en la fila 11 de 12 (rowsDone = 10) y la versión nueva tiene 10 filas: esa fila ya no existe.
     const r = remapPointer(from, plan(rows12.slice(0, 10)), { rowsDone: 10, stitchesDone: 3 });
     assert.deepEqual(r.pointer, { rowsDone: 10, stitchesDone: 0 });
     assert.equal(r.rowChanged, true);
     assert.ok(isFinished(plan(rows12.slice(0, 10)), r.pointer));
-    // Observación de QA (docs/qa-fase-3.md, O-F3-2): aquí `clamped` es false, así que la ficha dice "se teje
-    // distinto" y no "la versión nueva es más corta". Se fija el valor actual; validar con tejedora // validar con tejedora
-    assert.equal(r.clamped, false);
+    // O-F3-2 (docs/qa-fase-3.md), corregido en T18: la fila en curso ya no existe, así que la ficha dice "la versión
+    // nueva es más corta" y no "se teje distinto".
+    assert.equal(r.clamped, true);
+    // Si ya estaba terminado en un diseño del mismo largo, no hay nada que acotar.
+    assert.equal(remapPointer(from, plan(rows12), { rowsDone: 12, stitchesDone: 0 }).clamped, false);
   });
 
   it("menos repeticiones a lo alto o a lo ancho: fila acotada, o fila cambiada por tener menos puntos", () => {
@@ -306,7 +308,8 @@ describe("diseño que se acorta (remapPointer)", () => {
     const broken = planChart(chartPattern({ width: 4, height: 0, cells: [] }));
     assert.equal(broken.totalRows, 0);
     assert.deepEqual(remapPointer(from, broken, { rowsDone: 5, stitchesDone: 2 }), { pointer: startPointer(), clamped: true, rowChanged: true });
-    assert.deepEqual(remapPointer(from, broken, startPointer()), { pointer: startPointer(), clamped: false, rowChanged: true });
+    // Iba en la fila 1 y el plan nuevo no tiene filas: esa fila ya no existe.
+    assert.deepEqual(remapPointer(from, broken, startPointer()), { pointer: startPointer(), clamped: true, rowChanged: true });
   });
 
   it("una casilla que pasa a NO_STITCH en la fila en curso: la fila cambió y las casillas vuelven a 0", () => {

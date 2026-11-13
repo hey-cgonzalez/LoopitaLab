@@ -331,12 +331,11 @@ test.describe("Pantalla encendida (CA3-T10, Wake Lock simulado)", () => {
   });
 
   /*
-   * Dos fallas conocidas de KnitScreen.tsx (docs/qa-fase-3.md, BUG-QA3-1 y BUG-QA3-2). Las pruebas describen el
-   * comportamiento correcto y van marcadas `test.fail`: pasan mientras la falla exista y se ponen en rojo cuando se
-   * corrija. Al corregir, quitar la marca `test.fail` de cada una.
+   * Regresiones de BUG-QA3-1 y BUG-QA3-2 (docs/qa-fase-3.md), corregidas en KnitScreen.tsx: la preferencia se lee antes
+   * del primer pedido, el manejador de visibilidad lee el estado vigente y un pedido que se resuelve con el interruptor
+   * ya apagado se suelta.
    */
   test("BUG-QA3-1: con el interruptor apagado, volver de segundo plano no vuelve a pedir el bloqueo", async ({ page }) => {
-    test.fail(true, "BUG-QA3-1: `onVisibility` usa el `reacquire` del primer render (wakeOn = true); ver docs/qa-fase-3.md");
     await page.addInitScript(mockWakeLock);
     await createFromTemplate(page, unique("Wake vuelve"));
     await startFromStudio(page);
@@ -353,7 +352,6 @@ test.describe("Pantalla encendida (CA3-T10, Wake Lock simulado)", () => {
   });
 
   test("BUG-QA3-2: con la preferencia apagada, entrar a Tejiendo no deja la pantalla bloqueada", async ({ page }) => {
-    test.fail(true, "BUG-QA3-2: el pedido del primer render se resuelve después de leer la preferencia y nadie lo suelta; ver docs/qa-fase-3.md");
     await page.addInitScript(mockWakeLock);
     await createFromTemplate(page, unique("Wake apagado"));
     const projectId = await startFromStudio(page);

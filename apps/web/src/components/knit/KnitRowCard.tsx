@@ -1,27 +1,28 @@
 import { yarnLetter, type Yarn } from "@loopitalab/pattern-core";
-import type { ChartPlan, ChartPointer, ChartPosition } from "@loopitalab/follow";
+import type { ChartPlan, ChartPosition } from "@loopitalab/follow";
 import { inkFor } from "@/lib/studio/color.ts";
-import { PROJECT_TEXTS, cellCounterText, finishedText, repeatCounterText, repeatDotText, rowCounterText, sideAndReadingText } from "@/lib/projects/texts.ts";
+import { PROJECT_TEXTS, finishedText, repeatCellsText, repeatCounterText, repeatDotText, rowCounterText, shapingText, sideAndReadingText } from "@/lib/projects/texts.ts";
 
 const T = PROJECT_TEXTS.tejiendo;
 
 export interface KnitRowCardProps {
   plan: ChartPlan;
   position: ChartPosition;
-  /** Puntero acotado: `stitchesDone` son las casillas hechas de la fila actual (T1-5). */
-  pointer: ChartPointer;
   yarns: readonly Yarn[];
   direction: "bottom_up" | "top_down";
+  /** `chart.renderAs`: el cierre de "Gráfico terminado" cambia en una copa (T18, R4). */
+  renderAs: string;
   /** `stepAt(plan, totalRows − 1).stitches` para el texto de "Gráfico terminado" (F3-7); lo calcula quien llama con `follow`. */
   lastRowStitches: number | null;
 }
 
 /**
  * Tarjeta de la fila actual (T12): contador grande "Vuelta N de M" / "Fila N de M", lado y sentido, tramos de una
- * repetición ("3 A · 2 B") con los colores como se ven por el derecho, repetición en curso resaltada y "casilla N de M"
- * cuando la fila tiene disminuciones (T1-5). Presentación pura: todo viene de `follow`.
+ * repetición ("3 A · 2 B") con los colores como se ven por el derecho, repetición en curso resaltada y, en filas que
+ * disminuyen o aumentan, cuántos puntos, dónde ("se pierde un punto antes de la casilla 3 de cada repetición") y las
+ * casillas de la repetición en curso ("casillas 10 a 18 de 72"; T18, R1 a R3). Presentación pura: todo viene de `follow`.
  */
-export function KnitRowCard({ plan, position, pointer, yarns, direction, lastRowStitches }: KnitRowCardProps) {
+export function KnitRowCard({ plan, position, yarns, direction, renderAs, lastRowStitches }: KnitRowCardProps) {
   const step = position.step;
   if (!step) {
     return (
@@ -29,12 +30,13 @@ export function KnitRowCard({ plan, position, pointer, yarns, direction, lastRow
         <h2 id="knit-row-title" className="font-display text-3xl font-bold sm:text-4xl">
           {T.graficoTerminado}
         </h2>
-        <p>{finishedText(plan.workedIn, direction, lastRowStitches)}</p>
+        <p>{finishedText({ technique: plan.technique, workedIn: plan.workedIn, direction, renderAs, lastStitches: lastRowStitches })}</p>
       </section>
     );
   }
   const rep = position.horizontalRepeat;
-  const stitchesDone = pointer.stitchesDone;
+  const cells = position.repeatCells;
+  const shaping = shapingText(plan.workedIn, step, plan.repeatX);
   return (
     <section aria-labelledby="knit-row-title" className="grid gap-2 rounded-2xl border-2 border-marino bg-superficie p-4" data-testid="knit-row">
       <h2 id="knit-row-title" className="font-display text-3xl font-bold sm:text-4xl" data-testid="knit-row-counter">
@@ -77,10 +79,17 @@ export function KnitRowCard({ plan, position, pointer, yarns, direction, lastRow
               )}
             </p>
           ) : null}
-          {step.change < 0 ? (
-            <p className="text-lg" data-testid="knit-cell-counter">
-              <span className="font-bold">{cellCounterText(stitchesDone, step.stitches)}</span>
-              <span className="text-tinta-suave"> · {T.puntosMenos(Math.abs(step.change))}</span>
+          {shaping.length > 0 ? (
+            <div className="grid gap-0.5 text-lg" data-testid="knit-shaping">
+              {shaping.map((t) => (
+                <p key={t}>{t}</p>
+              ))}
+            </div>
+          ) : null}
+          {/* Con una sola repetición no hay rango que mostrar: el avance va de a una fila (T18, R1). */}
+          {shaping.length > 0 && plan.repeatX > 1 && cells ? (
+            <p className="text-lg font-bold" data-testid="knit-cell-counter">
+              {repeatCellsText(cells)}
             </p>
           ) : null}
           {plan.repeatX > 1 && rep ? (

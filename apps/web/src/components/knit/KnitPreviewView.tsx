@@ -2,7 +2,7 @@ import { yarnLetter } from "@loopitalab/pattern-core";
 import { groupIssueLines } from "@/lib/studio/issue-groups.ts";
 import { LENGTH_SCOPE_NOTE, assumptionText, lengthLabel } from "@/lib/studio/metraje.ts";
 import { STUDIO_TEXTS, assumedSampleNote } from "@/lib/studio-texts.ts";
-import { PROJECT_TEXTS, gaugeText, workShapeText } from "@/lib/projects/texts.ts";
+import { PROJECT_TEXTS, gaugeText, motifText, workShapeText } from "@/lib/projects/texts.ts";
 import type { KnitPreview } from "@/lib/projects/types.ts";
 import type { LengthAssumption } from "@loopitalab/yarn-catalog";
 
@@ -36,8 +36,8 @@ export function KnitPreviewView({ preview }: { preview: KnitPreview }) {
             {T.idaYVueltaYCose}
           </p>
         ) : null}
-        <p className="text-sm text-tinta-suave">
-          Motivo de {shape.motif.width} × {shape.motif.height}, repetido {shape.repeat.x} a lo ancho y {shape.repeat.y} a lo alto.
+        <p className="text-sm text-tinta-suave" data-testid="knit-preview-motif">
+          {motifText(shape.motif.width, shape.motif.height, shape.repeat.x, shape.repeat.y)}
         </p>
       </section>
 
@@ -47,7 +47,7 @@ export function KnitPreviewView({ preview }: { preview: KnitPreview }) {
         </h3>
         {gauge ? (
           <>
-            <p data-testid="knit-preview-gauge">{gaugeText(gauge)}</p>
+            <p data-testid="knit-preview-gauge">{gaugeText(gauge, shape.workedIn)}</p>
             {gauge.assumed ? (
               <p className="text-sm text-tinta-suave">
                 {T.muestraSupuestaAyuda} {assumedSampleNote(gauge.lowConfidence)}

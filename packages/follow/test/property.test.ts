@@ -187,6 +187,32 @@ describe("propiedades de follow (ADR 0007)", () => {
     });
   });
 
+  it("P17: decreaseBefore e increaseAt ubican cada columna de forma en el orden de lectura de una repetición (T18)", () => {
+    forAll("P17", genCase, ({ pattern, mirror }) => {
+      const plan = planChart(pattern, { mirror });
+      for (const row of allRows(plan)) {
+        const s = stepAt(plan, row)!;
+        assert.equal(s.decreaseBefore.length, s.decreaseColumns.length);
+        assert.equal(s.increaseAt.length, s.increaseColumns.length);
+        // Lo que se gana menos lo que se pierde en una repetición es perRepeat.
+        assert.equal(s.increaseAt.length - s.decreaseBefore.length, s.perRepeat);
+        assert.equal(s.decreases, s.decreaseBefore.length * plan.repeatX);
+        assert.equal(s.increases, s.increaseAt.length * plan.repeatX);
+        assert.equal(s.increases - s.decreases, s.change);
+        for (let i = 0; i < s.decreaseBefore.length; i++) {
+          const k = s.decreaseBefore[i]!;
+          assert.ok(Number.isInteger(k) && k >= 1 && k <= s.stitchesPerRepeat + 1);
+          if (i > 0) assert.ok(k >= s.decreaseBefore[i - 1]!);
+        }
+        for (let i = 0; i < s.increaseAt.length; i++) {
+          const k = s.increaseAt[i]!;
+          assert.ok(Number.isInteger(k) && k >= 1 && k <= s.stitchesPerRepeat);
+          if (i > 0) assert.ok(k > s.increaseAt[i - 1]!);
+        }
+      }
+    });
+  });
+
   it("P7 y P16: renderAs, direction y technique no cambian ningún paso; el plan copia technique y workedIn", () => {
     forAll("P7/P16", (r) => ({ ...genCase(r), renderAs: r.pick(SHAPES), direction: r.pick(["bottom_up", "top_down"] as const) }), ({ pattern, mirror, renderAs, direction }) => {
       const plan = planChart(pattern, { mirror });
@@ -322,8 +348,32 @@ describe("propiedades de follow (ADR 0007)", () => {
       const res = remapPointer(from, to, p);
       assert.deepEqual(clampPointer(to, res.pointer), res.pointer);
       assert.equal(res.pointer.rowsDone, Math.min(p.rowsDone, to.totalRows));
-      assert.equal(res.clamped, p.rowsDone > to.totalRows);
+      assert.equal(res.clamped, p.rowsDone > to.totalRows || (p.rowsDone === to.totalRows && p.rowsDone < from.totalRows));
+      // Acotado implica terminado en el plan nuevo.
+      if (res.clamped) assert.ok(isFinished(to, res.pointer));
       if (res.rowChanged) assert.equal(res.pointer.stitchesDone, 0);
+    });
+  });
+
+  it("P18: repeatCells cubre stitchesPerRepeat casillas de la fila y contiene la casilla en curso (T18, R1)", () => {
+    forAll("P18", (r) => {
+      const c = genCase(r);
+      const plan = planChart(c.pattern, { mirror: c.mirror });
+      return { ...c, p: genPointer(r, plan, r.bool(0.1)) };
+    }, ({ pattern, mirror, p }) => {
+      const plan = planChart(pattern, { mirror });
+      const pos = position(plan, p);
+      if (!pos.horizontalRepeat) {
+        assert.equal(pos.repeatCells, null);
+        return;
+      }
+      const c = pos.repeatCells!;
+      const s = pos.step!;
+      assert.equal(c.of, s.stitches);
+      assert.equal(c.last - c.first + 1, s.stitchesPerRepeat);
+      assert.ok(c.first >= 1 && c.last <= s.stitches);
+      const next = clampPointer(plan, p).stitchesDone + 1;
+      assert.ok(next >= c.first && next <= c.last);
     });
   });
 

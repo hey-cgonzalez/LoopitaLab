@@ -16,7 +16,7 @@ vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
 
 const actions = await import("@/app/proyectos/actions");
 const { deletePattern } = await import("@/app/disenos/actions");
-const { startProjectFromDesign, getKnitPreview, loadProject, saveProgress, getRepinPreview, repinProject } = actions;
+const { startProjectFromDesign, getKnitPreview, loadProject, saveProgress, getRepinPreview, repinProject, getProgress, setProjectStatus } = actions;
 
 const yarns = [
   { id: "A", weight: 4 as const, composition: [{ fiber: "lana", percent: 100 }], color: { hex: "#F4EBD9" } },
@@ -384,6 +384,61 @@ describe("loadProject", () => {
     const r = await loadProject(projectId);
     expect(r).toMatchObject({ ok: true, valid: false });
     expect(r.ok && r.issues.length).toBeGreaterThan(0);
+  });
+});
+
+// ---------------------------------------------------------------- T17: notas privadas, estado y relectura ligera
+
+describe("T17: loadProject sin notas privadas (B3), setProjectStatus (I2) y getProgress (I4)", () => {
+  it("B3: el documento de loadProject no trae yarns[*].note ni las notas del patrón", async () => {
+    const d = doc(PID);
+    d.yarns[0]!.note = "ovillo de la feria";
+    d.notes = ["nota privada del patrón"];
+    const { projectId } = await startOne(d);
+    expect(JSON.stringify(db.versions[0]!.document)).toContain("ovillo de la feria"); // la versión fijada sí la guarda
+    const r = await loadProject(projectId);
+    expect(r.ok).toBe(true);
+    if (!r.ok) return;
+    expect(JSON.stringify(r)).not.toContain("ovillo de la feria");
+    expect(JSON.stringify(r)).not.toContain("nota privada del patrón");
+    expect(r.document.yarns.map((y) => y.color.hex)).toEqual(d.yarns.map((y) => y.color.hex));
+  });
+
+  it("I2: setProjectStatus exige sesión y filtra por dueña", async () => {
+    const { projectId } = await startOne();
+    const form = (status: string) => {
+      const f = new FormData();
+      f.set("id", projectId);
+      f.set("status", status);
+      return f;
+    };
+    // La simulación no modela el UPDATE de `projects`: se comprueba la consulta que se envía.
+    const lastUpdate = () => db.log.filter((l) => l.op === "update" && l.table === "projects").at(-1);
+    await setProjectStatus(form("paused"));
+    expect(lastUpdate()?.filters).toEqual([["id", projectId], ["owner_id", ANA]]);
+    expect(lastUpdate()?.payload).toEqual({ status: "paused" });
+    db.current = { id: BEA };
+    await setProjectStatus(form("finished"));
+    expect(lastUpdate()?.filters).toEqual([["id", projectId], ["owner_id", BEA]]); // la dueña es la de la sesión
+    db.current = null;
+    const before = db.log.length;
+    await setProjectStatus(form("finished"));
+    expect(db.log.length).toBe(before);
+  });
+
+  it("I4: getProgress devuelve solo el puntero, su fecha y la versión; ajeno es NOT_FOUND", async () => {
+    const { projectId, versionId } = await startOne();
+    db.setProgress(projectId, 3, 2);
+    const r = await getProgress(projectId);
+    expect(r).toEqual({ ok: true, versionId, pointer: { rowsDone: 2, stitchesDone: 2 }, progressUpdatedAt: db.progress[0]!.updated_at });
+    // No lee documentos: ni el diseño ni la versión fijada.
+    const reads = db.log.filter((l) => l.op === "select").slice(-2).map((l) => l.table);
+    expect(reads).toEqual(["projects", "project_progress"]);
+    db.current = { id: BEA };
+    expect(await getProgress(projectId)).toMatchObject({ ok: false, code: "NOT_FOUND" });
+    expect(await getProgress("no-uuid")).toMatchObject({ ok: false, code: "INVALID_REQUEST" });
+    db.current = null;
+    expect(await getProgress(projectId)).toMatchObject({ ok: false, code: "UNAUTHENTICATED" });
   });
 });
 

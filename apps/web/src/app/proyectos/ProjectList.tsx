@@ -1,5 +1,6 @@
 "use client";
 
+import { browserProgressStorage, clearProjectProgress } from "@/lib/projects/progress-queue.ts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -44,6 +45,7 @@ export function ProjectList({ projects: initial }: { projects: ProjectListItem[]
     try {
       const r = await deleteProject(p.id);
       if (r.ok || r.code === "NOT_FOUND") {
+        clearProjectProgress(browserProgressStorage(), p.id); // T17, B1: el avance local de un proyecto borrado no queda
         setProjects((list) => list.filter((x) => x.id !== p.id));
         setConfirming(null);
         setMessage({ tone: "ok", text: T.borrado(p.title) });

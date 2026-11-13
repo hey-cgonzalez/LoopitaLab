@@ -4,10 +4,13 @@ import {
   PROGRESS_DEBOUNCE_MS,
   PROGRESS_TTL_MS,
   ProgressQueue,
+  MAX_STORED_POINTER,
   clearAllProgressQueues,
+  clearProjectProgress,
   isProgressKey,
   parseStoredProgress,
   progressKey,
+  pruneProgressQueues,
   type EnumerableProgressStorage,
   type ProgressQueueDeps,
 } from "@/lib/projects/progress-queue.ts";
@@ -291,4 +294,85 @@ describe("cola del avance: entrada local al abrir la pantalla", () => {
     expect([...s.map.keys()].sort()).toEqual([`loopitalab:${OWNER}:diseno:x`, "loopitalab:tejiendo:pantalla"]);
     expect(clearAllProgressQueues(null)).toBe(0);
   });
+});
+
+// ---------------------------------------------------------------- T17 (revisor-seguridad): B1 y B2
+
+describe("T17, B1: limpieza del avance local", () => {
+  const BEA = "33333333-3333-4333-8333-333333333333";
+  const OTHER_PROJECT = "aaaaaaaa-0000-4000-8000-000000000009";
+  const now = Date.parse("2026-11-11T12:00:00Z");
+  const entry = (over: Record<string, unknown> = {}) => JSON.stringify({ v: 1, ownerId: OWNER, projectId: PROJECT, versionId: VERSION, pointer: ptr(3, 1), baseUpdatedAt: T0, savedAt: now, ...over });
+
+  it("pruneProgressQueues borra lo de otra dueña, lo caducado, lo grande, lo dañado y lo que no coincide con su clave", () => {
+    const st = memoryStorage();
+    st.setItem(progressKey(OWNER, PROJECT), entry());
+    st.setItem(progressKey(BEA, PROJECT), entry({ ownerId: BEA }));
+    st.setItem(progressKey(OWNER, OTHER_PROJECT), entry({ projectId: OTHER_PROJECT, savedAt: now - PROGRESS_TTL_MS - 1 }));
+    st.setItem(`loopitalab:${OWNER}:avance:grande`, entry({ projectId: "grande", pad: "x".repeat(MAX_PROGRESS_ENTRY_CHARS) }));
+    st.setItem(`loopitalab:${OWNER}:avance:roto`, "{no es json");
+    st.setItem(`loopitalab:${OWNER}:avance:${OTHER_PROJECT}x`, entry({ projectId: OTHER_PROJECT })); // clave y contenido distintos
+    st.setItem("loopitalab:tejiendo:pantalla", "0"); // no es una entrada de avance: no se toca
+    expect(pruneProgressQueues(st, OWNER, now)).toBe(5);
+    expect([...st.map.keys()].sort()).toEqual([progressKey(OWNER, PROJECT), "loopitalab:tejiendo:pantalla"].sort());
+    expect(pruneProgressQueues(null, OWNER, now)).toBe(0);
+  });
+
+  it("clearProjectProgress quita la entrada del proyecto borrado (de cualquier cuenta) y nada más", () => {
+    const st = memoryStorage();
+    st.setItem(progressKey(OWNER, PROJECT), entry());
+    st.setItem(progressKey(BEA, PROJECT), entry({ ownerId: BEA }));
+    st.setItem(progressKey(OWNER, OTHER_PROJECT), entry({ projectId: OTHER_PROJECT }));
+    expect(clearProjectProgress(st, PROJECT)).toBe(2);
+    expect([...st.map.keys()]).toEqual([progressKey(OWNER, OTHER_PROJECT)]);
+  });
+});
+
+describe("T17, B2: entradas fuera de cotas y fallas que descartan lo local", () => {
+  const now = Date.parse("2026-11-11T12:00:00Z");
+  const raw = (over: Record<string, unknown>) => JSON.stringify({ v: 1, ownerId: OWNER, projectId: PROJECT, versionId: VERSION, pointer: ptr(3, 1), baseUpdatedAt: T0, savedAt: now, ...over });
+
+  it("parseStoredProgress exige punteros ≤ 100000 y baseUpdatedAt con forma de timestamp", () => {
+    expect(MAX_STORED_POINTER).toBe(100_000);
+    expect(parseStoredProgress(raw({ pointer: ptr(100_000, 100_000) }), OWNER, PROJECT, VERSION, now)).not.toBeNull();
+    expect(parseStoredProgress(raw({ pointer: ptr(100_001, 0) }), OWNER, PROJECT, VERSION, now)).toBeNull();
+    expect(parseStoredProgress(raw({ pointer: ptr(1, 100_001) }), OWNER, PROJECT, VERSION, now)).toBeNull();
+    expect(parseStoredProgress(raw({ baseUpdatedAt: "ayer" }), OWNER, PROJECT, VERSION, now)).toBeNull();
+    expect(parseStoredProgress(raw({ baseUpdatedAt: `${T0}${"0".repeat(40)}` }), OWNER, PROJECT, VERSION, now)).toBeNull();
+    expect(parseStoredProgress(raw({ baseUpdatedAt: null }), OWNER, PROJECT, VERSION, now)).not.toBeNull();
+  });
+
+  it("al adoptar una entrada local se acota con clamp", async () => {
+    const { storage, key } = setup();
+    storage.setItem(key, raw({ pointer: ptr(90_000, 7), savedAt: Date.now() }));
+    const seen: unknown[] = [];
+    const queue = new ProgressQueue({ projectId: PROJECT, ownerId: OWNER, versionId: VERSION, initialPointer: ptr(0), initialUpdatedAt: T0, save: async () => ({ ok: true, updatedAt: T1 }), storage, clamp: (p) => ({ rowsDone: Math.min(p.rowsDone, 8), stitchesDone: 0 }) });
+    queue.onPointer = (p) => seen.push(p);
+    expect(queue.start()).toBe(true);
+    expect(queue.pointer).toEqual(ptr(8));
+    expect(seen).toEqual([ptr(8)]);
+    expect(queue.adoptServer(ptr(50), T2)).toBe(false); // hay pendiente: no adopta
+    vi.useRealTimers();
+  });
+
+  for (const code of ["INVALID_REQUEST", "NOT_FOUND", "NO_DESIGN"] as const) {
+    it(`${code}: descarta la entrada local, vuelve al puntero del servidor y no vuelve a guardar`, async () => {
+      const { queue, storage, key, saveFn } = setup({ initialPointer: ptr(2) }, async () => ({ ok: false, code, error: "x" }));
+      const seen: unknown[] = [];
+      queue.onPointer = (p) => seen.push(p);
+      queue.set(ptr(5));
+      expect(storage.map.has(key)).toBe(true);
+      await vi.advanceTimersByTimeAsync(PROGRESS_DEBOUNCE_MS);
+      expect(saveFn).toHaveBeenCalledTimes(1);
+      expect(storage.map.has(key)).toBe(false);
+      expect(queue.pointer).toEqual(ptr(2));
+      expect(seen).toEqual([ptr(2)]);
+      expect(queue.getState()).toMatchObject({ kind: "failed", code });
+      queue.set(ptr(6));
+      expect(storage.map.has(key)).toBe(false);
+      await vi.advanceTimersByTimeAsync(PROGRESS_DEBOUNCE_MS * 4);
+      expect(saveFn).toHaveBeenCalledTimes(1);
+      vi.useRealTimers();
+    });
+  }
 });

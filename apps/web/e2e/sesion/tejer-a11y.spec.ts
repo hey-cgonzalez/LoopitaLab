@@ -194,7 +194,7 @@ test.describe("Tejiendo: accesibilidad y una mano", () => {
       new MutationObserver(() => w.__live.push(el.textContent ?? "")).observe(el, { childList: true, characterData: true, subtree: true });
     });
     await page.getByTestId("knit-next").click();
-    await expect(region).toHaveText(/^Vuelta 2 de 8, por el derecho, de derecha a izquierda, \d+ puntos\. En cada repetición: .+\.$/);
+    await expect(region).toHaveText(/^Vuelta 2 de 8, por el derecho, de derecha a izquierda, \d+ puntos en 12 repeticiones\. En cada repetición: \d+ de la lana [A-Z](, \d+ de la lana [A-Z])*( y \d+ tramos? más)?\.$/);
     expect(await page.evaluate(() => (window as unknown as { __live: string[] }).__live.filter((t) => t !== ""))).toHaveLength(1);
 
     await page.getByTestId("knit-next-repeat").click();

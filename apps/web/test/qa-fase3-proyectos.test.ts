@@ -110,7 +110,8 @@ describe("F3-39: pantalla previa al empezar", () => {
     expect(r.gauge).toMatchObject({ assumed: true });
     expect(r.shape).toMatchObject({ workedIn: "rows", renderAs: "flat", direction: "top_down", totalRows: 12, flatAndSewn: false, motif: { width: 4, height: 3 }, repeat: { x: 3, y: 4 } });
     expect(r.lengthScope).toBe("chart_only");
-    expect([...r.notInChart]).toEqual(["cast_on", "edging", "bind_off", "assembly"]);
+    // T18, M1: lista de palillo (la de crochet es otra; ver tejiendo-ui.test.ts).
+    expect([...r.notInChart]).toEqual(["cast_on", "edging", "prior_shaping", "bind_off", "assembly"]);
   });
 
   it("nada se calcula en apps/web: puntos y metros son los de yarnUsage + estimateYarnLength", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import { browserProgressStorage, clearProjectProgress } from "@/lib/projects/progress-queue.ts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
@@ -87,6 +88,7 @@ export function ProjectSheet(p: ProjectSheetProps) {
     try {
       const r = await deleteProject(p.project.id);
       if (r.ok || r.code === "NOT_FOUND") {
+        clearProjectProgress(browserProgressStorage(), p.project.id); // T17, B1: el avance local de un proyecto borrado no queda
         router.push("/proyectos");
         router.refresh();
         return;
@@ -213,7 +215,7 @@ export function RepinDetails({ preview }: { preview: RepinPreview }) {
   items.push(R.avanceAntesDespues(positionText(from.workedIn, from.totalRows, preview.currentPointer), positionText(to.workedIn, to.totalRows, preview.pointer)));
   if (preview.clamped) items.push(R.acotado);
   else if (preview.rowChanged) items.push(R.filaCambio(from.workedIn));
-  else items.push(R.conservaFila(from.workedIn));
+  else items.push(R.conservaFila(to.workedIn, positionText(to.workedIn, to.totalRows, preview.pointer)));
   if (preview.currentPointer.stitchesDone > 0 && preview.pointer.stitchesDone === 0) items.push(R.casillasACero(from.workedIn));
   return (
     <ul className="grid list-disc gap-1 pl-5" data-testid="repin-details">

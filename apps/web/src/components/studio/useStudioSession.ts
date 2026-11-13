@@ -3,6 +3,7 @@
 import type { ChartPattern } from "@loopitalab/pattern-core";
 import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { savePattern } from "@/app/disenos/actions";
+import { browserProgressStorage, pruneProgressQueues } from "@/lib/projects/progress-queue.ts";
 import { Autosave, pruneBackups, readBackup, type AutosaveDeps, type EnumerableStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
 import { decideRecovery, type Recovery } from "@/lib/studio/backup-recovery.ts";
 import { DocumentStore } from "@/lib/studio/store.ts";
@@ -64,6 +65,8 @@ export function useStudioSession(opts: { document: ChartPattern; updatedAt: stri
     const storage = opts.detached ? null : localStorageOrNull();
     // Primero se borra lo que no es de esta cuenta, lo de formato viejo y lo caducado (seguridad, ALTO-1).
     pruneBackups(storage, opts.ownerId);
+    // Y lo mismo con el avance local del modo tejiendo (T17, B1).
+    if (!opts.detached) pruneProgressQueues(browserProgressStorage(), opts.ownerId);
     const decision = decideRecovery(readBackup(storage, opts.ownerId, opts.document.id), opts.document, opts.updatedAt);
     if (decision.kind === "offer") {
       // Hasta que la usuaria decida, editar no pisa el respaldo ofrecido ni un guardado lo borra (T8, c).
