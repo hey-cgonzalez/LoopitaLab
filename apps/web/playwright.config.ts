@@ -104,6 +104,19 @@ const SERVER_ENV: Record<string, string> = supabase
 const chromium = { ...devices["Desktop Chrome"], channel: "chromium" };
 const desktop = { ...chromium, viewport: { width: 1440, height: 900 } };
 const SESSION_DIR = /sesion[\\/]/;
+const WEBGL_SPEC = /webgl\.spec\.ts/;
+
+/*
+ * WebGL por software (T3, fase 4). La CI no tiene GPU: Chromium dibuja WebGL con SwiftShader a través de ANGLE.
+ * Fuente: docs/gpu/swiftshader.md del código de Chromium ("Using Chromium with SwiftShader"):
+ *   --use-gl=angle --use-angle=swiftshader   SwiftShader como controlador de OpenGL ES (SwANGLE, ANGLE + Vulkan de SwiftShader)
+ *   --enable-unsafe-swiftshader              opt-in obligatorio para WebGL por software (el respaldo automático está en desuso)
+ * Playwright 1.64.1 ya agrega --enable-unsafe-swiftshader por su cuenta (coreBundle.js, `chromiumSwitches`); se repite
+ * aquí para no depender de ese detalle. Solo lo usan los proyectos con WebGL: los de latencia del estudio (canvas 2D)
+ * quedan como estaban, para no cambiar sus mediciones. Los proyectos del visor 3D (T3b y siguientes) deben usar
+ * `webglLaunch`.
+ */
+export const webglLaunch = { args: ["--use-gl=angle", "--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] };
 
 const build = process.env.E2E_SKIP_BUILD === "1" ? "" : "pnpm exec next build && ";
 
@@ -127,8 +140,10 @@ export default defineConfig({
     video: "off",
   },
   projects: [
-    { name: "escritorio", testIgnore: [/latencia\.spec\.ts/, SESSION_DIR], grepInvert: /@movil/, use: desktop },
-    { name: "movil", testIgnore: [/latencia\.spec\.ts/, SESSION_DIR], grep: /@movil/, use: { ...chromium, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
+    { name: "escritorio", testIgnore: [/latencia\.spec\.ts/, WEBGL_SPEC, SESSION_DIR], grepInvert: /@movil/, use: desktop },
+    { name: "movil", testIgnore: [/latencia\.spec\.ts/, WEBGL_SPEC, SESSION_DIR], grep: /@movil/, use: { ...chromium, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 } },
+    // WebGL por software (SwiftShader): base del E2E del visor 3D.
+    { name: "webgl", testMatch: WEBGL_SPEC, use: { ...desktop, launchOptions: webglLaunch } },
     // La latencia corre al final y sola (sin otras pruebas compitiendo por la CPU).
     { name: "latencia", testMatch: /latencia\.spec\.ts/, dependencies: ["escritorio", "movil"], fullyParallel: false, use: desktop },
     // Con sesión (Supabase local): crea las cuentas de prueba y sus sesiones, corre las pruebas y borra las cuentas.
