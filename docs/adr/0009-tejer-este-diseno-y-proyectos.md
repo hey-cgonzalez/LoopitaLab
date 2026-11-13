@@ -185,3 +185,32 @@ Aprobadas por el orquestador; la migración es `supabase/migrations/202611110318
 4. **Códigos**: `PT409` conflicto (`detail` = `pattern` o `progress`, HTTP 409), `P0002` no encontrado o ajeno, `22023` argumentos o tipo, `54000` topes, `23514` título.
 
 5. **`startProjectFromDesign(patternId, expectedUpdatedAt, title?)`** recibe el `patternUpdatedAt` de la pantalla previa (`getKnitPreview`). Si no es un timestamp válido responde `INVALID_REQUEST`; si el `updated_at` del diseño leído difiere, `CONFLICT` (`conflictOn: "pattern"`) sin llamar a admin, y la pantalla se recalcula. La carrera restante entre esa lectura y la creación la sigue cerrando `start_chart_project` con el `updated_at` exacto. Esto reemplaza la relectura previa que hacía el cliente (T1-7, "no cambia de firma", queda superada).
+
+## Enmiendas tras implementar T11 a T18 (2026-11-13)
+
+Registro de lo que se implementó distinto de las secciones 2 a 4. Cierra el punto 7 de la revisión T17 de [docs/seguridad.md](../seguridad.md) ("arquitecto debe enmendar el ADR"). Migraciones: `20261111031813_tejer_disenos.sql` (T7) y `20261113010000_tope_part_id_y_detalle_cuotas.sql` (T17).
+
+6. **Firmas de las Server Actions** (`apps/web/src/app/proyectos/actions.ts`). Cambian respecto de la tabla de la sección 3:
+   - `repinProject(projectId, expectedProgressUpdatedAt)`: el cliente ya no envía el puntero. El servidor lo reubica con `remapPointer` desde el avance guardado y lo escribe en `repin_project`, en la misma transacción. Antes de llamar, compara `expectedProgressUpdatedAt` con el `updated_at` actual del avance; si no coincide, responde `CONFLICT` sin escribir.
+   - `getRepinPreview(projectId)`: nueva. Alimenta la vista previa de "Pasar a la versión actual" (ver la enmienda E-2 de ADR 0007).
+   - `getKnitPreview(patternId)` y `getProgress(projectId)`: nuevas. La primera alimenta la pantalla previa de la enmienda T1-7; la segunda lee el avance.
+   - `saveProgress(projectId, pinnedVersionId, pointer, expectedUpdatedAt)`: `expectedUpdatedAt` admite `null`. Con `null`, el avance se crea con `insert`, porque el proyecto aún no tiene fila de avance. Si otro dispositivo la creó antes (código 23505), responde `CONFLICT`, no un error. `part_id` siempre va como `null`.
+
+7. **Función `repin_project` y `pin_current_version`** (migración T7). `repin_project` además recibe `p_expected_progress_updated_at`, `p_round_number` y `p_stitch_index`, y devuelve `progress_updated_at` (`returns table (version integer, reused boolean, progress_updated_at timestamptz)`, migración `20261111031813_tejer_disenos.sql`). `pin_current_version` no tiene EXECUTE para ningún rol (`revoke … from public, anon, authenticated, service_role`).
+
+8. **Tope de `part_id`** (migración T17, hallazgo M1). `project_progress.part_id` admite como máximo 64 caracteres (`project_progress_part_id_len`). La migración se detiene si hay filas que lo violen; no las borra ni las recorta. La sección 1 no lo mencionaba.
+
+9. **`detail` estable en los 54000** (migración T17, hallazgo B5). Cada tope de cuota lleva un `detail` fijo, que PostgREST entrega como `details`:
+
+   | Tope | `detail` |
+   |---|---|
+   | 1000 proyectos | `projects` |
+   | 500 diseños | `patterns` |
+   | 5000 versiones por usuaria | `versions_total` |
+   | 200 versiones por diseño | `versions_per_pattern` |
+   | 500 lanas | `user_yarns` |
+   | 10 000 notas | `project_notes` |
+
+   El servidor distingue el tope por ese valor y no por el texto del mensaje. Esto sustituye la traducción por mensaje de la sección 2 ("Los 54000 se traducen a mensajes"). `apps/web/src/lib/projects/messages.ts` y `apps/web/src/lib/designs/messages.ts` leen `details ?? detail`. La migración es `20261113145129_tope_part_id_y_detalle_cuotas.sql`, aplicada en el proyecto real el 2026-11-13. Los bloques `TRANSITORIO` de `designs/messages.ts` y `projects/messages.ts` (respaldo sin `detail`) ya no se usan y se pueden quitar en una limpieza.
+
+10. **Cola local del avance** (sección 4; `apps/web/src/lib/projects/progress-queue.ts`). Lo que se verifica en el código: el envío se agrupa 800 ms después del último toque (`PROGRESS_DEBOUNCE_MS`) y el avance local caduca a los 14 días (`PROGRESS_TTL_MS`). Además, por la revisión T17 (hallazgos B1 y B2): la cola se depura al borrar el proyecto y al entrar otra cuenta; las entradas que el servidor rechaza se descartan, y la cola tiene un tamaño acotado. `loadProject` ya no devuelve notas privadas (hallazgo B3). Las versiones fijadas siguen conservando las notas; leerlas en público en la fase 7 exige una función que las quite (hallazgo B4).

@@ -245,3 +245,20 @@ Aprobadas por el orquestador:
 3. **Versión más corta**: si `rowsDone` queda fuera del plan nuevo, el puntero pasa a terminado con `clamped: true`; la interfaz avisa antes de confirmar. Validar con tejedora.
 4. **`ChartPlan`** agrega `motifWidth` y `pattern` (referencia al documento, no copia); el plan y los pasos salen congelados.
 
+## Enmiendas tras implementar T12 a T18 (2026-11-13)
+
+Registro de lo que se implementó distinto de lo propuesto en el grupo D (modo tejiendo) y en las correcciones de cierre. No reescribe lo anterior. Fuentes: `docs/qa-fase-3.md` (O-F3-2), `apps/web/src/app/proyectos/actions.ts` y `packages/follow/src/chart.ts`.
+
+**E-1. `remapPointer` marca `clamped` también cuando la fila en curso deja de existir al final del plan nuevo.** Corrige O-F3-2 del QA de la fase 3. La versión de T4 solo marcaba `clamped` con `rowsDone > to.totalRows`. Caso: avance en la fila 11 de 12 (`rowsDone = 10`) y una versión nueva de 10 filas. La fila en curso ya no existe y el puntero pasa a terminado, pero no se avisaba. Ahora `clamped` es `true` también cuando `rowsDone === to.totalRows` y el plan anterior era más largo (`q.rowsDone === to.totalRows && q.rowsDone < from.totalRows`). Esto precisa la enmienda 3 de T4: "la fila en curso no existe en el plan nuevo", que incluye este caso. La ficha de "Pasar a la versión actual" muestra entonces el aviso de avance acotado, no el de "la fila cambió".
+
+**E-2. Vista previa de "Pasar a la versión actual".** Lo que dice la sección 5 se implementó con `getRepinPreview(projectId)`. Devuelve la versión de origen y la de destino, `workedIn`, `totalRows`, el puntero reubicado, `clamped`, `rowChanged` y `sameDocument`. El servidor calcula todo con `remapPointer`. La interfaz no cuenta nada (regla de oro 2).
+
+**E-3. Qué cambió en el dominio en T18** (commit `6c23a65`, revisión de `experto-tejido`).
+- `ChartStep` suma `decreases`, `increases`, `decreaseBefore` e `increaseAt`. Las dos últimas dan la casilla (desde 1, en el orden en que se teje una repetición); una disminución al final de la repetición queda en `stitchesPerRepeat + 1`.
+- `ChartPosition` suma `repeatCells: { first, last, of }`. La interfaz dice "casillas 10 a 18 de 72" solo en filas que disminuyen o aumentan y con más de una repetición.
+- Las frases de disminución y aumento ("Disminuye 8 puntos en la fila (1 por repetición)…", "Las casillas 2 y 5 de cada repetición son puntos nuevos.") no nombran técnica. El "(N por repetición)" cuenta las disminuciones de la repetición, no el neto `perRepeat`.
+- El cierre ("Gráfico terminado") cambia según técnica, forma y dirección; si falta el conteo de la última fila dice "Falta rematar o cerrar la pieza."
+- Los anuncios leen las lanas completas ("3 de la lana A, 2 de la lana B"), "N puntos en R repeticiones" y hasta 5 tramos.
+- "Lo que el gráfico no incluye" depende de la técnica (palillo: montaje, elástico o borde, forma previa, cerrar los puntos, armado; crochet: cadeneta base o anillo, cadeneta de vuelta, forma previa, remate, armado).
+- Los textos nuevos llevan `// validar con tejedora` y entran en la validación T1b.
+

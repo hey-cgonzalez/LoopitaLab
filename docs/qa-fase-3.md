@@ -1,13 +1,13 @@
 # QA de la fase 3 (T16) y latencia extendida (T15)
 
 - **Autor**: `qa-tester`, 2026-11-13.
-- **Código revisado**: rama `fase-3/grupo-d` en `bf19aa1`, más las pruebas de este informe (sin commit). **No incluye** las correcciones de `experto-tejido` (T18) ni de `revisor-seguridad` (T17), que revisaban en paralelo.
+- **Código revisado**: rama `fase-3/grupo-d` en `bf19aa1`, más las pruebas de este informe (sin commit). Las correcciones de `revisor-seguridad` (T17) y `experto-tejido` (T18) llegaron después, en `6c23a65`. Según la nota de BUG-QA3-1 y 2, sus pruebas y la corrida E2E con sesión se hicieron con esas correcciones. Sobre `6c23a65` se repitieron tipos (raíz y web), 845 pruebas web, build y `follow` con semillas 7 y 99999 (68/68): todo pasa.
 - **Entorno**: macOS 15.6.1 (Apple M1, 8 núcleos), Node 24.16.0, pnpm 10.28.0, Playwright 1.64.1 con Chromium completo, Supabase CLI 2.122.1 (Docker), 15 migraciones.
 - **Ruido del equipo**: durante la sesión hubo procesos ajenos ocupando CPU y disco (`biome` al 99 % de un núcleo, `fileproviderd`, `mds`, purga de caché; load average entre 4 y 78). Afecta a las E2E y a la latencia; se indica en cada medición.
 
 ## Veredicto
 
-**Apto para PR con dos fallas abiertas y una advertencia de latencia.** No bloquean el PR, pero CA3-T10 y CA3-P2 no quedan aprobados:
+**Apto para PR con una advertencia de latencia.** BUG-QA3-1 y BUG-QA3-2 están corregidos. CA3-P2 no queda aprobado de forma estable con CPU ×4. Lo demás que depende del código cumple:
 
 1. **BUG-QA3-1 y BUG-QA3-2 (media), corregidos**: el interruptor "Pantalla encendida" apagado no se respetaba en dos situaciones (`KnitScreen.tsx`). Se corrigieron en la ronda de cierre (T17/T18) y CA3-T10 pasa a **CUMPLE**.
 2. **Latencia con CPU ×4 en el círculo de 40.000 puntos**: 1 de 5 corridas pasó el umbral al cambiar repeticiones (105,0 ms). Sin limitar la CPU hay margen amplio (33 ms). CA3-P2 queda **en el límite**; decide CA-P6.
@@ -226,7 +226,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 | Pruebas y tipos en verde | Sí en local. E2E sin sesión: sensible a la carga del equipo (ver diagnóstico) |
 | T1b cerrada | **PENDIENTE** (no es código) |
 | CA-P6 | **PENDIENTE** (no es código) |
-| Aprobaciones | `qa-tester`: apto para PR con las fallas de abajo abiertas. `experto-tejido` (T18) y `revisor-seguridad` (T17): pendientes |
+| Aprobaciones | `qa-tester`: apto para PR con observaciones (BUG-QA3-1 y 2 corregidos). `revisor-seguridad` (T17): revisión hecha el 2026-11-12, sin hallazgos críticos ni altos ([docs/seguridad.md](seguridad.md)). `experto-tejido` (T18): correcciones aplicadas en `6c23a65`; aprobación final pendiente de T1b |
 
 ## Fallas y observaciones
 
@@ -251,7 +251,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código).
 ### Observaciones
 
 - **O-F3-1. Latencia sin margen en el círculo de 40.000 puntos con CPU ×4** (ver "Latencia"). Para `render-puntos`; riesgo R3-1 del roadmap.
-- **O-F3-2. `remapPointer`: diseño acortado justo hasta la fila en curso** (baja). Con el avance en la fila 11 de 12 y una versión nueva de 10 filas, el resultado es "terminado" con `rowChanged: true` y `clamped: false` (`packages/follow/src/chart.ts:375`, `q.rowsDone > to.totalRows`). La ficha dice "La vuelta en la que vas se teje distinto…" en vez de "La versión nueva es más corta…" (`ProjectSheet.tsx:214`). El puntero queda bien; solo el mensaje. La prueba fija el valor actual con `// validar con tejedora`. Decide `experto-tejido`.
+- **O-F3-2. `remapPointer`: diseño acortado justo hasta la fila en curso** (baja). Con el avance en la fila 11 de 12 y una versión nueva de 10 filas, el resultado es "terminado" con `rowChanged: true` y `clamped: false` (`packages/follow/src/chart.ts:375`, `q.rowsDone > to.totalRows`). La ficha dice "La vuelta en la que vas se teje distinto…" en vez de "La versión nueva es más corta…" (`ProjectSheet.tsx:214`). El puntero queda bien; solo el mensaje. Estado: corregido en el código después de este informe (`clamped` pasa a `true` en ese caso; ADR 0007, enmienda E-1). El texto de la ficha queda por validar con tejedora.
 - **O-F3-3. "Tejiendo" solo tiene E2E con "Banda en tubo"** (en redondo, tubo, `bottom_up`). Plano en ida y vuelta, círculo, `top_down` y espejo se cubren con unitarias y con render estático. Sugerencia: una E2E con un diseño plano en espejo.
 - **O-F3-4. E2E sin sesión sensibles a la carga** (ver diagnóstico) y propuesta de mover la medición de hover del selector al proyecto `latencia`.
 - **O-F3-5. Tras `VERSION_CHANGED`**, los toques hechos antes de recargar se pierden (se vuelve al avance del servidor). Es lo que define el ADR 0009; la pantalla lo avisa y deja de aceptar teclado.
