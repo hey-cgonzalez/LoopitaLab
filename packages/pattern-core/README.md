@@ -8,20 +8,22 @@ La tabla lista todo lo que exporta `src/index.ts`.
 
 | Módulo | Exporta |
 |---|---|
-| `types.ts` | Tipos del modelo: `Pattern` (`ChartPattern` o `WrittenPattern`), `Technique`, `WeightCategory` (0 a 7), `Yarn`, `YarnColor`, `FiberShare`, `Gauge`, `Origin`, `Chart`, `RenderShape`, `Part`, `PartStart`, `Round`, `Item` (`StitchItem`, `GroupItem`, `ColorItem`), `StitchCode`, `Loop`, `Issue`, `Severity`. Constantes `SCHEMA_VERSION` (hoy 1) y `NO_STITCH` (−1, casilla sin punto) |
+| `types.ts` | Tipos del modelo: `Pattern` (`ChartPattern` o `WrittenPattern`), `Technique`, `WeightCategory` (0 a 7), `Yarn`, `YarnColor`, `FiberShare`, `Gauge`, `Origin`, `Chart`, `RenderShape`, `Part` (con `copies` desde la v2), `PartStart`, `Round`, `Item` (`StitchItem`, `GroupItem`, `ColorItem`), `StitchCode`, `Loop`, `Issue`, `Severity`; posición de las partes (v2): `Layout`, `Placement`, `PartRef`, `FreeAt`, `SurfaceAt`, `Vec3`. Constantes `SCHEMA_VERSION` (hoy 2) y `NO_STITCH` (−1, casilla sin punto) |
 | `stitches.ts` | `STITCHES` (cuánto consume y produce cada punto, abreviaturas en español de Chile e inglés de EE. UU.), `LOOPS` (hebra delantera o trasera), `normalizeTerm` (minúsculas, sin puntos ni espacios extra), `lookupStitch` y `lookupLoop` (término o alias → código, o `undefined`; buscan en un `Map`, así "toString" o "__proto__" no son puntos), `stitchAbbrev` y `loopAbbrev` (código → abreviatura según `"es"` o `"us"`). Tipos `StitchDef` y `Dialect` |
 | `written.ts` | `countRound`, `expandRound`, `concreteRounds`, `summarizePart`, `startAvailable` (puntos disponibles para la primera vuelta: `null` con anillo mágico, la cadeneta en vueltas cerradas o espiral, y la cadeneta menos 1 en hileras). Tipos `ExpandedStitch`, `RoundCount`, `ConcreteRound`, `PartSummary` |
 | `chart.ts` | `cellIndex`, `motifCell`, `fullSize`, `cellAt`, `fullRow`, `yarnTotals`, `stitchTotal`, `rowFloats`, `yarnUsage`, `dimensionsCm`, `floatLengthCm`; derivados del colorwork: `motifCoord`, `rowStitchCount`, `rowStitchCounts`, `shaping`, `rowShapingColumns`, `readingDirection`, `wornOrientation`. Tipos `RowFloat`, `YarnUsage`, `ChartDimensions`, `RowShaping`, `RowShapingColumns`, `ReadingDirection` |
 | `edit.ts` | Operaciones puras de edición: `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn`, `reorderYarns`, `newChartPattern`; `EDIT_LIMITS`, `ANCHORS`. Tipos `CellRef`, `Anchor`, `NewChartInput` |
-| `migrate.ts` | `migratePattern` y el tipo `MigrationResult`: camino obligatorio de lectura de todo documento |
+| `migrate.ts` | `migratePattern` y el tipo `MigrationResult`: camino obligatorio de lectura de todo documento. Tipos de la v1 (`PatternV1`, `ChartPatternV1`, `WrittenPatternV1`, `PartV1`), solo para las pruebas de migración |
+| `recommended.ts` | Límites recomendados de un patrón escrito (ADR 0011, sección 3b): `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage`, `recommendedLimitNotices`. Tipos `RecommendedLimit` y `LimitUsage`. No pasan por el validador |
 | `text.ts` | `parseRound`, `parsePart`, `formatRound`, `formatPart`. Tipos `ParseResult`, `ParsePartOptions` |
 | `letters.ts` | `yarnLetter(index)`: letra de la lana según su orden en el documento (A… Z y, desde la 27, AA, AB… como las columnas de una planilla). La usan el validador, el gráfico SVG, la cuadrícula del editor y el modo tejiendo |
-| `validate.ts` | `validatePattern`, `parsePattern`, `validateYarn`, `isDraftError`, `DRAFT_ERROR_CODES`, `LIMITS` (definido en `limits.ts`). Tipos `ValidateOptions`, `ValidationResult` |
+| `validate.ts` | `validatePattern`, `parsePattern`, `validateYarn`, `isDraftError`, `DRAFT_ERROR_CODES`, `LIMITS` (definido en `limits.ts`; topes duros, incluidos los de la v2). Tipos `ValidateOptions`, `ValidationResult` |
 
 ## Cuándo puede lanzar una excepción
 
-- **Nunca lanzan y terminan en tiempo acotado** con `null`, valores primitivos ni nada que pueda producir `JSON.parse` (incluidos números como `2^53` o `1e308` y claves como `__proto__`): `validatePattern`, `parsePattern`, `validateYarn`, `migratePattern`, `newChartPattern` y las operaciones de `edit.ts`. Las tres primeras y `migratePattern` tampoco lanzan con objetos armados a mano con getters o `Proxy` que lanzan (try/catch acotado): `validatePattern` informa `SHAPE` y `migratePattern` informa `SCHEMA_VERSION`. El validador acota `number` y `through` de cada vuelta antes de recorrer los rangos.
+- **Nunca lanzan y terminan en tiempo acotado** con `null`, valores primitivos ni nada que pueda producir `JSON.parse` (incluidos números como `2^53` o `1e308` y claves como `__proto__`): `validatePattern`, `parsePattern`, `validateYarn`, `migratePattern`, `newChartPattern`, las operaciones de `edit.ts`, `recommendedLimitUsage` y `recommendedLimitNotices` (estas dos, también con getters que lanzan: devuelven los cinco límites en 0). Las tres primeras y `migratePattern` tampoco lanzan con objetos armados a mano con getters o `Proxy` que lanzan (try/catch acotado): `validatePattern` informa `SHAPE` y `migratePattern` informa `SCHEMA_VERSION`. El validador acota `number` y `through` de cada vuelta antes de recorrer los rangos.
 - **Suponen un documento `savable`** (sin errores estructurales, ADR 0003, E10), no necesariamente `valid`: los derivados de `chart.ts` (y `stitch-render`). Funcionan con `CHART_EMPTY`, con vueltas sin puntos y con cuñas que dan `CHART_SHAPING_IMPOSSIBLE` (propiedad C14). Con un gráfico dañado pueden devolver valores sin sentido (por ejemplo, `NaN` o `Infinity` en `dimensionsCm` con una muestra de 0 puntos), pero `rowStitchCounts` y `shaping` devuelven `[]` si el alto o las repeticiones no son enteros.
+- **Suponen un documento `savable`** también en los patrones escritos (ADR 0011, sección 4): los derivados de `written.ts`, `formatRound` y `formatPart` funcionan con vueltas que no cuadran, numeración rota y anclas fuera del anfitrión, que son errores de tejido o advertencias. Con un documento que no es `savable`, ver el punto siguiente.
 - **Suponen un documento validado**: los derivados de `written.ts`, `formatRound` y `formatPart`. Con un patrón escrito dañado (por ejemplo, `part.start` ausente), `startAvailable` y los conteos pueden lanzar `TypeError`: valida antes con `validatePattern`. Aun así, `concreteRounds` y `summarizePart` terminan siempre: omiten vueltas cuyo `number` o `through` no es un entero seguro y nunca despliegan más de `LIMITS.maxRounds` vueltas. `formatPart` escribe el nombre y el cierre en una sola línea (un salto de línea se vuelve espacio, para que no se lea como otra línea del patrón), omite el cierre en blanco y escribe un nombre en blanco como "Parte" (el valor por omisión de `parsePart`).
 - `parseRound` y `parsePart` devuelven `{ ok: false, issues }` ante texto inválido; no lanzan con texto.
 
@@ -41,9 +43,28 @@ type MigrationResult =
   | { ok: false; document: unknown; from: number | null; to: number | null; issues: Issue[] }; // to === from; un error SCHEMA_VERSION
 ```
 
-- Con `schemaVersion: 1` es la identidad (devuelve el mismo objeto).
+- Con `schemaVersion: 2` (la actual) es la identidad: devuelve el mismo objeto (M2).
+- Con `schemaVersion: 1` aplica `STEPS[1]`: devuelve una **copia superficial** con `schemaVersion: 2`, sin mutar la entrada ni transformar nada más (notas, cierres de varias líneas y `loop: "both"` explícito se conservan). Los objetos internos se comparten con la entrada. La v1 no tenía `layout` ni `copies`, y su omisión en la v2 equivale a la v1: una copia por parte y ubicación automática.
 - Con una versión desconocida, futura o ausente, devuelve el documento sin tocar, `ok: false`, `to === from` (`null` si no declara una versión numérica) y un error `SCHEMA_VERSION` en español. El validador también lo informa. Se decide por `ok`, nunca por `to`.
-- Es idempotente y nunca lanza. El documento migrado se guarda solo cuando la usuaria guarda.
+- Es idempotente y nunca lanza. El documento migrado se guarda solo cuando la usuaria guarda. `validatePattern` **no migra**: un v1 sin migrar da `SCHEMA_VERSION`.
+
+**Propiedades de la migración** (ADR 0011, sección 5; `test/migrate.test.ts`, criterio CA4-M1):
+
+| # | Propiedad |
+|---|---|
+| M1 | Un v1 `valid` (o `savable`) migrado es v2 `valid` (o `savable`), con los mismos errores (código y ruta) salvo `SCHEMA_VERSION`. Advertencias e información solo pueden sumar `PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL` (y, desde T5, `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST`); `ROUND_CONSUMPTION_MISMATCH` de la V1 con cadeneta en aro pasa de error a advertencia. Se compara contra el validador v1 congelado (`test/support/validate-v1.ts`) con los fixtures del paquete y documentos v1 al azar |
+| M2 | Idempotente: migrar un v2 devuelve el mismo objeto (`===`) |
+| M3 | Los derivados no cambian: `stitchTotal`, `rowStitchCounts` y `yarnUsage` en gráficos; `concreteRounds` y `summarizePart` en escritos. Los pasos de `planChart` se comprueban en `follow` |
+| M4 | Nunca lanza, con cualquier entrada |
+
+**Lectores del documento** (todos migran antes de validar; riesgo R4-5 de la hoja de ruta):
+
+- `apps/web/src/lib/designs/prepare.ts` (`prepareDocument`: crear y guardar diseños);
+- `apps/web/src/app/disenos/actions.ts` (duplicar) y `apps/web/src/app/disenos/[id]/page.tsx` (abrir un diseño propio);
+- `apps/web/src/lib/shared-pattern.ts` (patrones compartidos o públicos);
+- `apps/web/src/lib/projects/server.ts` (empezar un proyecto y leer la versión fijada de `pattern_versions`, que puede ser v1 para siempre);
+- `apps/web/src/lib/studio/backup-recovery.ts` (respaldo local del estudio);
+- `packages/follow`, `packages/pattern-render` y `packages/stitch-render` no leen JSON: reciben documentos ya migrados y validados por la aplicación.
 
 ## Gráficos de colorwork: derivados
 
@@ -114,6 +135,8 @@ V9: @B, [pb 2, dism] x6 (18)
 - Hebra trasera o delantera: `pb ht` / `sc blo`, `pb hd` / `sc flo`.
 - Conteo declarado: `(18)` al final de la vuelta.
 - También acepta inglés (`R3: [sc, inc] x6 (18)`) y mezclas de ambos.
+- `Inicio:` acepta `AM` o `cad N`. Si falta, se lee anillo mágico (también en hileras, donde aparece la información `PART_START_FLAT_RING`). La cadeneta de subida, la de giro y el pd de unión no se escriben como puntos: no cuentan (F4-11, F4-12).
+- La sintaxis de la v2 (notas `>`, encabezado `Cantidad:` para `copies`, modo UK) es de T6 (ADR 0011, sección 7).
 
 ## Qué valida
 
@@ -121,13 +144,15 @@ V9: @B, [pb 2, dism] x6 (18)
 
 **Dos clases de error** (ADR 0003, E10; ADR 0006, E10):
 
-- **Error de tejido**: el documento es sano y todas las vistas derivadas funcionan, pero no se puede tejer tal cual. Son los códigos de `DRAFT_ERROR_CODES` (`CHART_EMPTY` y `CHART_ROW_EMPTY_FULL`); `isDraftError(issue)` los reconoce.
+- **Error de tejido**: el documento es sano y todas las vistas derivadas funcionan, pero no se puede tejer tal cual. Son los códigos de `DRAFT_ERROR_CODES`: en gráficos, `CHART_EMPTY` y `CHART_ROW_EMPTY_FULL`; en patrones escritos (ADR 0011, sección 4), `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MISMATCH`, `ROUND_ZERO`, `ROUND_RANGE_CHANGES` y `ROUND_NUMBERING`. `isDraftError(issue)` los reconoce. Un patrón escrito con una vuelta a medio escribir que no cuadra se guarda como borrador (`savable: true`, `valid: false`) y se ve en 3D.
 - **Error estructural**: cualquier otro error. El documento no es interpretable o rompe un invariante del que dependen los derivados. La lista es cerrada: un código de error nuevo es estructural hasta que alguien lo agregue a `DRAFT_ERROR_CODES` a propósito.
 - `valid` es `true` si no hay ningún error; `savable`, si todos los errores son de tejido. `valid` implica `savable`.
 - Qué exige cada flujo: **guardar** (autoguardado, crear, duplicar), `savable`; **tejer, publicar o compartir, exportar y aceptar una salida de IA**, `valid`. `parsePattern` sigue exigiendo `valid`.
 
 - **Errores estructurales**:
-  - conteo declarado distinto del real; una vuelta que trabaja sobre más o menos puntos de los que dejó la anterior (en espiral y vueltas cerradas); numeración de vueltas (desde 1); `number` o `through` sobre `LIMITS.maxRounds`, o rangos que juntos superan ese tope (`LIMIT`);
+  - `number` o `through` sobre `LIMITS.maxRounds`, `number` bajo `−LIMITS.maxRounds` (además de `ROUND_NUMBERING`), o rangos que juntos superan ese tope (`LIMIT`); una vuelta que deja o que trabaja más de `LIMITS.maxRoundStitches` puntos (`LIMIT`, revisado en la estructura de cada vuelta: ningún error de tejido lo salta, y acota `expandRound`);
+  - `PART_COPIES`: `copies` debe ser un entero de 1 a `LIMITS.maxCopies` (50);
+  - `layout` (ADR 0011, sección 3): `LAYOUT_TARGET_UNKNOWN` y `LAYOUT_HOST_UNKNOWN` (la parte no existe), `LAYOUT_COPY_RANGE` (`copy` fuera de 0 a `copies − 1`), `LAYOUT_DUPLICATE` (dos entradas para la misma copia), `LAYOUT_CYCLE` (una pieza cosida a sí misma o un ciclo de anclas; se informa una vez por ciclo), `LAYOUT_DEPTH` (cadena de más de `LIMITS.maxLayoutDepth` anclas, 16; se informa donde se pasa el tope), `LIMIT` (más de `LIMITS.maxPlacements` ubicaciones, 2.500; posiciones fuera de ±`LIMITS.maxPositionCm`, 1.000 cm; giros fuera de −180 a 180; separación fuera de ±`LIMITS.maxOffsetCm`, 100 cm; `round` fuera de 1 a `maxRounds`; `stitch` fuera de 0 a `maxRoundStitches − 1`; `copy` no entero; números no finitos) y `SHAPE` (forma). Ciclo y profundidad se revisan en tiempo lineal y sin recursión. Cada código de `layout` se informa hasta 20 veces por documento;
   - lanas inexistentes; composición que no suma 100 %; grosor fuera de 0–7; colores mal escritos; `paletteId` que no es texto (`SHAPE`, con o sin `paletteIds`);
   - puntos desconocidos (`STITCH_UNKNOWN`; los nombres heredados de `Object.prototype`, como `toString`, también lo son);
   - `TITLE_LENGTH`: título de 1 a 120 caracteres (puntos de código, como `char_length` de la columna `patterns.title`);
@@ -137,13 +162,21 @@ V9: @B, [pb 2, dism] x6 (18)
     - raíz: `schemaVersion`, `id`, `title`, `technique`, `yarns`, `gauge`, `origin`, `notes`, `kind` y, según `kind`, `chart` (gráfico) o `parts` y `assembly` (escrito); con un `kind` desconocido (ya es `KIND`) se aceptan las tres;
     - `chart`: `width`, `height`, `cells`, `repeat`, `workedIn`, `renderAs`, `direction`; `chart.repeat`: `x`, `y`; `gauge`: `stitchesPer10cm`, `rowsPer10cm`; `origin`: `kind`, `model`, `promptVersion`;
     - `yarns[i]`: `id`, `weight`, `composition`, `color`, `note`; `color`: `hex`, `paletteId`; `composition[k]`: `fiber`, `percent`;
-    - `parts[i]`: `id`, `name`, `construction`, `start`, `startYarn`, `rounds`, `finish`; `start`: `type` (anillo mágico) o `type` y `count` (cadeneta); `rounds[j]`: `number`, `through`, `items`, `expected`, `note`;
+    - raíz de un escrito, desde la v2: también `layout`;
+    - `parts[i]`: `id`, `name`, `construction`, `start`, `startYarn`, `rounds`, `finish`, `copies` (v2); `start`: `type` (anillo mágico) o `type` y `count` (cadeneta); `rounds[j]`: `number`, `through`, `items`, `expected`, `note`. **`stuffing` no existe en la v2** (enmienda C-13): da `UNKNOWN_KEY`;
+    - `layout`: `placements`; `placements[k]`: `target`, `at`; `target` y `at.host`: `part`, `copy`; `at` libre: `type`, `positionCm`, `rotationDeg`; `at` en la superficie: `type`, `host`, `round`, `stitch`, `attach`, `rotationDeg`, `offsetCm`;
     - ítems: punto `type`, `stitch`, `count`, `loop`; grupo `type`, `items`, `times`; color `type`, `yarn` (un ítem de tipo desconocido ya es `SHAPE`).
 
     `validateYarn` también la aplica, así que `addYarn` no agrega una lana con claves de más;
   - `TEXT_CONTROL_CHAR` (ADR 0003, E16): ningún texto admite caracteres de control `\p{Cc}` (U+0000 a U+001F y U+007F a U+009F; Postgres rechaza U+0000 en jsonb) ni sustitutos UTF-16 sueltos (también los rechaza jsonb; `data.surrogate: true`). Se admiten el salto de línea (`\n`) y la tabulación (`\t`) solo en los textos de varias líneas: `notes[i]`, `assembly[i]`, `parts[i].finish`, `rounds[j].note` y `yarns[i].note`. En el título, los identificadores, los nombres de parte, `fiber`, `paletteId` y `origin`, ninguno (tampoco `\r`: la interfaz normaliza `\r\n` a `\n`). `data.codePoint` dice cuál es ("U+0000") y `data.index` dónde está. Los mensajes que citan un texto de la usuaria reemplazan esos caracteres por "�";
   - `CHART_CELL_VALUE`, `CHART_SIZE`, `CHART_MOTIF_TOO_LARGE` (motivo de más de 200 × 200 casillas; el mensaje dice cuánto mide) y entradas desmedidas (`LIMIT`).
 - **Errores de tejido (no impiden guardar el borrador)**:
+  - `ROUND_COUNT_MISMATCH`: conteo declarado distinto del real;
+  - `ROUND_CONSUMPTION_MISMATCH`: una vuelta trabaja sobre más o menos puntos de los que dejó la anterior (en espiral y vueltas cerradas, desde la V2);
+  - `ROUND_ZERO`: una vuelta que no es la última no deja puntos;
+  - `ROUND_RANGE_CHANGES`: un rango ("V5–8") que no mantiene el conteo; el mensaje sugiere escribir cada vuelta por separado (F4-84);
+  - `ROUND_NUMBERING`: numeración que no empieza en 1 o salta. Con un número entre −1.000 y 0 la vuelta se sigue revisando y contando;
+  - **pistas** (ADR 0011, sección 4; C-10): en vueltas cerradas e hileras, si `ROUND_CONSUMPTION_MISMATCH` o `ROUND_COUNT_MISMATCH` difieren en 1 o 2 puntos, el mensaje agrega "¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan." Cada pista va también en `data.hints` (`"ring"`, `"join"`, `"turning_chain"`) para que la interfaz la muestre aparte;
   - `CHART_EMPTY`: el gráfico no tiene ningún punto;
   - `CHART_ROW_EMPTY_FULL`: vueltas del gráfico completo sin puntos. Una sola, con las filas del gráfico completo en `data.rows` (hasta 50) y las del motivo en `data.motifRows`, para resaltarlas. Es el único aviso por esa causa: desde T2d ya no se emite `CHART_EMPTY_ROW`.
 - **Advertencias**:
@@ -152,7 +185,11 @@ V9: @B, [pb 2, dism] x6 (18)
   - `CHART_FLOAT_LONG`: hebra flotante de más de `max(1, min(floor(2,5 × puntos en 10 cm / 10), tope))` puntos, con tope 5 por defecto. La muestra sale del documento; si no tiene, de `opts.assumedGauge`; si no, de `opts.weightCat` (tabla supuesta del ADR 0003: 5, 5, 5, 5, 4, 3, 2 y 1 puntos por categoría 0 a 7). Sin ninguna, el máximo es el tope y no se informan cm. El mensaje nombra la lana por su letra (`yarnLetter`: "la lana B (#BA222C)"; desde la 27, "la lana AA"), nunca por el id interno ni por la nota privada, y dice "enganchar la hebra";
   - en el círculo: `CHART_SHAPING_STEEP` (más de 2 puntos por repetición en una vuelta), `CHART_SHAPING_UNEXPECTED` (aumentos en `bottom_up` o disminuciones en `top_down`), `CHART_CIRCLE_REPEAT_Y` (`repeat.y > 1` con máscara: cada repetición vuelve a abrir la forma) y `CHART_CIRCLE_NOT_CLOSED` sobre 24 puntos en la última vuelta con puntos ("lo habitual es cerrar con 8 a 16 puntos pasando la hebra por todos");
   - `CHART_ROWS_SHAPE` (tubo o círculo de ida y vuelta: "la pieza queda abierta y hay que coserla");
-  - descuadres en piezas en hileras; patrones de IA sin el modelo registrado.
+  - `ROUND_CONSUMPTION_MISMATCH` en hileras (con la pista "Revisa si la cadeneta para girar cuenta como punto") y en la **primera vuelta sobre una cadeneta en aro** (espiral o cerradas; C-9), con la pista "Si trabajas dentro del aro, la cantidad de la primera vuelta es libre";
+  - `PART_START_RING_SHORT`: cadeneta en aro de 1 (espiral o cerradas): "necesita al menos 2". Advertencia y no error, para no romper M1;
+  - `LAYOUT_ANCHOR_RANGE`: la vuelta o el punto del ancla ya no existen en el anfitrión (por ejemplo, después de borrar vueltas). El 3D acota y lo dice; editar el anfitrión nunca impide guardar;
+  - patrones de IA sin el modelo registrado.
+- **Información** de patrones escritos: `PART_START_FLAT_RING` (hileras con anillo mágico: "las filas suelen empezar con una cadeneta base"; C-19) y `MAGIC_RING_UNUSUAL` (primera vuelta sobre anillo mágico, en espiral o cerradas, con 1 o 2 puntos o más de 12; umbral provisional, C-20). Ninguno de los avisos nuevos cambia qué es `valid` ni `savable`.
 - **Información**: `CHART_COLORS_PER_ROW` (más de 2 lanas en una fila), `YARNS_MIXED_WEIGHT` (grosores distintos en un gráfico), `CHART_RENDER_UNSUPPORTED` (`yoke`, que se dibuja como tubo), en el círculo `CHART_CIRCLE_REPEATS` (fuera de 4 a 12), `CHART_WEDGE_TOO_NARROW` (cuña de menos de 4 puntos), `CHART_CIRCLE_NOT_CLOSED` sobre 16 y `CHART_CIRCLE_START` (`top_down` con menos de 4 o más de 16 puntos en la primera vuelta con puntos; el texto depende de la técnica: anillo mágico de 6 a 12 en crochet, montaje inicial de 8 a 12 en palillo); vueltas sin conteo declarado y lanas que no se usan.
 - Las reglas de forma comparan vueltas seguidas del gráfico completo (incluido el borde entre repeticiones verticales) y no se miden contra una vuelta sin puntos (que ya es error de tejido). `CHART_CIRCLE_NOT_CLOSED` y `CHART_CIRCLE_START` miden la última o la primera vuelta **con puntos**: una fila vacía en el borde no las silencia.
 - Los mensajes dicen "vuelta" en redondo y "fila" de ida y vuelta, "casilla" (también para ubicar una columna) y "hebras flotantes" (glosario pendiente del roadmap).
@@ -160,6 +197,22 @@ V9: @B, [pb 2, dism] x6 (18)
 `ValidateOptions`: `fibers` y `paletteIds` (avisos de fibras o colores desconocidos), `assumedGauge` y `weightCat` (muestra supuesta; nunca se escribe en el documento), `maxFloatCm` (2,5 por defecto) y `maxFloatStitches`: tope entero ≥ 1 que se aplica siempre, con o sin muestra; cualquier otro valor (0, −1, 4,5, `NaN`) usa el 5 por defecto. **Invariante**: ninguna opción cambia el conjunto de errores; solo agrega o ajusta advertencias e información, así el cliente y el servidor llegan al mismo `valid` y `savable` (propiedad C15).
 
 `validateYarn(input, path = "yarn", opts?: Pick<ValidateOptions, "fibers" | "paletteIds">)` revisa una lana suelta con las mismas reglas y prefija las rutas con `path`. Las opciones solo agregan advertencias (fibra o color desconocidos); `addYarn` la llama sin opciones. No revisa el id repetido ni el tope de lanas.
+
+## Límites recomendados (patrón escrito)
+
+Valores de la decisión 5, confirmados por T1 (C-18). No son reglas del tejido: dentro de ellos la vista previa responde a tiempo. **No pasan por `validatePattern`**: un patrón que los supera sigue siendo `valid`, y la usuaria decide si sigue (ADR 0011, sección 3b).
+
+```ts
+RECOMMENDED_WRITTEN_LIMITS = { parts: 20, copiesPerPart: 10, roundsPerPart: 100, stitchesPerRound: 200, sceneStitches: 40_000 }
+recommendedLimitUsage(pattern): LimitUsage[]   // los cinco, en ese orden
+recommendedLimitNotices(pattern): LimitUsage[] // solo los superados (value > recommended)
+interface LimitUsage { limit; value; recommended; over: Array<{ partId: string; round?: number }> }
+```
+
+- `value`: en `parts`, la cantidad de partes (las copias no cuentan); en `copiesPerPart`, `roundsPerPart` y `stitchesPerRound`, el máximo encontrado; en `sceneStitches`, Σ (Σ `produced` de la parte, con la V1) × `copies`.
+- `over`: dónde se supera, vacío si no se supera. Partes de la 21 en adelante; partes con más copias o vueltas; cada vuelta concreta de más de 200 puntos (con su número); y, en la escena, las partes que aportan puntos.
+- Los conteos salen de `countRound` con las reglas de `concreteRounds`. Tiempo lineal en las vueltas: un rango se cuenta una vez. Nunca lanzan.
+- Los topes duros (errores) siguen en `LIMITS`, bastante más arriba (por ejemplo, 50 copias frente a 10 recomendadas).
 
 ## Pruebas
 
@@ -176,13 +229,18 @@ Requiere Node 24 LTS (mínimo 22.18, que ejecuta TypeScript directamente). Inclu
 - `test/property-colorwork.test.ts`: propiedades de derivados, edición y migración; C13 (desde un documento `valid`, toda secuencia de `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn` y `reorderYarns` deja uno `savable`), C14 (los derivados no lanzan con documentos `savable`, incluidos `CHART_EMPTY`, filas vacías e `IMPOSSIBLE`; `rowStitchCounts` suma `stitchTotal` y `shaping` es consistente) y C15 (las opciones no cambian los errores), y la guardia de rendimiento (300 × 300 en menos de 200 ms).
 - `test/closed-document.test.ts`: documento cerrado y caracteres prohibidos (E16): `UNKNOWN_KEY` en cada objeto del esquema, `TEXT_CONTROL_CHAR` por campo, `yarnLetter`, y la propiedad "con JSON arbitrario, si es `savable` no tiene claves desconocidas ni caracteres prohibidos y `JSON.stringify` no contiene `\u0000`".
 - `test/yarn-usage.test.ts`: `yarnUsage`, casos F3-14 a F3-20 (y los conteos de F3-21 y F3-22) de [casos-dominio-fase-3.md](../../docs/casos-dominio-fase-3.md); propiedades contra una referencia por fuerza bruta, las de la enmienda T1-1 del ADR 0008, "no lanza con documentos `savable`" y rendimiento (200 × 200 con repeticiones 500 × 500).
+- `test/migrate.test.ts`: `STEPS[1]` y las propiedades M1 a M4 (CA4-M1), con el validador v1 congelado en `test/support/validate-v1.ts`.
+- `test/validate-v2.test.ts`: `PART_COPIES`, cada código de `layout`, documentos hostiles (ciclos, 10.000 anclas, `NaN`, `1e308`, 50 partes con 51 copias) en menos de 50 ms (CA4-M3), borradores escritos (CA4-M4) y la propiedad "los derivados funcionan con todo documento v2 `savable`".
+- `test/recommended.test.ts`: límites recomendados (CA4-M8): coinciden con una referencia que expande cada vuelta, nunca lanzan, no aparecen en `validatePattern` y son lineales.
+- `test/casos-dominio-fase4.test.ts`: casos F4-1 a F4-7, F4-11, F4-12, F4-29 a F4-34, los conteos de los fixtures A y B (F4-45, F4-48, F4-49, F4-51) y F4-58, F4-70 de [casos-dominio-fase-4.md](../../docs/casos-dominio-fase-4.md). Los fixtures están en `test/support/amigurumi.ts` (texto y parte leída por el motor). La forma (perfil, alto, diámetro) es de T5.
 - `test/qa-bordes-colorwork.test.ts`: umbrales exactos de cada regla en sus bordes, "nunca lanza y termina" con JSON arbitrario (mutaciones de documentos válidos, sin acotar `number` ni `through`), las correcciones F1 a F4 de T2d (números de vuelta desmedidos, claves heredadas de `Object.prototype`, rangos sin tope, mensajes sin "undefined", "NaN" ni "[object Object]") y el peor caso de rendimiento (menos de 100 ms).
 
-## Limitaciones conocidas (v1)
+## Limitaciones conocidas
 
 - Los patrones escritos son solo de crochet; el palillo se diseña con gráfico.
 - `aum`, `aum3` y `dism` cuentan igual con cualquier punto, pero el render los dibuja como punto bajo.
-- Inicio en óvalo (trabajar ambos lados de la cadeneta) todavía no tiene regla de consumo propia.
+- Inicio en óvalo (trabajar ambos lados de la cadeneta) y relleno (`stuffing`) quedan fuera de la v2 (enmienda C-13). Las bases ovaladas se escriben con `Inicio: AM` y la V1 con sus puntos.
+- `MAGIC_RING_UNUSUAL` (3 a 12), la lectura de la cadeneta en aro (un punto en cada cadeneta), las pistas de los mensajes y los cinco límites recomendados quedan "validar con tejedora" (T1b).
 - Abreviaturas provisionales pendientes de validar con tejedoras: `aum3`, `ht`/`hd` (hebra trasera o delantera) y `saltar`.
 - Gráficos: el tipo y la inclinación de cada disminución, y el color del punto que resulta de ella, no se expresan en v1 (ADR 0005). `rowShapingColumns` marca la columna del punto que desaparece, no dónde se teje la disminución.
 - En plano y tubo, `dimensionsCm` usa `width × repeat.x` aunque haya máscara (ADR 0003); solo el círculo usa la vuelta más ancha.

@@ -27,6 +27,14 @@ function fullWritten(): Json {
   d.parts[0].rounds[0].note = "anillo\nbien apretado";
   d.parts[0].rounds[1].items = [{ type: "color", yarn: "B" }, { type: "stitch", stitch: "inc", count: 6, loop: "back" }];
   d.parts.push({ id: "p2", name: "Base", construction: "flat", start: { type: "chain", count: 6 }, startYarn: "A", rounds: [{ number: 1, items: [{ type: "stitch", stitch: "sc", count: 5 }], expected: 5 }] });
+  // v2: copias y ubicación (ADR 0011, sección 2), con los dos tipos de posición.
+  d.parts[1].copies = 2;
+  d.layout = {
+    placements: [
+      { target: { part: "bolita", copy: 0 }, at: { type: "free", positionCm: [0, 0, 0], rotationDeg: [0, 90, 0] } },
+      { target: { part: "p2", copy: 1 }, at: { type: "surface", host: { part: "bolita", copy: 0 }, round: 5, stitch: 3, attach: "end", rotationDeg: [0, 0, 45], offsetCm: -0.2 } },
+    ],
+  };
   return d;
 }
 
@@ -66,6 +74,12 @@ describe("E16: documento cerrado", () => {
     ["parts[0].rounds[1].items[1]", fullWritten, (d) => d.parts[0].rounds[1].items[1]],
     ["parts[0].rounds[2].items[0]", fullWritten, (d) => d.parts[0].rounds[2].items[0]],
     ["parts[0].rounds[2].items[0].items[0]", fullWritten, (d) => d.parts[0].rounds[2].items[0].items[0]],
+    ["layout", fullWritten, (d) => d.layout],
+    ["layout.placements[0]", fullWritten, (d) => d.layout.placements[0]],
+    ["layout.placements[0].target", fullWritten, (d) => d.layout.placements[0].target],
+    ["layout.placements[0].at", fullWritten, (d) => d.layout.placements[0].at],
+    ["layout.placements[1].at", fullWritten, (d) => d.layout.placements[1].at],
+    ["layout.placements[1].at.host", fullWritten, (d) => d.layout.placements[1].at.host],
   ];
 
   for (const [path, base, at] of slots) {
@@ -96,6 +110,22 @@ describe("E16: documento cerrado", () => {
     const item = fullWritten();
     item.parts[0].rounds[0].items[0].times = 2; // `times` es de grupo, no de punto
     assert.deepEqual(errorsOf(item, "UNKNOWN_KEY").map((i) => i.path), ["parts[0].rounds[0].items[0].times"]);
+  });
+
+  it("stuffing no es parte de la v2 (enmienda C-13): UNKNOWN_KEY", () => {
+    const d = fullWritten();
+    d.parts[0].stuffing = "firm";
+    assert.deepEqual(errorsOf(d, "UNKNOWN_KEY").map((i) => i.path), ["parts[0].stuffing"]);
+    assert.equal(validatePattern(d).savable, false);
+  });
+
+  it("layout no vale en un gráfico; offsetCm no vale en una posición libre", () => {
+    const c = fullChart();
+    c.layout = { placements: [] };
+    assert.deepEqual(errorsOf(c, "UNKNOWN_KEY").map((i) => i.path), ["layout"]);
+    const w = fullWritten();
+    w.layout.placements[0].at.offsetCm = 1;
+    assert.deepEqual(errorsOf(w, "UNKNOWN_KEY").map((i) => i.path), ["layout.placements[0].at.offsetCm"]);
   });
 
   it("__proto__, constructor y toString como claves propias (JSON.parse) también son desconocidas", () => {
@@ -198,7 +228,7 @@ describe("E16: caracteres de control y sustitutos sueltos", () => {
 
 const ALLOWED: Record<string, readonly string[]> = {
   chartRoot: ["schemaVersion", "id", "title", "technique", "yarns", "gauge", "origin", "notes", "kind", "chart"],
-  writtenRoot: ["schemaVersion", "id", "title", "technique", "yarns", "gauge", "origin", "notes", "kind", "parts", "assembly"],
+  writtenRoot: ["schemaVersion", "id", "title", "technique", "yarns", "gauge", "origin", "notes", "kind", "parts", "assembly", "layout"],
   chart: ["width", "height", "cells", "repeat", "workedIn", "renderAs", "direction"],
   repeat: ["x", "y"],
   gauge: ["stitchesPer10cm", "rowsPer10cm"],
@@ -206,8 +236,13 @@ const ALLOWED: Record<string, readonly string[]> = {
   yarn: ["id", "weight", "composition", "color", "note"],
   color: ["hex", "paletteId"],
   fiber: ["fiber", "percent"],
-  part: ["id", "name", "construction", "start", "startYarn", "rounds", "finish"],
+  part: ["id", "name", "construction", "start", "startYarn", "rounds", "finish", "copies"],
   round: ["number", "through", "items", "expected", "note"],
+  layout: ["placements"],
+  placement: ["target", "at"],
+  partRef: ["part", "copy"],
+  freeAt: ["type", "positionCm", "rotationDeg"],
+  surfaceAt: ["type", "host", "round", "stitch", "attach", "rotationDeg", "offsetCm"],
 };
 
 /** Claves de más según el modelo, recorriendo un documento `savable` (ya se sabe su forma). */
@@ -236,6 +271,15 @@ function unknownKeys(d: Json): string[] {
       if (it.type === "group") items(it.items);
     }
   };
+  if (d.kind === "written" && d.layout) {
+    check(d.layout, ALLOWED.layout!, "layout");
+    for (const pl of d.layout.placements ?? []) {
+      check(pl, ALLOWED.placement!, "placement");
+      check(pl.target, ALLOWED.partRef!, "partRef");
+      check(pl.at, pl.at?.type === "free" ? ALLOWED.freeAt! : ALLOWED.surfaceAt!, "at");
+      if (pl.at?.type === "surface") check(pl.at.host, ALLOWED.partRef!, "partRef");
+    }
+  }
   for (const p of d.parts ?? []) {
     check(p, ALLOWED.part!, "part");
     check(p.start, p.start?.type === "chain" ? ["type", "count"] : ["type"], "start");
@@ -265,7 +309,7 @@ function forbiddenTexts(v: unknown, multilineOk: boolean, out: string[] = [], pa
 }
 
 const CHARS = ["a", "Z", " ", "ñ", "🧶", "\n", "\t", "\r", "\u0000", "\u0001", "\u001f", "\u007f", "\u0085", "\u009f", " ", "\ud83d", "\ude00", "�"];
-const KEYS = ["brand", "__proto__", "constructor", "toString", "hex", "type", "items", "count", "note", "id", "k\u0000", "x".repeat(60), "chart", "parts", "times", ""];
+const KEYS = ["brand", "__proto__", "constructor", "toString", "hex", "type", "items", "count", "note", "id", "k\u0000", "x".repeat(60), "chart", "parts", "times", "", "stuffing", "layout", "copies", "offsetCm"];
 
 function genString(r: Rng): string {
   const n = r.int(0, 6);

@@ -1,4 +1,4 @@
-import type { ChartPattern, Part, WrittenPattern, Yarn } from "../../src/index.ts";
+import { SCHEMA_VERSION, type ChartPattern, type Part, type WrittenPattern, type Yarn } from "../../src/index.ts";
 
 export const yarnA: Yarn = { id: "A", weight: 3, composition: [{ fiber: "algodon", percent: 100 }], color: { hex: "#E9DDBE", paletteId: "crudo" } };
 export const yarnB: Yarn = { id: "B", weight: 3, composition: [{ fiber: "algodon", percent: 100 }], color: { hex: "#BA222C", paletteId: "rojo" } };
@@ -47,7 +47,7 @@ export function ballPart(): Part {
 
 export function ballPattern(): WrittenPattern {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p-bolita",
     title: "Bolita",
     technique: "crochet",
@@ -66,7 +66,7 @@ export function ballPattern(): WrittenPattern {
  */
 export function smallChart(): ChartPattern {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p-gorro",
     title: "Copa",
     technique: "knit",

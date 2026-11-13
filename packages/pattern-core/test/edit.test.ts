@@ -18,6 +18,7 @@ import {
   type Chart,
   type ChartPattern,
   type NewChartInput,
+  SCHEMA_VERSION,
 } from "../src/index.ts";
 import { smallChart, yarnA, yarnB, yarnC } from "./support/fixtures.ts";
 
@@ -256,7 +257,7 @@ describe("newChartPattern", () => {
 
   it("crea un documento válido, todo en la lana de fondo y de origen manual", () => {
     const p = newChartPattern(frozen(input()));
-    assert.equal(p.schemaVersion, 1);
+    assert.equal(p.schemaVersion, SCHEMA_VERSION);
     assert.equal(p.kind, "chart");
     assert.equal(p.technique, "knit");
     assert.deepEqual(p.origin, { kind: "manual" });

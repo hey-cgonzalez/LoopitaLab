@@ -12,6 +12,7 @@ import {
   validatePattern,
   type ChartPattern,
   type Yarn,
+  SCHEMA_VERSION,
 } from "@loopitalab/pattern-core";
 import { CHART_SVG_MAX_CELLS, chartToSvg, describeChart, type ChartSvgOptions } from "../src/index.ts";
 import { formatInt } from "../src/xml.ts";
@@ -37,7 +38,7 @@ function genPattern(r: Rng): ChartPattern {
   const cells = Array.from({ length: width * height }, () => (r.bool(maskP) ? NO_STITCH : r.int(0, nYarns - 1)));
   const big = r.bool(0.05);
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: r.pick(["p", `id"<>&`]),
     title: r.pick(NASTY),
     technique: r.pick(["knit", "crochet"] as const),

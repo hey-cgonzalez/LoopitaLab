@@ -3,7 +3,11 @@
  * vistas (gráfico, texto, render, 3D, modo tejiendo, PDF) se derivan de aquí.
  */
 
-export const SCHEMA_VERSION = 1 as const;
+/**
+ * Versión del esquema (ADR 0011, sección 1). La v2 agrega `WrittenPattern.layout` y
+ * `Part.copies`; todo lo demás es igual a la v1. `migratePattern` sube los v1.
+ */
+export const SCHEMA_VERSION = 2 as const;
 
 export type Technique = "knit" | "crochet";
 
@@ -147,12 +151,68 @@ export interface Part {
   rounds: Round[];
   /** Instrucción de cierre o relleno ("rellenar y cerrar"). */
   finish?: string;
+  /**
+   * Cuántas veces se teje la parte (v2). Omitido = 1. Todas las copias son idénticas:
+   * sin variantes ni espejo (ADR 0011, sección 2). Entero de 1 a `LIMITS.maxCopies`.
+   * Sin `stuffing` en la v2 (enmienda C-13): esa clave es `UNKNOWN_KEY`.
+   */
+  copies?: number;
+}
+
+// ------------------------------------------------- Posición de las partes (v2)
+
+/** Vector en cm o en grados (ángulos de Euler XYZ). */
+export type Vec3 = [number, number, number];
+
+/** Una copia concreta de una parte. `copy` va de 0 a `copies − 1`. */
+export interface PartRef {
+  /** `Part.id`. */
+  part: string;
+  copy: number;
+}
+
+/** Pieza principal o suelta: posición y rotación en el mundo (cm y grados, ángulos de Euler XYZ). */
+export interface FreeAt {
+  type: "free";
+  /** Cada componente entre −`LIMITS.maxPositionCm` y `LIMITS.maxPositionCm`. */
+  positionCm: Vec3;
+  /** Cada componente entre −180 y 180. */
+  rotationDeg: Vec3;
+}
+
+/** Pieza cosida a otra: punto de la superficie del anfitrión. */
+export interface SurfaceAt {
+  type: "surface";
+  host: PartRef;
+  /** Número de vuelta visible del anfitrión (como en el texto: V10 es 10). En hileras, la fila. */
+  round: number;
+  /** Punto dentro de esa vuelta, 0-based desde el inicio de la vuelta. */
+  stitch: number;
+  /** Qué extremo de la parte se cose: "end" (última vuelta abierta) o "start" (el centro del inicio). */
+  attach: "end" | "start";
+  /** Giro en el marco local del ancla (normal, tangente a la vuelta, meridiano), en grados (−180 a 180). */
+  rotationDeg: Vec3;
+  /** Separación sobre la normal en cm; negativa, la pieza se hunde un poco. Omitido = 0. Hasta ±`LIMITS.maxOffsetCm`. */
+  offsetCm?: number;
+}
+
+export interface Placement {
+  target: PartRef;
+  at: FreeAt | SurfaceAt;
+}
+
+/** Ubicación de las piezas (ADR 0011, sección 2). No guarda medidas derivadas. */
+export interface Layout {
+  /** Una entrada por copia ubicada. Las copias sin entrada se ubican de forma automática (ADR 0010, sección 4). */
+  placements: Placement[];
 }
 
 export interface WrittenPattern extends PatternBase {
   kind: "written";
   parts: Part[];
   assembly?: string[];
+  /** Posición de las piezas (v2). Separada de `parts`: mover una pieza no toca el tejido. */
+  layout?: Layout;
 }
 
 export type Pattern = ChartPattern | WrittenPattern;

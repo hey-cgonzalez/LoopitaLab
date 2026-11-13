@@ -37,6 +37,7 @@ import {
   type Chart,
   type ChartPattern,
   type Yarn,
+  SCHEMA_VERSION,
 } from "../src/index.ts";
 import { yarnA, yarnB, yarnC } from "./support/fixtures.ts";
 import { forAll, type Rng } from "./support/property.ts";
@@ -52,7 +53,7 @@ function genPattern(r: Rng): ChartPattern {
   const cells = Array.from({ length: width * height }, () => (r.bool(maskP) ? NO_STITCH : r.int(0, nYarns - 1)));
   if (!cells.some((v) => v !== NO_STITCH)) cells[r.int(0, cells.length - 1)] = 0;
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p",
     title: "Prueba",
     technique: r.pick(["knit", "crochet"] as const),

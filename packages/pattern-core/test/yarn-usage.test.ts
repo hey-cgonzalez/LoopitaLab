@@ -5,7 +5,7 @@
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { NO_STITCH, fullRow, rowStitchCount, stitchTotal, validatePattern, yarnTotals, yarnUsage, type Chart, type ChartPattern } from "../src/index.ts";
+import { NO_STITCH, SCHEMA_VERSION, fullRow, rowStitchCount, stitchTotal, validatePattern, yarnTotals, yarnUsage, type Chart, type ChartPattern } from "../src/index.ts";
 import { yarnA, yarnB, yarnC } from "./support/fixtures.ts";
 import { forAll, type Rng } from "./support/property.ts";
 
@@ -265,7 +265,7 @@ describe("yarnUsage: propiedades", () => {
         if (mode === 0) c.cells.fill(NO_STITCH);
         else if (mode === 1) for (let x = 0; x < c.width; x++) c.cells[r.int(0, c.height - 1) * c.width + x] = NO_STITCH;
         return {
-          schemaVersion: 1,
+          schemaVersion: SCHEMA_VERSION,
           id: "p",
           title: "Prueba",
           technique: "knit",

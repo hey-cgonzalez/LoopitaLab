@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
-import { newChartPattern, validatePattern, type ChartPattern, type NewChartInput } from "@loopitalab/pattern-core";
+import { SCHEMA_VERSION, newChartPattern, validatePattern, type ChartPattern, type NewChartInput } from "@loopitalab/pattern-core";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CONSISTENCY_RULES, DOCUMENT_TEXT_MAX, createFakeDb, instantMicros, jsonbTextBytes, stamp, type Row } from "./support/patterns-db.ts";
 import { USER } from "./support/supabase-mock.ts";
@@ -100,20 +100,20 @@ describe("el doble en memoria refleja la migración", () => {
       ["título que no es texto", { ...base(), title: 123 }],
       ["kind distinto", { ...base(), kind: "written" }],
       ["technique distinta", { ...base(), technique: "crochet" }],
-      ["schemaVersion distinta", { ...base(), schemaVersion: 2 }],
+      ["schemaVersion distinta", { ...base(), schemaVersion: SCHEMA_VERSION + 1 }],
       ["origen del documento distinto de la columna", { ...base(), origin: { kind: "ai_edited" } }],
       ["yarns que no es arreglo", { ...base(), yarns: { A: { note: "secreto" } } }],
     ];
     for (const [name, document] of cases) {
       it(name, async () => {
-        const r = await insertRow({ id: ID, title: "Gorro", schema_version: 1, document, technique: "knit", kind: "chart", origin: "manual" });
+        const r = await insertRow({ id: ID, title: "Gorro", schema_version: SCHEMA_VERSION, document, technique: "knit", kind: "chart", origin: "manual" });
         expect(r.error?.code).toBe("23514");
         expect(db.rows).toEqual([]);
       });
     }
 
     it("el documento válido sí entra (control)", async () => {
-      const r = await insertRow({ id: ID, title: "Gorro", schema_version: 1, document: base() });
+      const r = await insertRow({ id: ID, title: "Gorro", schema_version: SCHEMA_VERSION, document: base() });
       expect(r.error).toBeNull();
     });
 
@@ -121,7 +121,7 @@ describe("el doble en memoria refleja la migración", () => {
       const document = { ...base(), extra: Array(350_000).fill(0) };
       expect(Buffer.byteLength(JSON.stringify(document))).toBeLessThan(DOCUMENT_TEXT_MAX);
       expect(jsonbTextBytes(document)).toBeGreaterThan(DOCUMENT_TEXT_MAX);
-      const r = await insertRow({ id: ID, title: "Gorro", schema_version: 1, document });
+      const r = await insertRow({ id: ID, title: "Gorro", schema_version: SCHEMA_VERSION, document });
       expect(r.error?.code).toBe("23514");
     });
   });

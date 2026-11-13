@@ -13,10 +13,11 @@ import {
   type Gauge,
   type Issue,
   type Item,
+  type Part,
   type Pattern,
+  type Round,
   type Severity,
   type WeightCategory,
-  type WrittenPattern,
 } from "./types.ts";
 import { countRound, startAvailable } from "./written.ts";
 
@@ -63,8 +64,19 @@ export interface ValidationResult {
  * Errores de tejido: el documento es sano y se puede guardar como borrador, pero no
  * tejer, publicar, exportar ni aceptar de la IA (ADR 0003, E10). Lista cerrada: todo
  * código de error que no esté aquí es estructural y bloquea guardar.
+ * - Gráfico: `CHART_EMPTY` y `CHART_ROW_EMPTY_FULL`.
+ * - Patrón escrito (ADR 0011, sección 4): los errores de conteo y de numeración de vueltas.
+ *   Una vuelta a medio escribir que no cuadra se guarda como borrador y se ve en 3D.
  */
-export const DRAFT_ERROR_CODES: readonly string[] = Object.freeze(["CHART_EMPTY", "CHART_ROW_EMPTY_FULL"]);
+export const DRAFT_ERROR_CODES: readonly string[] = Object.freeze([
+  "CHART_EMPTY",
+  "CHART_ROW_EMPTY_FULL",
+  "ROUND_CONSUMPTION_MISMATCH",
+  "ROUND_COUNT_MISMATCH",
+  "ROUND_ZERO",
+  "ROUND_RANGE_CHANGES",
+  "ROUND_NUMBERING",
+]);
 
 /** true si el problema es un error de tejido (severidad "error" y código en `DRAFT_ERROR_CODES`). */
 export function isDraftError(issue: Issue): boolean {
@@ -143,14 +155,14 @@ function checkChars(v: string, path: string, what: string, multiline: boolean, c
 }
 
 /*
- * Documento cerrado (ADR 0003, E16): cada objeto del esquema v1 solo admite sus claves,
+ * Documento cerrado (ADR 0003, E16): cada objeto del esquema (v2) solo admite sus claves,
  * incluidas las opcionales. Una clave desconocida es error estructural UNKNOWN_KEY con
  * su ruta. Una versión futura del esquema que agregue campos los declara aquí.
  */
 const KEYS_BASE = ["schemaVersion", "id", "title", "technique", "yarns", "gauge", "origin", "notes", "kind"] as const;
 const SCHEMA_KEYS = Object.freeze({
   chartPattern: Object.freeze([...KEYS_BASE, "chart"]),
-  writtenPattern: Object.freeze([...KEYS_BASE, "parts", "assembly"]),
+  writtenPattern: Object.freeze([...KEYS_BASE, "parts", "assembly", "layout"]),
   chart: Object.freeze(["width", "height", "cells", "repeat", "workedIn", "renderAs", "direction"]),
   repeat: Object.freeze(["x", "y"]),
   gauge: Object.freeze(["stitchesPer10cm", "rowsPer10cm"]),
@@ -158,13 +170,20 @@ const SCHEMA_KEYS = Object.freeze({
   yarn: Object.freeze(["id", "weight", "composition", "color", "note"]),
   yarnColor: Object.freeze(["hex", "paletteId"]),
   fiberShare: Object.freeze(["fiber", "percent"]),
-  part: Object.freeze(["id", "name", "construction", "start", "startYarn", "rounds", "finish"]),
+  // Sin `stuffing` en la v2 (ADR 0011, enmienda C-13): esa clave es UNKNOWN_KEY.
+  part: Object.freeze(["id", "name", "construction", "start", "startYarn", "rounds", "finish", "copies"]),
   startMagicRing: Object.freeze(["type"]),
   startChain: Object.freeze(["type", "count"]),
   round: Object.freeze(["number", "through", "items", "expected", "note"]),
   stitchItem: Object.freeze(["type", "stitch", "count", "loop"]),
   groupItem: Object.freeze(["type", "items", "times"]),
   colorItem: Object.freeze(["type", "yarn"]),
+  // v2: posición de las partes (ADR 0011, secciones 2 y 3).
+  layout: Object.freeze(["placements"]),
+  placement: Object.freeze(["target", "at"]),
+  partRef: Object.freeze(["part", "copy"]),
+  freeAt: Object.freeze(["type", "positionCm", "rotationDeg"]),
+  surfaceAt: Object.freeze(["type", "host", "round", "stitch", "attach", "rotationDeg", "offsetCm"]),
 } as const satisfies Record<string, readonly string[]>);
 
 /** Tope de avisos UNKNOWN_KEY por documento: un objeto con miles de claves no llena la lista. */
@@ -232,7 +251,7 @@ function validateInto(input: unknown, c: Collector, opts: ValidateOptions): void
     return;
   }
   // Con un `kind` desconocido (ya es error KIND) se aceptan las claves de los dos tipos.
-  const rootKeys = input.kind === "chart" ? SCHEMA_KEYS.chartPattern : input.kind === "written" ? SCHEMA_KEYS.writtenPattern : [...SCHEMA_KEYS.chartPattern, "parts", "assembly"];
+  const rootKeys = input.kind === "chart" ? SCHEMA_KEYS.chartPattern : input.kind === "written" ? SCHEMA_KEYS.writtenPattern : [...SCHEMA_KEYS.chartPattern, "parts", "assembly", "layout"];
   checkKeys(input, rootKeys, "", c);
   if (input.schemaVersion !== SCHEMA_VERSION) {
     c.error("SCHEMA_VERSION", "schemaVersion", `Versión de esquema no soportada (se esperaba ${SCHEMA_VERSION}).`, { found: input.schemaVersion });
@@ -256,7 +275,10 @@ function validateInto(input: unknown, c: Collector, opts: ValidateOptions): void
   const yarnIds = validateYarns(input.yarns, c, opts);
 
   if (input.kind === "chart") validateChart(input, yarnIds, c, opts);
-  else if (input.kind === "written") validateWritten(input, yarnIds, c);
+  else if (input.kind === "written") {
+    const parts = validateWritten(input, yarnIds, c);
+    if (input.layout !== undefined) validateLayout(input.layout, parts, c);
+  }
   else c.error("KIND", "kind", 'El tipo de patrón debe ser "chart" (gráfico) o "written" (escrito).');
 }
 
@@ -729,8 +751,47 @@ function mixedWeights(yarns: unknown, c: Collector) {
 const partRowWord = (construction: unknown) => (construction === "flat" ? "fila" : "vuelta");
 /** "1 punto", "3 puntos": la palabra en singular o plural (las de este archivo forman el plural con "s"). */
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
+/** "1 vez", "3 veces". */
+const times = (n: number) => (n === 1 ? "1 vez" : `${n} veces`);
 
-function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
+/*
+ * Pistas de los desajustes de conteo (ADR 0011, sección 4; enmiendas C-9 y C-10). Van al
+ * final del mensaje y, con su nombre, en `data.hints`, para que la interfaz las muestre
+ * aparte si quiere. Textos provisionales: los redacta `documentador`. // validar con tejedora
+ */
+const HINTS = {
+  /** V1 sobre una cadeneta en aro (espiral o vueltas cerradas), F4-3 y F4-4. */
+  ring: "Si trabajas dentro del aro, la cantidad de la primera vuelta es libre.",
+  /** Vueltas cerradas e hileras con 1 o 2 puntos de diferencia, F4-11 y F4-12. */
+  join: "¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan.",
+  /** Hileras: la cadeneta para girar puede contar como punto (F4-6). */
+  turning_chain: "Revisa si la cadeneta para girar cuenta como punto.",
+} as const;
+type Hint = keyof typeof HINTS;
+const withHints = (message: string, hints: Hint[]) => (hints.length === 0 ? message : `${message} ${hints.map((h) => HINTS[h]).join(" ")}`);
+/** Diferencia que puede venir de escribir la cadeneta de subida o el pd de unión como ítems. */
+const joinSized = (diff: number) => diff !== 0 && Math.abs(diff) <= 2;
+
+/** Umbral de MAGIC_RING_UNUSUAL (F4-2, enmienda C-20). Provisional. // validar con tejedora */
+const MAGIC_RING_USUAL = Object.freeze({ min: 3, max: 12 });
+
+/** Lo que el validador de `layout` necesita saber de cada parte (por su `id`). */
+interface PartInfo {
+  name: string;
+  /** "vuelta" o "fila". */
+  word: string;
+  /** Veces que se teje; `null` si `copies` no es válido (ya es PART_COPIES). */
+  copies: number | null;
+  /** Conteo producido por número de vuelta concreta; `null` si la parte no llegó a contarse. */
+  produced: Map<number, number> | null;
+}
+
+/**
+ * Valida las partes. Devuelve lo que sabe de cada parte con identificador válido (para
+ * `layout`), o `null` si la lista de partes no se pudo recorrer (no es una lista o supera
+ * `LIMITS.maxParts`).
+ */
+function validateWritten(input: Rec, yarnIds: string[], c: Collector): Map<string, PartInfo> | null {
   if (input.technique !== "crochet") {
     c.error("WRITTEN_TECHNIQUE", "technique", "En esta versión los patrones escritos son solo de crochet; el palillo se diseña con gráfico.");
   }
@@ -738,15 +799,16 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
   const parts = input.parts;
   if (!Array.isArray(parts) || parts.length === 0) {
     c.error("PARTS_EMPTY", "parts", "El patrón necesita al menos una parte.");
-    return;
+    return Array.isArray(parts) ? new Map() : null;
   }
   if (parts.length > LIMITS.maxParts) {
     c.error("LIMIT", "parts", `Máximo ${LIMITS.maxParts} partes.`);
-    return;
+    return null;
   }
   const yarnSet = new Set(yarnIds);
   const usedYarns = new Set<string>();
   const partIds = new Set<string>();
+  const infos = new Map<string, PartInfo>();
 
   parts.forEach((part: unknown, pi: number) => {
     const pp = `parts[${pi}]`;
@@ -765,10 +827,23 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
     else nameOk = checkText(part.name, `${pp}.name`, `El nombre de la parte ${pi + 1}`, LIMITS.maxPartNameLength, c);
     const pname = nameOk ? (part.name as string) : fallback;
 
+    // Veces que se teje (v2). Omitido = 1.
+    let copies: number | null = 1;
+    if (part.copies !== undefined) {
+      if (!isInt(part.copies) || part.copies < 1 || part.copies > LIMITS.maxCopies) {
+        c.error("PART_COPIES", `${pp}.copies`, `${pname}: la cantidad de veces que se teje debe ser un entero entre 1 y ${LIMITS.maxCopies}.`, { max: LIMITS.maxCopies });
+        copies = null;
+      } else copies = part.copies;
+    }
+    const info: PartInfo = { name: pname, word: partRowWord(part.construction), copies, produced: null };
+
     if (!isStr(part.id) || part.id === "") c.error("PART_ID", `${pp}.id`, `${pname} no tiene identificador.`);
     else if (checkText(part.id, `${pp}.id`, `El identificador de ${pname}`, LIMITS.maxIdLength, c)) {
       if (partIds.has(part.id)) c.error("PART_DUPLICATE_ID", `${pp}.id`, `El identificador de parte "${clip(part.id)}" está repetido.`);
-      else partIds.add(part.id);
+      else {
+        partIds.add(part.id);
+        infos.set(part.id, info);
+      }
     }
 
     if (part.finish !== undefined) checkText(part.finish, `${pp}.finish`, `El cierre de ${pname}`, LIMITS.maxFinishLength, c, true);
@@ -778,6 +853,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       return;
     }
     const word = partRowWord(part.construction);
+    const flat = part.construction === "flat";
     const start = part.start;
     if (isRec(start) && (start.type === "magic_ring" || start.type === "chain")) {
       checkKeys(start, start.type === "chain" ? SCHEMA_KEYS.startChain : SCHEMA_KEYS.startMagicRing, `${pp}.start`, c);
@@ -786,9 +862,17 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       c.error("PART_START", `${pp}.start`, `${pname}: indica cómo empieza (anillo mágico o cadeneta).`);
       return;
     }
-    if (start.type === "chain" && (!isInt(start.count) || start.count < (part.construction === "flat" ? 2 : 1))) {
+    if (start.type === "chain" && (!isInt(start.count) || start.count < (flat ? 2 : 1))) {
       c.error("PART_START", `${pp}.start.count`, `${pname}: la cadeneta inicial necesita una cantidad válida.`);
       return;
+    }
+    // Ajustes de T1 (ADR 0011, sección 4; enmiendas C-9 y C-19). No cambian `valid` ni `savable`.
+    if (start.type === "chain" && !flat && start.count === 1) {
+      // Advertencia y no error: un v1 con `cad 1` en espiral sigue siendo válido (M1). // validar con tejedora
+      c.warn("PART_START_RING_SHORT", `${pp}.start.count`, `${pname}: una cadeneta en aro necesita al menos 2 cadenetas; con 1 no se forma el aro. Usa un anillo mágico o más cadenetas.`, { count: 1, min: 2 });
+    }
+    if (start.type === "magic_ring" && flat) {
+      c.info("PART_START_FLAT_RING", `${pp}.start`, `${pname}: las filas suelen empezar con una cadeneta base, no con un anillo mágico. La vista de la pieza no dibuja el anillo.`);
     }
     if (!isStr(part.startYarn) || part.startYarn === "") {
       c.error("PART_START_YARN", `${pp}.startYarn`, `${pname}: falta indicar con qué lana empieza.`);
@@ -824,15 +908,23 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
         structureOk = false;
         return;
       }
-      if (r.number < 1) {
-        c.error("ROUND_NUMBERING", `${rp}.number`, `${pname}: las ${word}s se numeran desde 1 (la ${word} ${ri + 1} dice ${r.number}).`, { expected: expectedNext, found: r.number });
-        structureOk = false;
-        return;
-      }
       if (r.number > maxR) {
         c.error("LIMIT", `${rp}.number`, `${pname}: máximo ${maxR} ${word}s (la ${word} ${ri + 1} se numera más allá).`, { max: maxR });
         structureOk = false;
         return;
+      }
+      // Numeración (error de tejido desde la v2, ADR 0011, sección 4). Con un número entre
+      // −maxR y 0 la vuelta se sigue revisando y contando: el conteo termina igual. Más abajo
+      // es además LIMIT (estructural): `n++` no avanza desde −1e308 y el conteo no terminaría.
+      if (r.number < 1) {
+        c.error("ROUND_NUMBERING", `${rp}.number`, `${pname}: las ${word}s se numeran desde 1 (la ${word} ${ri + 1} dice ${r.number}).`, { expected: expectedNext, found: r.number });
+        if (r.number < -maxR) {
+          c.error("LIMIT", `${rp}.number`, `${pname}: el número de la ${word} ${ri + 1} está fuera de rango.`, { min: -maxR });
+          structureOk = false;
+          return;
+        }
+      } else if (r.number !== expectedNext) {
+        c.error("ROUND_NUMBERING", `${rp}.number`, `${pname}: se esperaba la ${word} ${expectedNext} y aparece la ${r.number}.`, { expected: expectedNext, found: r.number });
       }
       const label = `${pname}, ${word} ${r.number}`;
       // La nota no entra en los conteos: un error suyo no detiene la revisión de la vuelta.
@@ -848,9 +940,6 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
         return;
       }
       concrete += ((r.through as number | undefined) ?? r.number) - r.number + 1;
-      if (r.number !== expectedNext) {
-        c.error("ROUND_NUMBERING", `${rp}.number`, `${pname}: se esperaba la ${word} ${expectedNext} y aparece la ${r.number}.`, { expected: expectedNext, found: r.number });
-      }
       expectedNext = ((r.through as number | undefined) ?? r.number) + 1;
       if (r.expected !== undefined && (!isInt(r.expected) || r.expected < 0)) {
         c.error("ROUND_EXPECTED", `${rp}.expected`, `${label}: el conteo declarado no es válido.`);
@@ -860,7 +949,21 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
         structureOk = false;
         return;
       }
-      if (!checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, 1)) structureOk = false;
+      if (!checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, 1)) {
+        structureOk = false;
+        return;
+      }
+      // Tope de puntos por vuelta (estructural): lo que deja y lo que trabaja. Se revisa aquí,
+      // y no al contar, para que un error de tejido (la numeración) nunca lo salte. El tope de
+      // lo que trabaja acota `expandRound` (una vuelta de `saltar` desmedida no deja puntos).
+      const count = countRound(r as unknown as Round, "");
+      if (count.produced > LIMITS.maxRoundStitches) {
+        c.error("LIMIT", rp, `${label}: demasiados puntos (${count.produced}).`, { produced: count.produced, max: LIMITS.maxRoundStitches });
+        structureOk = false;
+      } else if (count.consumed > LIMITS.maxRoundStitches) {
+        c.error("LIMIT", rp, `${label}: se trabaja sobre demasiados puntos (${count.consumed}).`, { consumed: count.consumed, max: LIMITS.maxRoundStitches });
+        structureOk = false;
+      }
     });
     if (structureOk && concrete > maxR) {
       // Vueltas que se pisan (por ejemplo, varias "V1–1000"): ya hay ROUND_NUMBERING, pero el conteo igual se acota.
@@ -870,9 +973,12 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
     if (!structureOk) return;
 
     // 2) Conteos: cada vuelta consume lo que dejó la anterior.
-    const typed = part as unknown as WrittenPattern["parts"][number];
+    const typed = part as unknown as Part;
+    const ringStart = typed.start.type === "chain" && !flat;
     const missingExpected: number[] = [];
+    const produced = new Map<number, number>();
     let prevProduced = startAvailable(typed);
+    let prevNumber: number | null = null;
     let yarn = typed.startYarn;
     const lastRound = typed.rounds.at(-1);
     const finalNumber = lastRound ? (lastRound.through ?? lastRound.number) : 0;
@@ -883,31 +989,47 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
       for (let n = round.number; n <= last; n++) {
         const count = countRound(round, yarn);
         const label = `${pname}, ${word} ${n}`;
-        if (count.produced > LIMITS.maxRoundStitches) {
-          c.error("LIMIT", rp, `${label}: demasiados puntos (${count.produced}).`);
-          return;
-        }
+        const first = prevNumber === null;
         if (prevProduced !== null && count.consumed !== prevProduced && !rangeReported) {
           const diff = count.consumed - prevProduced;
-          const what = n === 1 && typed.start.type === "chain" ? "la cadeneta inicial deja" : `la ${word} ${n - 1} dejó`;
+          const what = first && typed.start.type === "chain" ? "la cadeneta inicial deja" : `la ${word} ${prevNumber ?? n - 1} dejó`;
           // En hileras, si la cadeneta para girar cuenta o no como punto depende del punto usado
-          // (en punto alto suele contar; en punto bajo no). Por eso ahí es advertencia, no error.
-          const flat = typed.construction === "flat";
+          // (en punto alto suele contar; en punto bajo no): ahí es advertencia. En la primera
+          // vuelta sobre una cadeneta en aro también (C-9): si se trabaja dentro del aro, la
+          // cantidad es libre. Desde la segunda vuelta, en espiral o cerradas, es error de tejido.
+          const ring = first && ringStart;
+          const hints: Hint[] = ring ? ["ring"] : [];
+          if (flat) hints.push("turning_chain");
+          if (!ring && typed.construction !== "spiral" && joinSized(diff)) hints.push("join");
           c.add(
-            flat ? "warning" : "error",
+            flat || ring ? "warning" : "error",
             "ROUND_CONSUMPTION_MISMATCH",
             rp,
-            `${label}: se trabaja sobre ${count.consumed} puntos, pero ${what} ${prevProduced}. ${diff > 0 ? `Sobra${diff === 1 ? "" : "n"} ${plural(diff, "punto")}` : `Falta${diff === -1 ? "" : "n"} ${plural(-diff, "punto")}`} en las instrucciones.${flat ? " Revisa si la cadeneta para girar cuenta como punto." : ""}`,
-            { round: n, consumed: count.consumed, available: prevProduced },
+            withHints(
+              `${label}: se trabaja sobre ${count.consumed} puntos, pero ${what} ${prevProduced}. ${diff > 0 ? `Sobra${diff === 1 ? "" : "n"} ${plural(diff, "punto")}` : `Falta${diff === -1 ? "" : "n"} ${plural(-diff, "punto")}`} en las instrucciones.`,
+              hints,
+            ),
+            hints.length > 0 ? { round: n, consumed: count.consumed, available: prevProduced, hints } : { round: n, consumed: count.consumed, available: prevProduced },
           );
         }
         // Un `expected` mal formado ya es ROUND_EXPECTED: no se compara (evita un mensaje con "[object Object]").
         if (isInt(round.expected) && round.expected >= 0 && count.produced !== round.expected && !rangeReported) {
+          const hints: Hint[] = typed.construction !== "spiral" && joinSized(count.produced - round.expected) ? ["join"] : [];
           c.error(
             "ROUND_COUNT_MISMATCH",
             rp,
-            `${label}: el patrón declara ${plural(round.expected, "punto")}, pero las instrucciones dan ${count.produced}.`,
-            { round: n, expected: round.expected, actual: count.produced },
+            withHints(`${label}: el patrón declara ${plural(round.expected, "punto")}, pero las instrucciones dan ${count.produced}.`, hints),
+            hints.length > 0 ? { round: n, expected: round.expected, actual: count.produced, hints } : { round: n, expected: round.expected, actual: count.produced },
+          );
+        }
+        // Primera vuelta sobre anillo mágico con pocos o muchos puntos (C-20). Nunca error.
+        if (first && typed.start.type === "magic_ring" && !flat && count.produced > 0 && (count.produced < MAGIC_RING_USUAL.min || count.produced > MAGIC_RING_USUAL.max)) {
+          // validar con tejedora
+          c.info(
+            "MAGIC_RING_UNUSUAL",
+            rp,
+            `${label}: empieza con ${plural(count.produced, "punto")} en el anillo mágico; lo habitual es de ${MAGIC_RING_USUAL.min} a ${MAGIC_RING_USUAL.max} (6 es lo más común).`,
+            { round: n, stitches: count.produced, min: MAGIC_RING_USUAL.min, max: MAGIC_RING_USUAL.max },
           );
         }
         if (round.expected === undefined && n === round.number) missingExpected.push(n);
@@ -917,17 +1039,22 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
         // Un rango repite la misma vuelta: solo cuadra si consume lo mismo que produce.
         // Se informa una vez y no se repiten los avisos de las vueltas siguientes del rango.
         if (n === round.number && last > round.number && count.consumed !== count.produced) {
+          const grows = count.produced > count.consumed;
           c.error(
             "ROUND_RANGE_CHANGES",
             rp,
-            `${pname}, ${word}s ${round.number}-${last}: un rango de ${word}s iguales debe mantener el conteo, pero cada ${word} pasa de ${count.consumed} a ${count.produced} puntos.`,
+            `${pname}, ${word}s ${round.number}-${last}: un rango de ${word}s iguales debe mantener el conteo, pero cada ${word} pasa de ${count.consumed} a ${count.produced} puntos. Si las ${word}s ${grows ? "aumentan" : "disminuyen"}, escribe cada ${word} por separado.`,
+            { from: count.consumed, to: count.produced },
           );
           rangeReported = true;
         }
+        produced.set(n, count.produced);
         prevProduced = count.produced;
+        prevNumber = n;
         yarn = count.endYarn;
       }
     });
+    info.produced = produced;
     if (missingExpected.length > 0) {
       const n = missingExpected.length;
       c.info(
@@ -942,6 +1069,241 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector) {
   yarnIds.forEach((id, i) => {
     if (id && !usedYarns.has(id)) c.info("YARN_UNUSED", `yarns[${i}]`, `${capitalize(yarnLabel(input.yarns, i))} no se usa en ninguna parte.`);
   });
+  return infos;
+}
+
+// ------------------------------------------------- Posición de las partes (v2)
+
+/** Tope de avisos por código dentro de `layout`: miles de ubicaciones malas no llenan la lista. */
+const MAX_LAYOUT_ISSUES_PER_CODE = 20;
+
+interface Ref {
+  part: string;
+  copy: number;
+}
+const refKey = (r: Ref) => `${r.copy}:${r.part}`;
+
+/**
+ * Valida `layout` (ADR 0011, sección 3). `parts` es lo que devolvió `validateWritten`; con
+ * `null` (la lista de partes no se pudo recorrer) solo se revisa la forma. Ciclo y
+ * profundidad se revisan en tiempo lineal, sin recursión.
+ */
+function validateLayout(layout: unknown, parts: Map<string, PartInfo> | null, c: Collector): void {
+  const counts = new Map<string, number>();
+  const emit = (severity: Severity, code: string, path: string, message: string, data?: Record<string, unknown>) => {
+    const n = (counts.get(code) ?? 0) + 1;
+    counts.set(code, n);
+    if (n <= MAX_LAYOUT_ISSUES_PER_CODE) c.add(severity, code, path, message, data);
+  };
+  if (!isRec(layout)) {
+    emit("error", "SHAPE", "layout", "La ubicación de las piezas debe ser un objeto.");
+    return;
+  }
+  checkKeys(layout, SCHEMA_KEYS.layout, "layout", c);
+  const list = layout.placements;
+  if (!Array.isArray(list)) {
+    emit("error", "SHAPE", "layout.placements", "La ubicación de las piezas debe ser una lista.");
+    return;
+  }
+  if (list.length > LIMITS.maxPlacements) {
+    emit("error", "LIMIT", "layout.placements", `Se pueden ubicar hasta ${LIMITS.maxPlacements.toLocaleString("es-CL")} piezas (hay ${list.length}).`, { length: list.length, max: LIMITS.maxPlacements });
+    return;
+  }
+
+  const label = (r: Ref) => {
+    const info = parts?.get(r.part);
+    if (!info) return `"${clip(r.part)}"`;
+    return info.copies !== null && info.copies > 1 ? `${info.name} (${r.copy + 1} de ${info.copies})` : info.name;
+  };
+
+  /** Lee una referencia `{ part, copy }`. Devuelve `null` si su forma no es válida (ya informado). */
+  const readRef = (v: unknown, path: string, what: string): Ref | null => {
+    if (!isRec(v)) {
+      emit("error", "SHAPE", path, `${what} debe indicar la parte y cuál de sus piezas.`);
+      return null;
+    }
+    checkKeys(v, SCHEMA_KEYS.partRef, path, c);
+    let ok = true;
+    if (!isStr(v.part) || v.part === "") {
+      emit("error", "SHAPE", `${path}.part`, `${what} no indica a qué parte se refiere.`);
+      ok = false;
+    } else if (!checkText(v.part, `${path}.part`, `${what}: el identificador de la parte`, LIMITS.maxIdLength, c)) ok = false;
+    if (typeof v.copy !== "number") {
+      emit("error", "SHAPE", `${path}.copy`, `${what} no indica cuál de las piezas es.`);
+      ok = false;
+    } else if (!Number.isInteger(v.copy)) {
+      emit("error", "LIMIT", `${path}.copy`, `${what}: el número de la pieza debe ser un entero.`);
+      ok = false;
+    }
+    return ok ? { part: v.part as string, copy: v.copy as number } : null;
+  };
+
+  /** Número acotado: tipo (SHAPE), entero y cota (LIMIT). */
+  const checkInt = (v: unknown, path: string, what: string, min: number, max: number): v is number => {
+    if (typeof v !== "number") {
+      emit("error", "SHAPE", path, `${what} debe ser un número.`);
+      return false;
+    }
+    if (!Number.isInteger(v) || v < min || v > max) {
+      emit("error", "LIMIT", path, `${what} debe ser un entero entre ${min} y ${max}.`, { min, max });
+      return false;
+    }
+    return true;
+  };
+  const checkVec3 = (v: unknown, path: string, what: string, max: number, unit: string) => {
+    if (!Array.isArray(v) || v.length !== 3 || v.some((x) => typeof x !== "number")) {
+      emit("error", "SHAPE", path, `${what} debe tener tres números (x, y, z).`);
+      return;
+    }
+    if (v.some((x: number) => !Number.isFinite(x) || Math.abs(x) > max)) {
+      emit("error", "LIMIT", path, `${what} debe estar entre −${max} y ${max} ${unit} en cada eje.`, { max });
+    }
+  };
+
+  /** Referencia que existe en el patrón (parte conocida y copia dentro de rango). */
+  const resolve = (r: Ref, path: string, unknownCode: string, unknownMessage: string): boolean => {
+    if (parts === null) return false;
+    const info = parts.get(r.part);
+    if (!info) {
+      emit("error", unknownCode, path, unknownMessage, { part: clip(r.part) });
+      return false;
+    }
+    if (info.copies === null) return false; // ya es PART_COPIES
+    if (r.copy < 0 || r.copy >= info.copies) {
+      emit("error", "LAYOUT_COPY_RANGE", `${path}.copy`, `La ubicación se refiere a una pieza de ${info.name} que no existe: ${info.name} se teje ${times(info.copies)}.`, {
+        part: clip(r.part),
+        copy: r.copy,
+        copies: info.copies,
+      });
+      return false;
+    }
+    return true;
+  };
+
+  const firstIndex = new Map<string, number>();
+  /** Anfitrión de cada pieza cosida (solo referencias válidas y la primera entrada de cada pieza). */
+  const hostOf = new Map<string, string>();
+  const refOf = new Map<string, Ref>();
+  const pathOf = new Map<string, string>();
+
+  list.forEach((pl: unknown, i: number) => {
+    const pp = `layout.placements[${i}]`;
+    if (!isRec(pl)) {
+      emit("error", "SHAPE", pp, `La ubicación ${i + 1} debe ser un objeto.`);
+      return;
+    }
+    checkKeys(pl, SCHEMA_KEYS.placement, pp, c);
+    const target = readRef(pl.target, `${pp}.target`, `La ubicación ${i + 1}`);
+    let targetOk = false;
+    let duplicate = false;
+    if (target) {
+      targetOk = resolve(target, `${pp}.target`, "LAYOUT_TARGET_UNKNOWN", `La ubicación ${i + 1} se refiere a una parte que no existe ("${clip(target.part)}").`);
+      const key = refKey(target);
+      const prev = firstIndex.get(key);
+      if (targetOk && prev !== undefined) {
+        duplicate = true;
+        emit("error", "LAYOUT_DUPLICATE", `${pp}.target`, `${label(target)} tiene dos ubicaciones (la ${prev + 1} y la ${i + 1}); deja solo una.`, { first: prev, index: i });
+      } else if (targetOk) firstIndex.set(key, i);
+    }
+
+    const at = pl.at;
+    if (!isRec(at) || (at.type !== "free" && at.type !== "surface")) {
+      emit("error", "SHAPE", `${pp}.at`, `La ubicación ${i + 1} debe indicar si la pieza va suelta (posición libre) o cosida a otra.`);
+      return;
+    }
+    if (at.type === "free") {
+      checkKeys(at, SCHEMA_KEYS.freeAt, `${pp}.at`, c);
+      checkVec3(at.positionCm, `${pp}.at.positionCm`, `La posición de la ubicación ${i + 1}`, LIMITS.maxPositionCm, "cm");
+      checkVec3(at.rotationDeg, `${pp}.at.rotationDeg`, `El giro de la ubicación ${i + 1}`, LIMITS.maxRotationDeg, "grados");
+      return;
+    }
+    checkKeys(at, SCHEMA_KEYS.surfaceAt, `${pp}.at`, c);
+    const host = readRef(at.host, `${pp}.at.host`, `El anfitrión de la ubicación ${i + 1}`);
+    const roundOk = checkInt(at.round, `${pp}.at.round`, `La vuelta de la ubicación ${i + 1}`, 1, LIMITS.maxRounds);
+    const stitchOk = checkInt(at.stitch, `${pp}.at.stitch`, `El punto de la ubicación ${i + 1}`, 0, LIMITS.maxRoundStitches - 1);
+    if (at.attach !== "end" && at.attach !== "start") {
+      emit("error", "SHAPE", `${pp}.at.attach`, `La ubicación ${i + 1} debe indicar qué extremo de la pieza se cose: el final ("end") o el centro del inicio ("start").`);
+    }
+    checkVec3(at.rotationDeg, `${pp}.at.rotationDeg`, `El giro de la ubicación ${i + 1}`, LIMITS.maxRotationDeg, "grados");
+    if (at.offsetCm !== undefined) {
+      if (typeof at.offsetCm !== "number") emit("error", "SHAPE", `${pp}.at.offsetCm`, `La separación de la ubicación ${i + 1} debe ser un número.`);
+      else if (!Number.isFinite(at.offsetCm) || Math.abs(at.offsetCm) > LIMITS.maxOffsetCm) {
+        emit("error", "LIMIT", `${pp}.at.offsetCm`, `La separación de la ubicación ${i + 1} debe estar entre −${LIMITS.maxOffsetCm} y ${LIMITS.maxOffsetCm} cm.`, { max: LIMITS.maxOffsetCm });
+      }
+    }
+    if (!host) return;
+    const who = target && targetOk ? label(target) : `La ubicación ${i + 1}`;
+    const hostOk = resolve(host, `${pp}.at.host`, "LAYOUT_HOST_UNKNOWN", `${who} se cose a una parte que no existe ("${clip(host.part)}").`);
+    if (!hostOk) return;
+
+    // El ancla ya no existe en el anfitrión (por ejemplo, después de borrar vueltas). Es
+    // advertencia: editar el anfitrión nunca impide guardar. El 3D acota y lo dice.
+    const hostInfo = parts?.get(host.part);
+    if (hostInfo?.produced && roundOk && stitchOk) {
+      const n = hostInfo.produced.get(at.round as number);
+      const hostLabel = label(host);
+      if (n === undefined) {
+        emit("warning", "LAYOUT_ANCHOR_RANGE", `${pp}.at.round`, `${who} está cosida a la ${hostInfo.word} ${at.round} de ${hostLabel}, que ya no existe; la vista 3D la acerca a la ${hostInfo.word} más cercana.`, {
+          round: at.round,
+          stitch: at.stitch,
+        });
+      } else if ((at.stitch as number) >= n) {
+        emit("warning", "LAYOUT_ANCHOR_RANGE", `${pp}.at.stitch`, `${who} está cosida al punto ${(at.stitch as number) + 1} de la ${hostInfo.word} ${at.round} de ${hostLabel}, que tiene ${plural(n, "punto")}; la vista 3D la acerca al último punto.`, {
+          round: at.round,
+          stitch: at.stitch,
+          stitches: n,
+        });
+      }
+    }
+    if (target && targetOk && !duplicate) {
+      const key = refKey(target);
+      hostOf.set(key, refKey(host));
+      refOf.set(key, target);
+      pathOf.set(key, `${pp}.at.host`);
+    }
+  });
+
+  // Ciclos y profundidad de las cadenas de anclas: cada pieza se visita una vez (lineal).
+  // depth = 0 en una pieza suelta o sin ubicar; 1 + depth(anfitrión) en una cosida. −1 si
+  // la cadena termina en un ciclo (se informa una vez, en el ciclo).
+  const max = LIMITS.maxLayoutDepth;
+  const depth = new Map<string, number>();
+  for (const startKey of hostOf.keys()) {
+    if (depth.has(startKey)) continue;
+    const path: string[] = [];
+    const onPath = new Map<string, number>();
+    let cur = startKey;
+    while (hostOf.has(cur) && !depth.has(cur) && !onPath.has(cur)) {
+      onPath.set(cur, path.length);
+      path.push(cur);
+      cur = hostOf.get(cur) as string;
+    }
+    let base: number;
+    let end = path.length;
+    if (depth.has(cur)) base = depth.get(cur) as number;
+    else if (onPath.has(cur)) {
+      const from = onPath.get(cur) as number;
+      const cycle = path.slice(from);
+      const refs = cycle.map((k) => refOf.get(k) as Ref);
+      const firstRef = refs[0] as Ref;
+      const message =
+        cycle.length === 1
+          ? `${label(firstRef)} está cosida a sí misma; cósela a otra pieza o déjala suelta.`
+          : `${refs.slice(0, 10).map(label).join(", ")}${refs.length > 10 ? "…" : ""} están cosidas entre sí en círculo; una de ellas tiene que ir suelta o cosida a otra pieza.`;
+      emit("error", "LAYOUT_CYCLE", pathOf.get(cycle[0] as string) as string, message, { length: cycle.length });
+      for (const k of cycle) depth.set(k, -1);
+      base = -1;
+      end = from;
+    } else base = 0; // anfitrión suelto o sin ubicar
+    for (let j = end - 1; j >= 0; j--) {
+      const k = path[j] as string;
+      base = base < 0 ? -1 : base + 1;
+      depth.set(k, base);
+      if (base === max + 1) {
+        emit("error", "LAYOUT_DEPTH", pathOf.get(k) as string, `${label(refOf.get(k) as Ref)} está al final de una cadena de más de ${max} piezas cosidas una a otra; cósela más cerca de la pieza principal.`, { max });
+      }
+    }
+  }
 }
 
 function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<string>, used: Set<string>, c: Collector, depth: number): boolean {
