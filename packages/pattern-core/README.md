@@ -17,6 +17,7 @@ La tabla lista todo lo que exporta `src/index.ts`.
 | `recommended.ts` | Límites recomendados de un patrón escrito (ADR 0011, sección 3b): `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage`, `recommendedLimitNotices`. Tipos `RecommendedLimit` y `LimitUsage`. No pasan por el validador |
 | `text.ts` | `parseRound`, `parsePart`, `formatRound`, `formatPart`. Tipos `ParseResult`, `ParsePartOptions` |
 | `letters.ts` | `yarnLetter(index)`: letra de la lana según su orden en el documento (A… Z y, desde la 27, AA, AB… como las columnas de una planilla). La usan el validador, el gráfico SVG, la cuadrícula del editor y el modo tejiendo |
+| `profile.ts` | Perfil de las partes de un patrón escrito (ADR 0010, secciones 1 y 2): `shapeMetrics`, `partProfile`, `partDimensions`, `roundHeightFactor`, `STITCH_HEIGHT_FACTOR`, `PROFILE_RADIAL_TOLERANCE`. Tipos `GaugeStitch`, `ShapeMetrics`, `ProfileRing`, `RevolutionProfile`, `PanelRow`, `PanelProfile`, `PartProfile`. Ver [Perfil de las partes](#perfil-de-las-partes-patrón-escrito) |
 | `validate.ts` | `validatePattern`, `parsePattern`, `validateYarn`, `isDraftError`, `DRAFT_ERROR_CODES`, `LIMITS` (definido en `limits.ts`; topes duros, incluidos los de la v2). Tipos `ValidateOptions`, `ValidationResult` |
 
 ## Cuándo puede lanzar una excepción
@@ -25,6 +26,7 @@ La tabla lista todo lo que exporta `src/index.ts`.
 - **Suponen un documento `savable`** (sin errores estructurales, ADR 0003, E10), no necesariamente `valid`: los derivados de `chart.ts` (y `stitch-render`). Funcionan con `CHART_EMPTY`, con vueltas sin puntos y con cuñas que dan `CHART_SHAPING_IMPOSSIBLE` (propiedad C14). Con un gráfico dañado pueden devolver valores sin sentido (por ejemplo, `NaN` o `Infinity` en `dimensionsCm` con una muestra de 0 puntos), pero `rowStitchCounts` y `shaping` devuelven `[]` si el alto o las repeticiones no son enteros.
 - **Suponen un documento `savable`** también en los patrones escritos (ADR 0011, sección 4): los derivados de `written.ts`, `formatRound` y `formatPart` funcionan con vueltas que no cuadran, numeración rota y anclas fuera del anfitrión, que son errores de tejido o advertencias. Con un documento que no es `savable`, ver el punto siguiente.
 - **Suponen un documento validado**: los derivados de `written.ts`, `formatRound` y `formatPart`. Con un patrón escrito dañado (por ejemplo, `part.start` ausente), `startAvailable` y los conteos pueden lanzar `TypeError`: valida antes con `validatePattern`. Aun así, `concreteRounds` y `summarizePart` terminan siempre: omiten vueltas cuyo `number` o `through` no es un entero seguro y nunca despliegan más de `LIMITS.maxRounds` vueltas. `formatPart` escribe el nombre y el cierre en una sola línea (un salto de línea se vuelve espacio, para que no se lea como otra línea del patrón), omite el cierre en blanco y escribe un nombre en blanco como "Parte" (el valor por omisión de `parsePart`).
+- **Perfil** (`profile.ts`): `partProfile`, `partDimensions` y `roundHeightFactor` suponen un documento `savable` y no lanzan con él, sin `NaN` ni infinitos (G10); `shapeMetrics` supone una muestra válida (con 0 puntos da `Infinity`).
 - `parseRound` y `parsePart` devuelven `{ ok: false, issues }` ante texto inválido; no lanzan con texto.
 
 ## Leer un documento: siempre migrar y después validar
@@ -189,12 +191,13 @@ V9: @B, [pb 2, dism] x6 (18)
   - `PART_START_RING_SHORT`: cadeneta en aro de 1 (espiral o cerradas): "necesita al menos 2". Advertencia y no error, para no romper M1;
   - `LAYOUT_ANCHOR_RANGE`: la vuelta o el punto del ancla ya no existen en el anfitrión (por ejemplo, después de borrar vueltas). El 3D acota y lo dice; editar el anfitrión nunca impide guardar;
   - patrones de IA sin el modelo registrado.
+- **Información de forma** (ADR 0010, sección 2; enmiendas C-4 y C-6), en espiral y vueltas cerradas: `ROUND_GROWS_FAST` ("esta vuelta aumenta más de lo que la tela puede abrir en plano (+N puntos; una vuelta de pb queda plana con unos 6)…"; sin la cifra si la vuelta no es de punto bajo) y `ROUND_SHRINKS_FAST` ("esta vuelta disminuye más de lo que la pieza puede cerrarse en curva (−N puntos)…"). Salen cuando el perfil acota el radio (`|Δr/s| > PROFILE_RADIAL_TOLERANCE`) **y** la vuelta cambia el conteo en ese sentido; una vez por vuelta escrita; nunca en la V1 sobre anillo mágico. `data`: `round`, `change` (±N), `ratio` (`Δr/s`, 3 decimales) y `tolerance`. La muestra sale del documento (leída en punto bajo), de `assumedGauge` (con `assumedGaugeStitch`) o de `weightCat` (copia de `suggestedGauge(cat, "crochet")`, con la categoría 0 en punto alto); sin ninguna, no hay avisos de forma.
 - **Información** de patrones escritos: `PART_START_FLAT_RING` (hileras con anillo mágico: "las filas suelen empezar con una cadeneta base"; C-19) y `MAGIC_RING_UNUSUAL` (primera vuelta sobre anillo mágico, en espiral o cerradas, con 1 o 2 puntos o más de 12; umbral provisional, C-20). Ninguno de los avisos nuevos cambia qué es `valid` ni `savable`.
 - **Información**: `CHART_COLORS_PER_ROW` (más de 2 lanas en una fila), `YARNS_MIXED_WEIGHT` (grosores distintos en un gráfico), `CHART_RENDER_UNSUPPORTED` (`yoke`, que se dibuja como tubo), en el círculo `CHART_CIRCLE_REPEATS` (fuera de 4 a 12), `CHART_WEDGE_TOO_NARROW` (cuña de menos de 4 puntos), `CHART_CIRCLE_NOT_CLOSED` sobre 16 y `CHART_CIRCLE_START` (`top_down` con menos de 4 o más de 16 puntos en la primera vuelta con puntos; el texto depende de la técnica: anillo mágico de 6 a 12 en crochet, montaje inicial de 8 a 12 en palillo); vueltas sin conteo declarado y lanas que no se usan.
 - Las reglas de forma comparan vueltas seguidas del gráfico completo (incluido el borde entre repeticiones verticales) y no se miden contra una vuelta sin puntos (que ya es error de tejido). `CHART_CIRCLE_NOT_CLOSED` y `CHART_CIRCLE_START` miden la última o la primera vuelta **con puntos**: una fila vacía en el borde no las silencia.
 - Los mensajes dicen "vuelta" en redondo y "fila" de ida y vuelta, "casilla" (también para ubicar una columna) y "hebras flotantes" (glosario pendiente del roadmap).
 
-`ValidateOptions`: `fibers` y `paletteIds` (avisos de fibras o colores desconocidos), `assumedGauge` y `weightCat` (muestra supuesta; nunca se escribe en el documento), `maxFloatCm` (2,5 por defecto) y `maxFloatStitches`: tope entero ≥ 1 que se aplica siempre, con o sin muestra; cualquier otro valor (0, −1, 4,5, `NaN`) usa el 5 por defecto. **Invariante**: ninguna opción cambia el conjunto de errores; solo agrega o ajusta advertencias e información, así el cliente y el servidor llegan al mismo `valid` y `savable` (propiedad C15).
+`ValidateOptions`: `fibers` y `paletteIds` (avisos de fibras o colores desconocidos), `assumedGauge` y `weightCat` (muestra supuesta; nunca se escribe en el documento), `assumedGaugeStitch` (punto con que se midió `assumedGauge` en un patrón escrito: `"sc"` por omisión, `"dc"` si `suggestedGauge` dice `"crochet-pa"`), `maxFloatCm` (2,5 por defecto) y `maxFloatStitches`: tope entero ≥ 1 que se aplica siempre, con o sin muestra; cualquier otro valor (0, −1, 4,5, `NaN`) usa el 5 por defecto. **Invariante**: ninguna opción cambia el conjunto de errores; solo agrega o ajusta advertencias e información, así el cliente y el servidor llegan al mismo `valid` y `savable` (propiedad C15).
 
 `validateYarn(input, path = "yarn", opts?: Pick<ValidateOptions, "fibers" | "paletteIds">)` revisa una lana suelta con las mismas reglas y prefija las rutas con `path`. Las opciones solo agregan advertencias (fibra o color desconocidos); `addYarn` la llama sin opciones. No revisa el id repetido ni el tope de lanas.
 
@@ -214,6 +217,27 @@ interface LimitUsage { limit; value; recommended; over: Array<{ partId: string; 
 - Los conteos salen de `countRound` con las reglas de `concreteRounds`. Tiempo lineal en las vueltas: un rango se cuenta una vez. Nunca lanzan.
 - Los topes duros (errores) siguen en `LIMITS`, bastante más arriba (por ejemplo, 50 copias frente a 10 recomendadas).
 
+## Perfil de las partes (patrón escrito)
+
+Derivado puro del modelo (ADR 0010, secciones 1 y 2, enmiendas C-2 a C-8 y C-12). Lee los conteos de `concreteRounds` y nunca los recalcula. Funciona con todo documento `savable`, también con vueltas que no cuadran (usa siempre el conteo producido).
+
+```ts
+shapeMetrics(gauge, { assumed, gaugeStitch }): ShapeMetrics // { stitchWidthCm, roundHeightCm, gaugeStitch, assumed }
+partProfile(part, metrics): PartProfile                      // RevolutionProfile (spiral, joined) o PanelProfile (flat)
+partDimensions(profile): { heightCm; widthCm }               // siempre una estimación
+roundHeightFactor(round): number                             // promedio de STITCH_HEIGHT_FACTOR de la vuelta
+```
+
+- **Métricas** (C-3): `stitchWidthCm = 10 / stitchesPer10cm`; `roundHeightCm = (10 / rowsPer10cm) / STITCH_HEIGHT_FACTOR[gaugeStitch]`, el alto de una vuelta de punto bajo. `gaugeStitch` es obligatorio: la muestra del documento se lee como `"sc"`; la supuesta de `suggestedGauge` traduce `"crochet-pa"` → `"dc"` (si no, la categoría 0 sale el doble de alta, F4-43). Supone una muestra válida.
+- **Alto de cada punto** (C-5): `STITCH_HEIGHT_FACTOR` = `sc` 1, `hdc` 1,5, `dc` 2, `tr` 2,5, `inc`/`inc3`/`dec` 1 (de punto bajo, C-12). `slst`, `ch` y `sk` no tienen valor (`Partial<Record<StitchCode, number>>`). El alto de una vuelta es el promedio de los factores de sus puntos producidos con valor, ponderado por lo que produce cada uno, por `roundHeightCm`; si solo produce `slst` o `ch`, 1.
+- **Revolución**: el anillo 0 es el inicio (radio 0 con anillo mágico; aro de `count × ancho / 2π` con cadeneta). Para cada vuelta, `r* = n × ancho / 2π`, `Δr = r* − r(anterior)` y `s` el alto de la vuelta (C-4):
+  - `|Δr| ≤ s`: radio `r*`, sube `√(s² − Δr²)`, `strain` 1;
+  - `s < |Δr| ≤ s × PROFILE_RADIAL_TOLERANCE` (1,25): radio `r*`, no sube, `strain` 1 (holgura del disco de 6 aumentos de pb, que queda plano);
+  - por encima: radio acotado a `r(anterior) ± s × 1,25` (nunca bajo 0), no sube, `strain = r* / r` (> 1 ondula, < 1 frunce). El borde exacto se compara con un margen relativo de 1e−9 para que el redondeo no acote una vuelta que cae justo en él.
+  - La V1 sobre anillo mágico no se acota ni se evalúa: radio `r*₁`, sube `√max(s² − r*₁², 0)` (C-6). Sobre cadeneta en aro, la V1 se evalúa como las demás.
+- **Panel** (hileras): una fila por hilera, de ancho `n × ancho`, con `yCm` el alto acumulado al terminar la fila.
+- `PROFILE_RADIAL_TOLERANCE`, `STITCH_HEIGHT_FACTOR` y la lectura de la muestra del documento en punto bajo son "validar con tejedora" (T1b). Con la muestra de los casos (20 × 24, `ρ` = 1,2): el fixture A da un tambor de 9,55 cm de diámetro y 8,33 cm de alto; el fixture B, una esfera de 9,55 cm por 10,13 cm (razón 1,06).
+
 ## Pruebas
 
 ```
@@ -232,7 +256,8 @@ Requiere Node 24 LTS (mínimo 22.18, que ejecuta TypeScript directamente). Inclu
 - `test/migrate.test.ts`: `STEPS[1]` y las propiedades M1 a M4 (CA4-M1), con el validador v1 congelado en `test/support/validate-v1.ts`.
 - `test/validate-v2.test.ts`: `PART_COPIES`, cada código de `layout`, documentos hostiles (ciclos, 10.000 anclas, `NaN`, `1e308`, 50 partes con 51 copias) en menos de 50 ms (CA4-M3), borradores escritos (CA4-M4) y la propiedad "los derivados funcionan con todo documento v2 `savable`".
 - `test/recommended.test.ts`: límites recomendados (CA4-M8): coinciden con una referencia que expande cada vuelta, nunca lanzan, no aparecen en `validatePattern` y son lineales.
-- `test/casos-dominio-fase4.test.ts`: casos F4-1 a F4-7, F4-11, F4-12, F4-29 a F4-34, los conteos de los fixtures A y B (F4-45, F4-48, F4-49, F4-51) y F4-58, F4-70 de [casos-dominio-fase-4.md](../../docs/casos-dominio-fase-4.md). Los fixtures están en `test/support/amigurumi.ts` (texto y parte leída por el motor). La forma (perfil, alto, diámetro) es de T5.
+- `test/casos-dominio-fase4.test.ts`: casos F4-1 a F4-7, F4-11, F4-12, F4-29 a F4-34, los conteos de los fixtures A y B (F4-45, F4-48, F4-49, F4-51) y F4-58, F4-70 de [casos-dominio-fase-4.md](../../docs/casos-dominio-fase-4.md). Los fixtures están en `test/support/amigurumi.ts` (texto y parte leída por el motor). La forma (perfil, alto, diámetro) está en `test/profile.test.ts`.
+- `test/profile.test.ts`: perfil de las partes (T5): constantes, `shapeMetrics` (F4-43), `roundHeightFactor`, los tres tramos, la V1 sobre anillo mágico, cadeneta en aro, paneles y borradores; casos F4-36 a F4-41 (disco plano, 7 avisa, 12 ondula, `ROUND_SHRINKS_FAST`, sensibilidad a `ρ`), la forma de los fixtures A y B (F4-46, F4-47, F4-50, F4-51), la guardia de rendimiento (fixture A en menos de 3 ms), las propiedades G1, G2, G3, G10 y la parte del perfil de G11, "los avisos salen justo donde el perfil acota" y el invariante de opciones.
 - `test/qa-bordes-colorwork.test.ts`: umbrales exactos de cada regla en sus bordes, "nunca lanza y termina" con JSON arbitrario (mutaciones de documentos válidos, sin acotar `number` ni `through`), las correcciones F1 a F4 de T2d (números de vuelta desmedidos, claves heredadas de `Object.prototype`, rangos sin tope, mensajes sin "undefined", "NaN" ni "[object Object]") y el peor caso de rendimiento (menos de 100 ms).
 
 ## Limitaciones conocidas

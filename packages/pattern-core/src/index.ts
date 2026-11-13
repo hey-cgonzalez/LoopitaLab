@@ -8,3 +8,18 @@ export * from "./validate.ts";
 export * from "./edit.ts";
 export * from "./migrate.ts";
 export * from "./recommended.ts";
+export {
+  PROFILE_RADIAL_TOLERANCE,
+  STITCH_HEIGHT_FACTOR,
+  partDimensions,
+  partProfile,
+  roundHeightFactor,
+  shapeMetrics,
+  type GaugeStitch,
+  type PanelProfile,
+  type PanelRow,
+  type PartProfile,
+  type ProfileRing,
+  type RevolutionProfile,
+  type ShapeMetrics,
+} from "./profile.ts";

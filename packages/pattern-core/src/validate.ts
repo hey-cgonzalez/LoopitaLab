@@ -5,6 +5,7 @@
 import { floatLengthCm, rowFloats } from "./chart.ts";
 import { yarnLetter } from "./letters.ts";
 import { LIMITS } from "./limits.ts";
+import { PROFILE_RADIAL_TOLERANCE, revolutionProfile, shapeMetrics, type GaugeStitch, type ShapeMetrics } from "./profile.ts";
 import { STITCHES } from "./stitches.ts";
 import {
   NO_STITCH,
@@ -37,6 +38,13 @@ export interface ValidateOptions {
    * Prioridad: `gauge` del documento, después `assumedGauge`, después `weightCat`.
    */
   weightCat?: WeightCategory;
+  /**
+   * Punto con que se midió `assumedGauge` en un patrón escrito (ADR 0010, enmienda C-3):
+   * la aplicación traduce `assumption` de `suggestedGauge` (`"crochet-pb"` → `"sc"`,
+   * `"crochet-pa"` → `"dc"`). Omitido, `"sc"`. Solo lo usan los avisos de forma
+   * (`ROUND_GROWS_FAST`, `ROUND_SHRINKS_FAST`); la muestra del documento se lee como punto bajo.
+   */
+  assumedGaugeStitch?: GaugeStitch;
   /** Largo máximo de una hebra flotante en cm, cuando hay muestra (real o supuesta). Por defecto 2,5 cm. */
   maxFloatCm?: number;
   /**
@@ -91,6 +99,23 @@ export { LIMITS };
  * `suggestedGauge` de `yarn-catalog`; se copia para que el núcleo no dependa de él.
  */
 const ASSUMED_STITCHES_PER_10CM: readonly number[] = [37, 30, 25, 23, 18, 14, 9, 6];
+
+/**
+ * Muestra supuesta de crochet por categoría CYC 0 a 7, para los avisos de forma de los
+ * patrones escritos: la misma que da `suggestedGauge(cat, "crochet")` de `yarn-catalog`
+ * (puntos, vueltas en 10 cm y punto de la muestra), copiada para no depender de él.
+ * // validar con tejedora (las vueltas son un supuesto: 1,2 por punto en pb, 0,6 en pa)
+ */
+const ASSUMED_CROCHET_GAUGE: readonly { stitchesPer10cm: number; rowsPer10cm: number; stitch: GaugeStitch }[] = [
+  { stitchesPer10cm: 37, rowsPer10cm: 22, stitch: "dc" },
+  { stitchesPer10cm: 27, rowsPer10cm: 32, stitch: "sc" },
+  { stitchesPer10cm: 18, rowsPer10cm: 22, stitch: "sc" },
+  { stitchesPer10cm: 15, rowsPer10cm: 18, stitch: "sc" },
+  { stitchesPer10cm: 13, rowsPer10cm: 16, stitch: "sc" },
+  { stitchesPer10cm: 10, rowsPer10cm: 12, stitch: "sc" },
+  { stitchesPer10cm: 8, rowsPer10cm: 10, stitch: "sc" },
+  { stitchesPer10cm: 6, rowsPer10cm: 7, stitch: "sc" },
+];
 
 const YARN_ID_RE = /^[A-Za-z0-9_-]{1,16}$/;
 const HEX_RE = /^#[0-9A-Fa-f]{6}$/;
@@ -276,7 +301,7 @@ function validateInto(input: unknown, c: Collector, opts: ValidateOptions): void
 
   if (input.kind === "chart") validateChart(input, yarnIds, c, opts);
   else if (input.kind === "written") {
-    const parts = validateWritten(input, yarnIds, c);
+    const parts = validateWritten(input, yarnIds, c, writtenShapeMetrics(input.gauge, opts));
     if (input.layout !== undefined) validateLayout(input.layout, parts, c);
   }
   else c.error("KIND", "kind", 'El tipo de patrón debe ser "chart" (gráfico) o "written" (escrito).');
@@ -791,7 +816,7 @@ interface PartInfo {
  * `layout`), o `null` si la lista de partes no se pudo recorrer (no es una lista o supera
  * `LIMITS.maxParts`).
  */
-function validateWritten(input: Rec, yarnIds: string[], c: Collector): Map<string, PartInfo> | null {
+function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: ShapeMetrics | null): Map<string, PartInfo> | null {
   if (input.technique !== "crochet") {
     c.error("WRITTEN_TECHNIQUE", "technique", "En esta versión los patrones escritos son solo de crochet; el palillo se diseña con gráfico.");
   }
@@ -1055,6 +1080,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector): Map<strin
       }
     });
     info.produced = produced;
+    if (!flat && metrics) shapeNotices(typed, pp, pname, word, metrics, c);
     if (missingExpected.length > 0) {
       const n = missingExpected.length;
       c.info(
@@ -1070,6 +1096,62 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector): Map<strin
     if (id && !usedYarns.has(id)) c.info("YARN_UNUSED", `yarns[${i}]`, `${capitalize(yarnLabel(input.yarns, i))} no se usa en ninguna parte.`);
   });
   return infos;
+}
+
+// ------------------------------------------------------- Forma de las partes
+
+/**
+ * Muestra de los avisos de forma (ADR 0010, sección 2): la del documento (leída como punto
+ * bajo, C-3), después `assumedGauge` (con `assumedGaugeStitch`), después `weightCat` (tabla
+ * de crochet). Sin ninguna, no hay avisos de forma (regla de oro 6: no se inventa la muestra).
+ */
+function writtenShapeMetrics(docGauge: unknown, opts: ValidateOptions): ShapeMetrics | null {
+  if (isGauge(docGauge)) return shapeMetrics(docGauge, { assumed: false, gaugeStitch: "sc" });
+  if (isGauge(opts.assumedGauge)) {
+    const st = opts.assumedGaugeStitch;
+    const gaugeStitch: GaugeStitch = st === "hdc" || st === "dc" || st === "tr" ? st : "sc";
+    return shapeMetrics(opts.assumedGauge, { assumed: true, gaugeStitch });
+  }
+  const cat = opts.weightCat;
+  if (isInt(cat) && cat >= 0 && cat <= 7) {
+    const g = ASSUMED_CROCHET_GAUGE[cat]!;
+    return shapeMetrics(g, { assumed: true, gaugeStitch: g.stitch });
+  }
+  return null;
+}
+
+/**
+ * `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST` (información; enmiendas C-4 y C-6): la vuelta
+ * cambia el radio más de `PROFILE_RADIAL_TOLERANCE` veces su alto, es decir, cuando el perfil
+ * acota el radio. Se decide por `Δr/s`, no por `strain`. La V1 sobre anillo mágico no se
+ * evalúa. Un aviso por vuelta escrita (un rango que cambia el conteo ya es error).
+ * Textos de F4-77 y F4-78. // validar con tejedora
+ */
+function shapeNotices(part: Part, pp: string, pname: string, word: string, metrics: ShapeMetrics, c: Collector): void {
+  const { steps } = revolutionProfile(part, metrics);
+  let lastSource = -1;
+  for (const step of steps) {
+    if (!step.evaluated || step.sourceIndex === lastSource) continue;
+    // Además del paso radial, la vuelta misma tiene que aumentar (o disminuir): tras una vuelta
+    // acotada, el perfil sigue abriéndose (o cerrándose) en las vueltas siguientes sin que
+    // ellas cambien el conteo, y avisarles con "+0 puntos" no ayuda a la tejedora.
+    // `clamped` es `|Δr/s| > PROFILE_RADIAL_TOLERANCE` (con el margen de redondeo del perfil).
+    const grows = step.clamped && step.ratio > 0 && step.change > 0;
+    const shrinks = step.clamped && step.ratio < 0 && step.change < 0;
+    if (!grows && !shrinks) continue;
+    lastSource = step.sourceIndex;
+    const label = `${pname}, ${word} ${step.round}`;
+    const n = Math.abs(step.change);
+    const data = { round: step.round, change: step.change, ratio: Math.round(step.ratio * 1000) / 1000, tolerance: PROFILE_RADIAL_TOLERANCE };
+    const path = `${pp}.rounds[${step.sourceIndex}]`;
+    if (grows) {
+      // "unos 6" es el valor del punto bajo; con otro punto el texto no da cifra (C-12).
+      const sc = step.heightFactor === 1 ? "; una vuelta de pb queda plana con unos 6" : "";
+      c.info("ROUND_GROWS_FAST", path, `${label}: esta vuelta aumenta más de lo que la tela puede abrir en plano (+${plural(n, "punto")}${sc}). Si la tejes así, la pieza tiende a ondularse. Puede ser lo que buscas.`, data);
+    } else {
+      c.info("ROUND_SHRINKS_FAST", path, `${label}: esta vuelta disminuye más de lo que la pieza puede cerrarse en curva (−${plural(n, "punto")}). Si la tejes así, la pieza se frunce o se cierra en copa. Puede ser lo que buscas (por ejemplo, el remate).`, data);
+    }
+  }
 }
 
 // ------------------------------------------------- Posición de las partes (v2)
