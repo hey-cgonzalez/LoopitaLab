@@ -9,25 +9,26 @@ La tabla lista todo lo que exporta `src/index.ts`.
 | Módulo | Exporta |
 |---|---|
 | `types.ts` | Tipos del modelo: `Pattern` (`ChartPattern` o `WrittenPattern`), `Technique`, `WeightCategory` (0 a 7), `Yarn`, `YarnColor`, `FiberShare`, `Gauge`, `Origin`, `Chart`, `RenderShape`, `Part` (con `copies` desde la v2), `PartStart`, `Round`, `Item` (`StitchItem`, `GroupItem`, `ColorItem`), `StitchCode`, `Loop`, `Issue`, `Severity`; posición de las partes (v2): `Layout`, `Placement`, `PartRef`, `FreeAt`, `SurfaceAt`, `Vec3`. Constantes `SCHEMA_VERSION` (hoy 2) y `NO_STITCH` (−1, casilla sin punto) |
-| `stitches.ts` | `STITCHES` (cuánto consume y produce cada punto, abreviaturas en español de Chile e inglés de EE. UU.), `LOOPS` (hebra delantera o trasera), `normalizeTerm` (minúsculas, sin puntos ni espacios extra), `lookupStitch` y `lookupLoop` (término o alias → código, o `undefined`; buscan en un `Map`, así "toString" o "__proto__" no son puntos), `stitchAbbrev` y `loopAbbrev` (código → abreviatura según `"es"` o `"us"`). Tipos `StitchDef` y `Dialect` |
+| `stitches.ts` | `STITCHES` (cuánto consume y produce cada punto, abreviaturas `es` de Chile, `us` y `uk` del Craft Yarn Council, y alias de lectura por dialecto), `LOOPS` (hebra delantera o trasera), `normalizeTerm` (minúsculas, sin puntos ni espacios extra), `lookupStitch(term, mode?)` y `lookupLoop(term, mode?)` (término o alias → código en el modo de lectura, por omisión `"es-us"`, o `undefined`; buscan en un `Map`, así "toString" o "__proto__" no son puntos), `stitchAbbrev` y `loopAbbrev` (código → abreviatura en `"es"`, `"us"` o `"uk"`), `DIALECTS`, `READING_MODES`, `readingModeFor(dialect)`, `stitchAliases(mode)` y `loopAliases(mode)` (pares alias → código que carga cada modo; para RT5 y `glossary`), `otherDialectHint(term, mode)`. Tipos `StitchDef`, `LoopDef`, `DialectAliases`, `Dialect` y `ReadingMode` |
 | `written.ts` | `countRound`, `expandRound`, `concreteRounds`, `summarizePart`, `startAvailable` (puntos disponibles para la primera vuelta: `null` con anillo mágico, la cadeneta en vueltas cerradas o espiral, y la cadeneta menos 1 en hileras). Tipos `ExpandedStitch`, `RoundCount`, `ConcreteRound`, `PartSummary` |
 | `chart.ts` | `cellIndex`, `motifCell`, `fullSize`, `cellAt`, `fullRow`, `yarnTotals`, `stitchTotal`, `rowFloats`, `yarnUsage`, `dimensionsCm`, `floatLengthCm`; derivados del colorwork: `motifCoord`, `rowStitchCount`, `rowStitchCounts`, `shaping`, `rowShapingColumns`, `readingDirection`, `wornOrientation`. Tipos `RowFloat`, `YarnUsage`, `ChartDimensions`, `RowShaping`, `RowShapingColumns`, `ReadingDirection` |
-| `edit.ts` | Operaciones puras de edición: `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn`, `reorderYarns`, `newChartPattern`; `EDIT_LIMITS`, `ANCHORS`. Tipos `CellRef`, `Anchor`, `NewChartInput` |
+| `edit.ts` | Operaciones puras de edición: `paintCells`, `fillRegion`, `resizeMotif`, `setRepeat`, `addYarn`, `removeYarn`, `reorderYarns` (estas tres, para gráficos y patrones escritos: `<P extends Pattern>(pattern: P, …) => P`), `newChartPattern`; `EDIT_LIMITS`, `ANCHORS`. Tipos `CellRef`, `Anchor`, `NewChartInput` |
+| `edit-written.ts` | Operaciones puras de edición de patrones escritos (ADR 0011, sección 6; ver [Patrón escrito: edición](#patrón-escrito-edición)): `newWrittenPattern`; partes (`addPart`, `renamePart`, `movePart`, `setPartConstruction`, `setPartStart`, `setPartStartYarn`, `setPartFinish`, `setCopies`, `removePart`); vueltas (`replacePartRounds`, `insertRound`, `removeRound`, `replaceRound`); ítems por ruta a profundidad completa (`insertItem`, `updateItem`, `removeItem`, `moveItem`, `wrapInGroup`, `unwrapGroup`); posición (`setPlacement`, `clearPlacement`); armado (`setAssembly`); `replaceYarnRefs`. Tipos `ItemPath`, `NewWrittenInput`, `UnplaceResult` |
 | `migrate.ts` | `migratePattern` y el tipo `MigrationResult`: camino obligatorio de lectura de todo documento. Tipos de la v1 (`PatternV1`, `ChartPatternV1`, `WrittenPatternV1`, `PartV1`), solo para las pruebas de migración |
 | `recommended.ts` | Límites recomendados de un patrón escrito (ADR 0011, sección 3b): `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage`, `recommendedLimitNotices`. Tipos `RecommendedLimit` y `LimitUsage`. No pasan por el validador |
-| `text.ts` | `parseRound`, `parsePart`, `formatRound`, `formatPart`. Tipos `ParseResult`, `ParsePartOptions` |
+| `text.ts` | `parseRound(text, line?, mode?)`, `parsePart(text, { id, mode? })`, `parseWrittenParts(text, { partId, mode? })`, `formatRound`, `formatPart`, `formatPartLines` (texto y línea de cada vuelta), `normalizePart`, `PARSE_LIMITS`, `COMMENT_WARNING`. Tipos `ParseResult` (con `warnings` opcional), `ParsePartOptions`, `ParseWrittenPartsOptions`, `FormattedPart` |
 | `letters.ts` | `yarnLetter(index)`: letra de la lana según su orden en el documento (A… Z y, desde la 27, AA, AB… como las columnas de una planilla). La usan el validador, el gráfico SVG, la cuadrícula del editor y el modo tejiendo |
 | `profile.ts` | Perfil de las partes de un patrón escrito (ADR 0010, secciones 1 y 2): `shapeMetrics`, `partProfile`, `partDimensions`, `roundHeightFactor`, `STITCH_HEIGHT_FACTOR`, `PROFILE_RADIAL_TOLERANCE`. Tipos `GaugeStitch`, `ShapeMetrics`, `ProfileRing`, `RevolutionProfile`, `PanelRow`, `PanelProfile`, `PartProfile`. Ver [Perfil de las partes](#perfil-de-las-partes-patrón-escrito) |
 | `validate.ts` | `validatePattern`, `parsePattern`, `validateYarn`, `isDraftError`, `DRAFT_ERROR_CODES`, `LIMITS` (definido en `limits.ts`; topes duros, incluidos los de la v2). Tipos `ValidateOptions`, `ValidationResult` |
 
 ## Cuándo puede lanzar una excepción
 
-- **Nunca lanzan y terminan en tiempo acotado** con `null`, valores primitivos ni nada que pueda producir `JSON.parse` (incluidos números como `2^53` o `1e308` y claves como `__proto__`): `validatePattern`, `parsePattern`, `validateYarn`, `migratePattern`, `newChartPattern`, las operaciones de `edit.ts`, `recommendedLimitUsage` y `recommendedLimitNotices` (estas dos, también con getters que lanzan: devuelven los cinco límites en 0). Las tres primeras y `migratePattern` tampoco lanzan con objetos armados a mano con getters o `Proxy` que lanzan (try/catch acotado): `validatePattern` informa `SHAPE` y `migratePattern` informa `SCHEMA_VERSION`. El validador acota `number` y `through` de cada vuelta antes de recorrer los rangos.
+- **Nunca lanzan y terminan en tiempo acotado** con `null`, valores primitivos ni nada que pueda producir `JSON.parse` (incluidos números como `2^53` o `1e308` y claves como `__proto__`): `validatePattern`, `parsePattern`, `validateYarn`, `migratePattern`, `newChartPattern`, las operaciones de `edit.ts` y de `edit-written.ts` (incluido `newWrittenPattern`), `normalizePart`, `recommendedLimitUsage` y `recommendedLimitNotices` (estas dos, también con getters que lanzan: devuelven los cinco límites en 0). Las tres primeras y `migratePattern` tampoco lanzan con objetos armados a mano con getters o `Proxy` que lanzan (try/catch acotado): `validatePattern` informa `SHAPE` y `migratePattern` informa `SCHEMA_VERSION`. El validador acota `number` y `through` de cada vuelta antes de recorrer los rangos.
 - **Suponen un documento `savable`** (sin errores estructurales, ADR 0003, E10), no necesariamente `valid`: los derivados de `chart.ts` (y `stitch-render`). Funcionan con `CHART_EMPTY`, con vueltas sin puntos y con cuñas que dan `CHART_SHAPING_IMPOSSIBLE` (propiedad C14). Con un gráfico dañado pueden devolver valores sin sentido (por ejemplo, `NaN` o `Infinity` en `dimensionsCm` con una muestra de 0 puntos), pero `rowStitchCounts` y `shaping` devuelven `[]` si el alto o las repeticiones no son enteros.
 - **Suponen un documento `savable`** también en los patrones escritos (ADR 0011, sección 4): los derivados de `written.ts`, `formatRound` y `formatPart` funcionan con vueltas que no cuadran, numeración rota y anclas fuera del anfitrión, que son errores de tejido o advertencias. Con un documento que no es `savable`, ver el punto siguiente.
-- **Suponen un documento validado**: los derivados de `written.ts`, `formatRound` y `formatPart`. Con un patrón escrito dañado (por ejemplo, `part.start` ausente), `startAvailable` y los conteos pueden lanzar `TypeError`: valida antes con `validatePattern`. Aun así, `concreteRounds` y `summarizePart` terminan siempre: omiten vueltas cuyo `number` o `through` no es un entero seguro y nunca despliegan más de `LIMITS.maxRounds` vueltas. `formatPart` escribe el nombre y el cierre en una sola línea (un salto de línea se vuelve espacio, para que no se lea como otra línea del patrón), omite el cierre en blanco y escribe un nombre en blanco como "Parte" (el valor por omisión de `parsePart`).
+- **Suponen un documento validado**: los derivados de `written.ts`, `formatRound` y `formatPart`. Con un patrón escrito dañado (por ejemplo, `part.start` ausente), `startAvailable` y los conteos pueden lanzar `TypeError`: valida antes con `validatePattern`. Aun así, `concreteRounds` y `summarizePart` terminan siempre: omiten vueltas cuyo `number` o `through` no es un entero seguro y nunca despliegan más de `LIMITS.maxRounds` vueltas. `formatPart` escribe el nombre en una sola línea (un salto de línea se vuelve espacio, para que no se lea como otra línea del patrón), escribe el cierre y las notas de vuelta en varias líneas con `>` (desde T6), omite el cierre en blanco y escribe un nombre en blanco como "Parte" (el valor por omisión de `parsePart`).
 - **Perfil** (`profile.ts`): `partProfile`, `partDimensions` y `roundHeightFactor` suponen un documento `savable` y no lanzan con él, sin `NaN` ni infinitos (G10); `shapeMetrics` supone una muestra válida (con 0 puntos da `Infinity`).
-- `parseRound` y `parsePart` devuelven `{ ok: false, issues }` ante texto inválido; no lanzan con texto.
+- `parseRound`, `parsePart` y `parseWrittenParts` devuelven `{ ok: false, issues }` ante texto inválido y **nunca lanzan**, con cualquier valor (RT6). Texto de hasta `PARSE_LIMITS.maxTextLength` (100.000 caracteres; más es `PARSE_TOO_LONG`) y líneas de hasta `PARSE_LIMITS.maxLineLength` (2.000; más es `PARSE_LINE_TOO_LONG`). Las expresiones regulares son lineales: una línea hostil de 2.000 caracteres se lee en menos de 5 ms (en la prueba, el peor caso queda bajo 0,5 ms).
 
 ## Leer un documento: siempre migrar y después validar
 
@@ -137,8 +138,97 @@ V9: @B, [pb 2, dism] x6 (18)
 - Hebra trasera o delantera: `pb ht` / `sc blo`, `pb hd` / `sc flo`.
 - Conteo declarado: `(18)` al final de la vuelta.
 - También acepta inglés (`R3: [sc, inc] x6 (18)`) y mezclas de ambos.
-- `Inicio:` acepta `AM` o `cad N`. Si falta, se lee anillo mágico (también en hileras, donde aparece la información `PART_START_FLAT_RING`). La cadeneta de subida, la de giro y el pd de unión no se escriben como puntos: no cuentan (F4-11, F4-12).
-- La sintaxis de la v2 (notas `>`, encabezado `Cantidad:` para `copies`, modo UK) es de T6 (ADR 0011, sección 7).
+- `Inicio:` acepta `AM` o `cad N`. Si falta, se lee anillo mágico (también en hileras, donde aparece la información `PART_START_FLAT_RING`). `Inicio: óvalo N` es `PARSE_START` con "Usa AM o cad N" (enmienda C-13, F4-9): no se lee como cadeneta común. La cadeneta de subida, la de giro y el pd de unión no se escriben como puntos: no cuentan (F4-11, F4-12).
+- Números de vuelta 0 o negativos (`V0:`) se leen, para que un borrador con `ROUND_NUMBERING` haga la ida y vuelta. Un número de más de 15 cifras es `PARSE_NUMBER` (nunca se redondea).
+- Grupos: hasta `LIMITS.maxNesting − 1` (5) uno dentro de otro; la vuelta y sus grupos son `LIMITS.maxNesting` (6) niveles de ítems, igual que en el validador. Uno más es `PARSE_NESTING`.
+
+**Sintaxis de la v2** (T6; ADR 0011, sección 7):
+
+```
+Parte: Oreja
+Cantidad: 2
+Inicio: AM
+Construcción: espiral
+Lana: A
+V1: 6 pb (6)
+V2: 6 aum (12)
+> Coloca un marcador al inicio de la vuelta.
+V3-5: 12 pb (12)
+Cierre: no rellenar; aplanar y coser abierta.
+> Deja una hebra larga para coser.
+```
+
+- **`> texto`** es la nota de la vuelta anterior (`round.note`), o una línea más del cierre si sigue a `Cierre:`. Varias líneas `>` forman una nota de varias líneas; `>` sola es una línea vacía; se quita un espacio después de `>` y se conservan los demás. Una `>` antes de toda vuelta es `PARSE_NOTE`. Dos `Cierre:` se juntan, línea por línea.
+- **`# texto`** es un comentario que no se guarda: la lectura sigue y deja el aviso `PARSE_COMMENT` (severidad `warning`, en `warnings`, también si la lectura falla) con el texto `COMMENT_WARNING`: "Los comentarios con # no se guardan; usa > para una nota." (CA4-E5).
+- **`Cantidad: N`** (`copies`, enmienda C-14): `formatPart` lo escribe solo si `N > 1` (en inglés, `Make: N`). Se lee también `Hacer`, `Piezas`, `Tejer` y `Make`, con o sin dos puntos y sin distinguir mayúsculas ("Hacer 2", "Piezas: 2"). Fuera de 1 a `LIMITS.maxCopies` (50) es `PARSE_COPIES`. El término queda "validar con tejedora".
+- **Forma canónica** (lo que escribe `formatPart`): Parte, Cantidad, Inicio, Construcción, Lana, cada vuelta con sus notas y el cierre. "pb x6" pasa a "6 pb"; no se fusionan puntos seguidos ni se reordena nada.
+- **`normalizePart(part)`** deja la parte como la dejan `parsePart` y toda operación: sin `loop: "both"`, sin `through` igual a `number`, sin `copies: 1`, nombre y cierre recortados, `\r\n` → `\n` y sin espacios al final de cada línea en notas y cierres, y sin notas ni cierres vacíos (o solo con espacios).
+- **`formatPartLines(part, dialect)`** devuelve `{ text, roundLine }`: `roundLine[j]` es la línea (desde 1) de `part.rounds[j]`, para mostrar ahí los errores del validador. `formatPart` es su `text`.
+- **`parseWrittenParts(text, { partId, mode? })`** lee un patrón pegado con varias partes: corta en cada `Parte:` (o `Part:`) y da a la parte `i` el id `partId(i)`. Lo que va antes de la primera `Parte:` es otra parte si tiene algo además de comentarios. Los mensajes llevan la línea del texto completo. Hasta `LIMITS.maxParts` partes (`PARSE_TOO_MANY_PARTS`).
+- **Precondición de RT1**: la ida y vuelta vale para partes cuyas líneas escritas caben en `PARSE_LIMITS` (una vuelta de unos 500 ítems separados por coma ya no cabe en 2.000 caracteres; "500 pb" sí).
+
+**Dialectos y modos de lectura** (ADR 0011, sección 8; enmiendas C-15 y C-16). Se **escribe** en un `Dialect` (`"es"`, `"us"` o `"uk"`) y se **lee** en un `ReadingMode` (`"es-us"`, por omisión, o `"es-uk"`). El español se lee en los dos modos; el inglés, en US o en UK según el modo. Nunca se adivina: "dc" es punto alto en `es-us` y punto bajo en `es-uk` (F4-63).
+
+| Código | `es` | `us` (escribe) | `uk` (escribe) | Se lee en `es-us` | Se lee en `es-uk` |
+|---|---|---|---|---|---|
+| `sc` | pb | sc | dc | pb, sc, single crochet | pb, dc |
+| `hdc` | mpa | hdc | htr | mpa, hdc | mpa, htr |
+| `dc` | pa | dc | tr | pa, dc | pa, tr |
+| `tr` | pad | tr | dtr | pad, tr | pad, dtr |
+| `slst` | pd | sl st | ss | pd, sl st, slst | pd, ss |
+| `ch` | cad | ch | ch | cad, cadeneta, ch | cad, cadeneta, ch |
+| `inc` | aum | inc | inc | aum, inc | aum, inc |
+| `inc3` | aum3 | inc3 | inc3 | aum3, inc3 | aum3, inc3 |
+| `dec` | dism | dec | dec | dism, dec, invdec, sc2tog | dism, dec, dc2tog |
+| `sk` | saltar | sk | miss | saltar, sk, skip | saltar, miss |
+| hebra trasera | ht | blo | blo | ht, hebra trasera, blo | ht, hebra trasera, blo |
+| hebra delantera | hd | flo | flo | hd, hebra delantera, flo | hd, hebra delantera, flo |
+| anillo mágico (`Inicio:`) | AM | MR | MR | AM, anillo mágico, MR, magic ring | igual |
+
+- **Pista del otro dialecto** (F4-64, F4-66): `sc`, `single crochet`, `hdc` y `sc2tog` en `es-uk`, y `htr` y `dtr` en `es-us`, dan `PARSE_UNKNOWN_STITCH` con una pista en el mensaje ("sc es US; en UK el punto bajo se llama dc.") y en `data.hint` y `data.mode`. Los demás términos del otro modo (`ss`, `miss`, `dc2tog` en `es-us`) son desconocidos sin pista.
+- **RT5**: en cada modo, ningún alias corresponde a dos puntos. Solo `dc` y `tr` están en los dos modos con significado distinto, porque cada modo los carga de su propia tabla.
+- **Sin variantes regionales del español** hasta que T1b las respalde (F4-69): "medio punto", "pma", "punto raso" (y su abreviatura "pr", que se leía hasta T6), "punto pasado" y "punto bajísimo" no se leen.
+- **De la preferencia del perfil al modo de lectura**: `profiles.pattern_dialect` guarda un `Dialect` (`'es'`, `'us'` o `'uk'`). La interfaz escribe con `formatPart(part, dialect)` y lee lo que la usuaria escribe con `parsePart(text, { id, mode: readingModeFor(dialect) })`: `uk` → `"es-uk"`; `es` y `us` → `"es-us"`. Así lo que se escribe en un dialecto se lee igual (RT1). El modo `es-uk` solo se usa si la usuaria eligió UK (CA4-G2).
+
+**Ida y vuelta** (propiedades con semilla en `test/property-texto.test.ts`; CA4-M5, parte RT):
+
+| # | Propiedad |
+|---|---|
+| RT1 | Para toda parte normalizada de un documento `savable` y todo dialecto `d`: `parsePart(formatPart(p, d), { id: p.id, mode: readingModeFor(d) })` es `p` (`deepEqual`), con notas, cierres de varias líneas, cantidad, rangos y grupos hasta `LIMITS.maxNesting` |
+| RT2 | Si un texto se lee, escribirlo y volver a leerlo da la misma parte, y la forma canónica es un punto fijo |
+| RT3 | Toda secuencia de operaciones de bloques (`wrapInGroup`, `unwrapGroup`, `insertItem`, `updateItem`, `removeItem`, `moveItem` entre niveles, `insertRound`, `replaceRound`, `removeRound`) deja un documento `savable` que cumple RT1. Llega a la profundidad completa de `LIMITS.maxNesting` y comprueba que agrupar más allá se rechaza |
+| RT4 | `countRound` de cada vuelta y de su ida y vuelta dan lo mismo |
+| RT5 | En todo modo, ningún alias corresponde a dos puntos |
+| RT6 | `parsePart`, `parseRound` y `parseWrittenParts` nunca lanzan, con cualquier texto de hasta `PARSE_LIMITS.maxTextLength` (y con valores que no son texto) |
+
+## Patrón escrito: edición
+
+Operaciones puras de `edit-written.ts` (ADR 0011, sección 6), con la misma convención de `edit.ts`: nunca mutan la entrada ni lanzan, devuelven **el mismo objeto** si un parámetro no es válido, una ruta no existe o nada cambia, y dejan las partes normalizadas (`normalizePart`).
+
+- **Topes duros sí, recomendados nunca**: una operación que dejaría un error estructural que la entrada no tenía (pasar de `LIMITS.maxNesting`, `maxItemCount`, `maxGroupTimes`, `maxRoundStitches`, `maxRounds`, `maxParts`, `maxCopies`, `maxPlacements`, `maxNotes`; un grupo o una vuelta vacíos; una lana inexistente; un ciclo de anclas) devuelve la entrada. Por eso, si la entrada era `savable`, la salida también. Los errores de tejido (conteos, numeración) se permiten: son borradores. Los límites recomendados (`RECOMMENDED_WRITTEN_LIMITS`) no se miran: superarlos lo decide la usuaria en la interfaz.
+- **Cómo se revisa**: las operaciones de una parte validan solo esa parte (un documento con ella sola); las de documento (`addPart`, `setCopies`, `removePart`, `setPlacement`, `setAssembly`), el documento completo. El costo es el de `validatePattern` de lo que se revisa.
+- **Profundidad completa** (decisión 2): `ItemPath = readonly number[]`, de la vuelta hacia adentro (`[i]` es `round.items[i]`; `[i, j]`, el ítem `j` del grupo `i`), hasta `LIMITS.maxNesting` índices. El tope de 2 niveles del editor de bloques v1 vive solo en la interfaz (`BlockEditPolicy`); en `pattern-core` no hay ninguno.
+
+```ts
+newWrittenPattern({ id, title, yarns, gauge?, parts?, partId?, partName? }): WrittenPattern // crochet, origen manual; sin `parts`, una V1 de 6 pb en AM
+addPart(p, part, index?) · renamePart(p, partId, name) · movePart(p, partId, toIndex)
+setPartConstruction(p, partId, c) · setPartStart(p, partId, start) · setPartStartYarn(p, partId, yarnId) · setPartFinish(p, partId, finish | undefined)
+setCopies(p, partId, n): UnplaceResult    // 1 a LIMITS.maxCopies; quita las ubicaciones de las copias que dejan de existir y las anclas a ellas
+removePart(p, partId): UnplaceResult      // quita la parte, sus ubicaciones y las anclas que dependían de ella; nunca la única parte
+replacePartRounds(p, partId, rounds)      // editor de texto: conserva los números escritos
+insertRound(p, partId, index, round) · removeRound(p, partId, index) · replaceRound(p, partId, index, round) // renumeran las siguientes y conservan los rangos
+insertItem(p, partId, roundIndex, path, item) · updateItem(…, path, item) · removeItem(…, path)
+moveItem(p, partId, roundIndex, from, to) // `to` es la ruta del ítem después de moverlo; entre hermanos, grupos y niveles
+wrapInGroup(p, partId, roundIndex, from, to, times) // hermanos de `from` a `to` (misma lista) en un grupo
+unwrapGroup(p, partId, roundIndex, path)  // los ítems quedan repetidos `times` veces: la vuelta teje lo mismo
+setPlacement(p, placement) · clearPlacement(p, ref) · setAssembly(p, steps)
+interface UnplaceResult { pattern: WrittenPattern; unplaced: PartRef[] } // piezas que quedaron sin ubicar (CA4-E8, F4-62)
+```
+
+- `insertRound` y `replaceRound` ignoran el `number` recibido: la vuelta toma su lugar en la numeración y conserva su rango (`through − number`). `removeRound` no quita la única vuelta; `removeItem` y `moveItem` no dejan un grupo vacío.
+- "Subir" y "bajar" son `moveItem` con el último índice de `to` en −1 o +1. Arrastrar y soltar usará la misma operación.
+- Sin ubicaciones, `layout` se omite (`setCopies`, `removePart`, `clearPlacement`); sin pasos, `assembly` también.
+- `addYarn`, `removeYarn` y `reorderYarns` de `edit.ts` valen para patrones escritos: quitar una lana reemplaza sus `@id` y los `startYarn` que la usan por la lana de reemplazo (`replaceYarnRefs`).
 
 ## Qué valida
 
@@ -258,6 +348,9 @@ Requiere Node 24 LTS (mínimo 22.18, que ejecuta TypeScript directamente). Inclu
 - `test/recommended.test.ts`: límites recomendados (CA4-M8): coinciden con una referencia que expande cada vuelta, nunca lanzan, no aparecen en `validatePattern` y son lineales.
 - `test/casos-dominio-fase4.test.ts`: casos F4-1 a F4-7, F4-11, F4-12, F4-29 a F4-34, los conteos de los fixtures A y B (F4-45, F4-48, F4-49, F4-51) y F4-58, F4-70 de [casos-dominio-fase-4.md](../../docs/casos-dominio-fase-4.md). Los fixtures están en `test/support/amigurumi.ts` (texto y parte leída por el motor). La forma (perfil, alto, diámetro) está en `test/profile.test.ts`.
 - `test/profile.test.ts`: perfil de las partes (T5): constantes, `shapeMetrics` (F4-43), `roundHeightFactor`, los tres tramos, la V1 sobre anillo mágico, cadeneta en aro, paneles y borradores; casos F4-36 a F4-41 (disco plano, 7 avisa, 12 ondula, `ROUND_SHRINKS_FAST`, sensibilidad a `ρ`), la forma de los fixtures A y B (F4-46, F4-47, F4-50, F4-51), la guardia de rendimiento (fixture A en menos de 3 ms), las propiedades G1, G2, G3, G10 y la parte del perfil de G11, "los avisos salen justo donde el perfil acota" y el invariante de opciones.
+- `test/text-v2.test.ts` (T6): `normalizePart`, notas `>` y cierres de varias líneas (CA4-E4), aviso de `#` (CA4-E5), "Cantidad" y sus alias (F4-61), `Inicio: óvalo` (F4-9), `formatPartLines`, `parseWrittenParts`, `PARSE_LIMITS` (con la línea hostil de 2.000 caracteres en menos de 5 ms) y dialectos: tabla C-15, F4-63 a F4-69 y CA4-G2.
+- `test/edit-written.test.ts` (T6): cada operación de `edit-written.ts`, profundidad completa, `moveItem` entre niveles, topes duros sí y recomendados no, `setCopies` y `removePart` sin referencias colgando, lanas generalizadas y entradas dañadas.
+- `test/property-texto.test.ts` (T6): RT1 a RT6 (RT3 a profundidad completa) y las propiedades de la sección 6 (toda operación deja un documento `savable`; `removePart` y `setCopies` no dejan referencias colgando).
 - `test/qa-bordes-colorwork.test.ts`: umbrales exactos de cada regla en sus bordes, "nunca lanza y termina" con JSON arbitrario (mutaciones de documentos válidos, sin acotar `number` ni `through`), las correcciones F1 a F4 de T2d (números de vuelta desmedidos, claves heredadas de `Object.prototype`, rangos sin tope, mensajes sin "undefined", "NaN" ni "[object Object]") y el peor caso de rendimiento (menos de 100 ms).
 
 ## Limitaciones conocidas
@@ -266,6 +359,7 @@ Requiere Node 24 LTS (mínimo 22.18, que ejecuta TypeScript directamente). Inclu
 - `aum`, `aum3` y `dism` cuentan igual con cualquier punto, pero el render los dibuja como punto bajo.
 - Inicio en óvalo (trabajar ambos lados de la cadeneta) y relleno (`stuffing`) quedan fuera de la v2 (enmienda C-13). Las bases ovaladas se escriben con `Inicio: AM` y la V1 con sus puntos.
 - `MAGIC_RING_UNUSUAL` (3 a 12), la lectura de la cadeneta en aro (un punto en cada cadeneta), las pistas de los mensajes y los cinco límites recomendados quedan "validar con tejedora" (T1b).
-- Abreviaturas provisionales pendientes de validar con tejedoras: `aum3`, `ht`/`hd` (hebra trasera o delantera) y `saltar`.
+- Abreviaturas provisionales pendientes de validar con tejedoras: `aum3`/`inc3`, `ht`/`hd` (hebra trasera o delantera), `saltar`, `miss` (UK) y `mr`. Las pistas del otro dialecto y "Cantidad" también son "validar con tejedora".
+- `invdec`, `sk` y `skip` se leen solo en `es-us` (la enmienda C-16 no los lista entre los alias compartidos), aunque significan lo mismo en UK.
 - Gráficos: el tipo y la inclinación de cada disminución, y el color del punto que resulta de ella, no se expresan en v1 (ADR 0005). `rowShapingColumns` marca la columna del punto que desaparece, no dónde se teje la disminución.
 - En plano y tubo, `dimensionsCm` usa `width × repeat.x` aunque haya máscara (ADR 0003); solo el círculo usa la vuelta más ancha.
