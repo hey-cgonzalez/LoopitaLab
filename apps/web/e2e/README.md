@@ -35,12 +35,17 @@ Variables opcionales:
 | `E2E_PORT` | `3100` | Puerto del servidor de pruebas |
 | `E2E_SKIP_BUILD` | — | `1`: no vuelve a hacer `next build` (usa el `.next` existente; tiene que haberse construido con las variables de ejemplo) |
 | `E2E_LATENCY_BUDGET_MS` | `100` | Umbral del p95 de latencia (CA-P1 y CA-P3) |
+| `E2E_VIEWER_BUDGET_MS` | `100` | Presupuesto de latencia del visor 3D (fase 4). La CI lo fija en `400` (provisional: WebGL por software, sin medir todavía). Lo leen las pruebas del visor cuando existan (T3b y siguientes) |
 | `E2E_CPU_RATE` | `1` | CPU limitada por CDP. `4` reproduce las condiciones del ADR 0004 |
 | `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` mide con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
 
 Si una prueba falla con `browserType.launch: Timeout`, es el arranque de Chromium y no el estudio. Pasó una vez en macOS, en la primera corrida después de descargar Chromium. Vuelve a correr las pruebas.
 
 Los resultados quedan en `apps/web/test-results/` (trazas y capturas, solo de lo que falló) y `apps/web/playwright-report/`. Las dos carpetas están en `.gitignore`.
+
+## WebGL por software (fase 4, T3)
+
+El proyecto `webgl` corre `e2e/webgl.spec.ts` contra `/dev/webgl` (una página sin three que dibuja un triángulo y publica en `data-*` el contexto y el `UNMASKED_RENDERER_WEBGL`). Lanza Chromium con `webglLaunch` (`playwright.config.ts`): `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`, según "Using Chromium with SwiftShader" de la documentación de Chromium. En la CI (`CI=1`) la prueba exige que el renderer contenga "SwiftShader". Los proyectos del visor 3D deben usar `launchOptions: webglLaunch`. Los proyectos del estudio (canvas 2D) no lo usan, para no alterar sus mediciones de latencia.
 
 ## Qué cubren
 
