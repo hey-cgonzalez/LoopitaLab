@@ -1,6 +1,6 @@
 # ADR 0011: Posición de las partes, `schemaVersion: 2`, editor de texto y bloques, y glosario
 
-- Estado: propuesto (2026-11-13). Lo marcado "validar con `experto-tejido`" se confirma en T1 de la fase 4 antes de implementarse; lo marcado "validar con tejedora", en T1b.
+- Estado: **aceptado** (2026-11-13, T0 de la fase 4), con las enmiendas de las [decisiones de la fase 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13) (ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-13)): editor de bloques básico preparado para la versión completa (decisión 2) y límites recomendados solo como advertencia (decisión 5). Lo marcado "validar con `experto-tejido`" se confirma en T1 de la fase 4 antes de implementarse; lo marcado "validar con tejedora", en T1b.
 - Fecha: 2026-11-13
 - Paquetes: `packages/pattern-core` (esquema v2, migración, validador, texto, operaciones), `packages/glossary` (nuevo), `packages/viewer-3d` (resuelve las posiciones), `apps/web`, `supabase/` (preferencia de dialecto)
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md) (sección 5, `migratePattern`; E10, errores de tejido; E16, documento cerrado), [ADR 0006](0006-guardado-de-disenos.md) (guardado, `savable`), [ADR 0007](0007-follow-secuencia-de-colorwork.md) (sección 5, migración de punteros), [ADR 0010](0010-geometria-3d-amigurumi.md) (geometría)
@@ -60,8 +60,8 @@ Posición **C** (sección `layout`) con expresión **3** (mixta). **`schemaVersi
 |---|---|---|
 | `WrittenPattern.layout` | Sí | Ubicar las partes (sección 2) |
 | `Part.copies` | Sí | Partes que se tejen N veces, sin duplicarlas (validar el término con `experto-tejido`) |
-| `Part.stuffing` | **Condicional** | Relleno o pieza plana (una oreja sin relleno se aplasta en el 3D). Entra solo si T1 confirma sus valores y su efecto antes de que empiece T4 ([decisión 6](../roadmap.md#decisiones-de-la-fase-4-propuestas)) |
-| `PartStart` de cadeneta en óvalo | **Condicional** | Bases ovaladas (trabajar alrededor de la cadeneta). Hoy `startAvailable` supone una cadeneta cerrada en aro. Entra solo si T1 da la regla de consumo de la primera vuelta |
+| `Part.stuffing` | **Condicional** | Relleno o pieza plana (una oreja sin relleno se aplasta en el 3D). Entra solo si T1 confirma sus valores y su efecto antes de que empiece T4 ([decisión 6](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada) |
+| `PartStart` de cadeneta en óvalo | **Condicional** | Bases ovaladas (trabajar alrededor de la cadeneta). Hoy `startAvailable` supone una cadeneta cerrada en aro. Entra solo si T1 da la regla de consumo de la primera vuelta antes de que empiece T4 (decisión 6). Si no llega, los dos campos quedan para una v3 con su ADR |
 | Secciones banda + copa, tallas, símbolos por casilla (ADR 0003, sección 6) | No | Sin necesidad confirmada por tejedoras. Irán en una v3 con su propio ADR |
 | Ojos de seguridad, bordados y accesorios | No | No son tejido; se anotan en `assembly`. Se reevalúan después de la fase 6 |
 
@@ -152,6 +152,55 @@ Claves nuevas en `SCHEMA_KEYS`: `layout`, `placement`, `partRef`, `freeAt` y `su
 
 - **Los errores estructurales de `layout` no pueden aparecer editando**: las operaciones de la sección 6 limpian las referencias. Solo llegan con documentos armados a mano o generados por IA (fase 5), y ahí el validador es la barrera.
 - **El ciclo y la profundidad** se revisan en tiempo lineal, sin recursión sin tope (`revisor-seguridad`, T20).
+- **Topes duros nuevos en `LIMITS`** (errores estructurales; protegen al motor, no son la recomendación de la sección 3b): `maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`; `placements.length` hasta `maxParts × maxCopies`. Son holgados a propósito: con la decisión 5, la usuaria puede pasar los límites recomendados, así que el tope duro tiene que quedar bastante más arriba (10 copias recomendadas, 50 como tope). `motor-patrones` puede ajustarlos en T4 con su razón, como enmienda de este ADR; subirlos después es compatible, bajarlos no.
+
+### 3b. Límites recomendados (decisión 5: solo advertencia)
+
+Son los valores de la opción (a) de la decisión 5: **20 partes, 10 copias por parte, 100 vueltas por parte, 200 puntos por vuelta y 40.000 puntos en la escena**. No bloquean nada: si se superan, la interfaz advierte y la usuaria decide si sigue. Qué hace el 3D fuera de ellos está en el ADR 0010, sección 6c.
+
+**Contrato** (`pattern-core`, puro; los conteos salen del motor):
+
+```ts
+export const RECOMMENDED_WRITTEN_LIMITS = {
+  parts: 20,
+  copiesPerPart: 10,
+  roundsPerPart: 100,      // vueltas concretas (los rangos cuentan cada vuelta)
+  stitchesPerRound: 200,   // count.produced
+  sceneStitches: 40_000,   // Σ (Σ produced de la parte) × copies
+} as const;
+
+export type RecommendedLimit = keyof typeof RECOMMENDED_WRITTEN_LIMITS;
+
+export interface LimitUsage {
+  limit: RecommendedLimit;
+  /** Valor actual; en los límites por parte o por vuelta, el máximo encontrado. */
+  value: number;
+  recommended: number;
+  /** Dónde se supera (parte y vuelta), para mostrarlo junto a ella. Vacío si no se supera. */
+  over: Array<{ partId: string; round?: number }>;
+}
+
+/** Uso de cada límite recomendado. Nunca lanza con documentos `savable`; tiempo lineal en las vueltas (sin expandir puntos). */
+export function recommendedLimitUsage(pattern: WrittenPattern): LimitUsage[];
+/** Solo los límites superados (los que llevan advertencia). */
+export function recommendedLimitNotices(pattern: WrittenPattern): LimitUsage[];
+```
+
+- **No pasan por `validatePattern`**: no dicen nada del tejido, sino de la fluidez de la herramienta. Así un patrón grande sigue siendo `valid`, la IA (fase 5) no los confunde con errores y el validador queda libre de reglas de producto. La IA puede usar `RECOMMENDED_WRITTEN_LIMITS` como meta al proponer, sin que sea una regla de validez.
+- **Propiedades**: `recommendedLimitUsage` coincide con `concreteRounds` y `copies` en documentos aleatorios; el total de la escena es igual a `stitchCount` de `buildScene` (G13 del ADR 0010); nunca lanza.
+
+**Comunicación en la interfaz** ("déjalo claro desde el inicio"):
+
+- **Antes de alcanzarlos**: el estudio muestra siempre los límites recomendados, no solo al superarlos.
+  - Un medidor junto al visor: "12.400 de 40.000 puntos recomendados en la escena".
+  - En la lista de partes: "6 de 20 partes recomendadas" y, por parte, sus vueltas frente a 100.
+  - Una ayuda visible ("¿Por qué hay límites recomendados?") que explica los cinco valores, que no son límites del tejido y que pasarlos solo puede hacer más lenta la vista previa.
+  - El medidor cambia de tono al acercarse (desde el 80 %), con texto y no solo con color.
+- **Al superarlos**:
+  - **Acciones puntuales** (agregar una parte, fijar copias, insertar una vuelta en bloques): un diálogo "Esto supera el límite recomendado de 20 partes. La vista previa puede ir más lenta. ¿Seguir igual?" con "Seguir igual" y "Cancelar". Si elige seguir, no se vuelve a preguntar por ese mismo límite en ese diseño durante la sesión (estado del estudio, nunca del documento).
+  - **Texto que se escribe** (una vuelta de 240 puntos): sin diálogo, para no cortar la escritura. Una advertencia junto a la vuelta y en el medidor; el documento cambia como siempre y se puede deshacer.
+  - En los dos casos, el aviso dice qué límite, el valor actual y que la vista previa puede ir más lenta.
+- **Los textos** los redacta `documentador` (T18) y los revisa `ux-accesibilidad` (T17). El anuncio por `aria-live` es educado (`polite`) y no se repite en cada tecla.
 
 ### 4. Errores de tejido en patrones escritos (como E10 del ADR 0003)
 
@@ -205,6 +254,9 @@ Puras, inmutables y con salida normalizada (sección 7), con la misma convenció
   - `replacePartRounds(pattern, partId, rounds)` la usa el editor de texto y conserva los números que escribió la usuaria;
   - `insertRound`, `removeRound` y `replaceRound` los usa el editor de bloques y **renumeran** las vueltas siguientes (conservan los rangos).
 - **Ítems** (bloques), con una ruta `ItemPath = number[]` dentro de la vuelta: `insertItem`, `updateItem`, `removeItem`, `moveItem`, `wrapInGroup(desde, hasta, veces)` y `unwrapGroup`.
+  - **Profundidad completa** (decisión 2): las operaciones aceptan rutas de cualquier profundidad hasta `LIMITS.maxNesting` (6). El tope de 2 niveles del editor v1 es **solo de la interfaz** (sección 7) y no existe en `pattern-core`. Una operación que dejaría la anidación por encima de `LIMITS.maxNesting` devuelve el documento sin cambios, como toda entrada fuera de rango.
+  - `moveItem(pattern, partId, roundIndex, from: ItemPath, to: ItemPath)` es general: mueve entre grupos y niveles distintos. La v1 lo usa solo para "subir" y "bajar" entre hermanos; arrastrar y soltar usará la misma operación.
+- **Límites**: las operaciones respetan los topes duros de `LIMITS` (devuelven el documento sin cambios si se pasarían), **nunca los recomendados** de la sección 3b: superar un recomendado lo decide la usuaria en la interfaz.
 - **Posición**: `setPlacement(pattern, placement)`, `clearPlacement(pattern, ref)`.
 - **Armado**: `setAssembly(pattern, steps)`.
 
@@ -266,15 +318,61 @@ El documento completo no pasa por texto: el texto es por parte. `layout`, `yarns
 - **Si la parte se lee**, se aplica `replacePartRounds` más los encabezados, y el 3D se actualiza.
 - **Si no se lee**, el documento no cambia, el 3D queda como estaba y el error se marca en su línea y columna (`texto:línea:columna`). El texto sin leer vive en el estado del editor y en el respaldo local de la sesión (como T15 de la fase 2), **no en el documento**.
 - **Errores del validador por vuelta**: `formatPartLines(part, d)` devuelve `{ text, roundLine: number[] }`, que traduce `parts[i].rounds[j]` a una línea. El error se muestra junto a esa vuelta.
-- **Forma canónica**: al salir de una línea que se leyó bien, el editor la reescribe en forma canónica ("pb x6" → "6 pb"). Nunca mientras se escribe, para que el cursor no salte ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-propuestas)).
+- **Forma canónica**: al salir de una línea que se leyó bien, el editor la reescribe en forma canónica ("pb x6" → "6 pb"). Nunca mientras se escribe, para que el cursor no salte ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada).
 - **Pegar un patrón con varias partes**: `parseWrittenParts(text)` corta en cada "Parte:" y crea partes nuevas (deseable en la fase 4).
 - **Límites de entrada** (`PARSE_LIMITS`): texto de hasta 100 KB por parte y líneas de hasta 2.000 caracteres. Protegen las expresiones regulares de `text.ts` de entradas desmedidas (T20).
 
-**Editor de bloques** (`frontend-editor`; alcance en la [decisión 2](../roadmap.md#decisiones-de-la-fase-4-propuestas)):
+**Editor de bloques** (`frontend-editor`; alcance en la [decisión 2](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13): edición básica, preparada para la versión completa):
 
 - **Muestra cualquier parte `savable`**: puntos con su cantidad y su hebra, grupos con sus veces (anidados hasta `LIMITS.maxNesting`), cambios de lana con la letra y el color, y el conteo de cada vuelta, que sale del motor (`countRound`).
 - **Cada acción es una operación de la sección 6.** Por eso el texto que se ve al cambiar de pestaña es siempre `formatPart` del documento.
 - **Cambiar de texto a bloques con líneas sin leer**: no se permite sin elegir. "Volver al texto" o "Descartar las líneas sin leer".
+
+**Alcance de la v1 (edición básica)**: se edita punto, cantidad, hebra, cambio de lana, grupos hasta 2 niveles (crear, cambiar las veces, deshacer el grupo), insertar y borrar vueltas, y mover ítems con botones "subir" y "bajar". Todo lo demás se ve.
+
+**Fuera de la v1, y por qué** (registro pedido por la usuaria):
+
+| Queda fuera | Por qué | Qué se puede hacer en la v1 |
+|---|---|---|
+| Editar grupos de 3 a 6 niveles (la anidación completa del núcleo) | Son raros en amigurumi (validar con tejedora en T1b). Editarlos con bloques necesita sangrías, foco y anuncios de lector de pantalla por nivel, que en 390 px no caben sin un diseño propio. El costo de interfaz y de accesibilidad es alto para casos raros | Se ven en bloques, en solo lectura, con "Editar en el texto". El texto los edita sin límite |
+| Arrastrar y soltar | Es el mayor costo de accesibilidad (WCAG 2.2, 2.5.7: todo arrastre necesita una alternativa con un solo toque, que igual hay que construir), táctil y de pruebas E2E. Los botones "subir" y "bajar" son esa alternativa y cubren lo habitual | Mover con botones o con el teclado |
+
+**Preparado para la versión completa** (que la v1 no cierre la puerta):
+
+1. **Operaciones con profundidad completa** (sección 6): `pattern-core` no sabe del tope de 2 niveles. RT3 se prueba con secuencias de operaciones de bloques a **toda** la profundidad de `LIMITS.maxNesting`, no solo a 2.
+2. **Árbol de bloques recursivo**: el modelo de la vista es un árbol derivado de `round.items` sin límite de profundidad:
+
+   ```ts
+   // apps/web, derivado (no se guarda): se recalcula desde el documento
+   export interface BlockNode {
+     path: ItemPath;              // ruta en la vuelta; identidad del bloque
+     item: Item;                  // el ítem del documento (`Item` de pattern-core), sin copiar
+     depth: number;               // 0 = nivel de la vuelta
+     editable: boolean;           // canEditBlock(path, policy)
+     children?: BlockNode[];      // si es un grupo
+   }
+   export function blockTree(round: Round, policy: BlockEditPolicy): BlockNode[];
+   ```
+
+   Un solo componente recursivo dibuja cualquier nivel. Los niveles no editables se dibujan con el mismo componente, en solo lectura.
+3. **Una sola política de interfaz**:
+
+   ```ts
+   export interface BlockEditPolicy {
+     maxEditDepth: number;   // v1: 2; versión completa: LIMITS.maxNesting
+     dragAndDrop: boolean;   // v1: false
+   }
+   export const BLOCK_EDIT_POLICY_V1: BlockEditPolicy = { maxEditDepth: 2, dragAndDrop: false };
+   export function canEditBlock(path: ItemPath, policy: BlockEditPolicy): boolean;
+   ```
+
+   Ningún otro lugar del código compara la profundidad con un número. Pasar a la versión completa es cambiar la política y agregar la interfaz de arrastre, sin tocar las operaciones, el árbol ni el almacén.
+4. **Estado del editor por rutas, no por posición en pantalla**: la selección y el foco son `{ partId, roundIndex, path }`. Mover con botones ya llama a `moveItem` con una ruta de destino, igual que hará el arrastre.
+5. **Deshacer por acción**: cada acción es un paso de deshacer en el almacén, sea un botón hoy o un arrastre después.
+
+**Verificación** (CA4-E11 de la hoja de ruta): una prueba de Vitest monta el editor con `{ maxEditDepth: LIMITS.maxNesting, dragAndDrop: false }` y edita un ítem a 6 niveles de profundidad sin cambiar otro código; una búsqueda en la revisión de código confirma que no hay comparaciones de profundidad fuera de `canEditBlock`; y RT3 corre con profundidad completa.
+
+La versión completa (anidación de 6 niveles y arrastrar y soltar) queda en la hoja de ruta como fase futura, después de que T1b diga si las tejedoras usan los bloques.
 
 ### 8. Terminología y paquete `packages/glossary`
 
@@ -314,7 +412,7 @@ export const TERMS: readonly TermEntry[];
 
 - **Datos**: los del [glosario pendiente](../roadmap.md#glosario-pendiente) más los de amigurumi de T1. **Las variantes regionales del español** (Chile como base; otras) se cargan solo con lo que entregue `experto-tejido`, en estado "pendiente". No se inventan.
 - **Pruebas**: cada código de `STITCHES` tiene entrada en los tres dialectos; ninguna clave falta en `es`; los datos no tienen marcas ni nombres de tienda (como CA3-L11).
-- **Preferencia de la usuaria**: el dialecto con que ve y escribe los patrones se guarda en `profiles.pattern_dialect` (`'es' | 'us' | 'uk'`, por omisión `'es'`), con una migración pequeña y RLS de la propia fila ([decisión 4](../roadmap.md#decisiones-de-la-fase-4-propuestas)).
+- **Preferencia de la usuaria**: el dialecto con que ve y escribe los patrones se guarda en `profiles.pattern_dialect` (`'es' | 'us' | 'uk'`, por omisión `'es'`), con una migración pequeña y RLS de la propia fila ([decisión 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada).
 - **Alcance**: la interfaz sigue en español. `glossary` es la terminología de los patrones, no la traducción de la aplicación.
 
 ### 9. Armado
@@ -337,12 +435,28 @@ export const TERMS: readonly TermEntry[];
 - **Fusionar puntos al normalizar**: cambia lo escrito sin que se pida.
 - **Detectar el dialecto automáticamente**: "dc" y "tr" son ambiguos entre US y UK. Un error ahí cambia el conteo sin que se note.
 - **ADR propio para `glossary`**: su contrato técnico es la sección 8; lo demás son datos que validan las tejedoras.
+- **Bloques completos en la fase 4** (opción b de la decisión 2): anidación de 6 niveles y arrastrar y soltar. Mucho trabajo de interfaz y accesibilidad para casos raros. Queda preparado (sección 7) y en la hoja de ruta como fase futura.
+- **Tope de 2 niveles en las operaciones de `pattern-core`**: sería lo más simple, pero obligaría a cambiar el núcleo y sus propiedades para la versión completa, y dejaría al editor de bloques sin poder representar lo que el texto sí acepta.
+- **Límites recomendados como topes duros en la interfaz** (lectura original de la opción a de la decisión 5): la usuaria pidió que sean solo advertencia y que ella decida.
+- **Límites recomendados como avisos del validador**: mezclarían la fluidez de la herramienta con la corrección del tejido, y la IA los trataría como problemas del patrón.
+- **Diálogo de confirmación también al escribir texto**: cortaría la escritura en cada tecla que cruza un límite. En el texto la advertencia va junto a la vuelta, sin diálogo.
 
 ## Consecuencias
 
 - `SCHEMA_VERSION` pasa a 2. Todo el código que escribe `schemaVersion: 1` a mano (pruebas y fixtures) se actualiza en una tarea mecánica.
 - Los patrones escritos se pueden guardar como borrador con errores de conteo (enmienda del ADR 0006 en T4).
 - `follow` (fase 6) recorre parte × copia, y `project_progress` necesitará la copia.
-- La interfaz deja de reescribir lo que la usuaria tipea mientras escribe, pero sí al salir de la línea. Es una decisión visible ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-propuestas)).
+- La interfaz deja de reescribir lo que la usuaria tipea mientras escribe, pero sí al salir de la línea. Es una decisión visible ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)).
 - Los campos condicionales (`stuffing` y el inicio en óvalo) dependen de T1. Si no llegan antes de T4, quedan para una v3 con su ADR.
 - La preferencia de dialecto agrega una columna a `profiles`. Pasa por `revisor-seguridad`.
+- Los límites recomendados no impiden nada: un diseño puede tener 30 partes y seguir siendo `valid`. La regla de oro 7 se garantiza dentro de ellos (ADR 0010, sección 6c), y la interfaz lo dice desde el inicio.
+- El editor de bloques v1 es básico, pero el núcleo, el árbol de bloques y el almacén ya soportan la profundidad completa. La versión completa es trabajo de interfaz, no de modelo.
+
+## Enmiendas por las decisiones de la usuaria (2026-11-13)
+
+La usuaria aprobó el ADR, `schemaVersion: 2` y el posicionado anclado ([decisiones 1 y 3](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), opción a). Cambios al texto propuesto:
+
+- **Decisión 2 (editor de bloques básico, preparado para la versión completa)**: sección 7, con el alcance de la v1, la tabla de lo que queda fuera y por qué (anidación de 6 niveles, arrastrar y soltar), y lo que la deja preparada: operaciones con profundidad completa (sección 6), árbol `BlockNode` recursivo, `BlockEditPolicy` como único lugar del tope de 2 niveles, estado por rutas y deshacer por acción. Se verifica con CA4-E11. La versión completa queda como fase futura en la hoja de ruta.
+- **Decisión 5 (límites solo como advertencia)**: nueva sección 3b con `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage` y `recommendedLimitNotices`, fuera del validador, y cómo la interfaz los informa antes de alcanzarlos y al superarlos. Topes duros nuevos de `LIMITS` en la sección 3 (`maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`). Las operaciones respetan solo los topes duros (sección 6).
+- **Decisión 4 (glosario ES, US y UK con preferencia en el perfil)**, **6 (campos condicionales solo con reglas de T1 antes de T4)** y **7 (forma canónica al salir de la línea)**: aprobadas tal como estaban; solo se actualizan los enlaces.
+- **Decisión 9**: todo lo marcado "validar con tejedora" en este ADR queda pendiente de T1b, que se suma a la ronda de las fases 2 y 3.

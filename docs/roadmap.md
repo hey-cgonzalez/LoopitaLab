@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-13, agente `arquitecto` (planificación de la fase 4: [ADR 0010](adr/0010-geometria-3d-amigurumi.md) y [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md) propuestos, [sección "Fase 4 en detalle"](#fase-4-en-detalle) y [decisiones de la fase 4](#decisiones-de-la-fase-4-propuestas)). Revisión anterior: 2026-11-13, agentes `arquitecto` y `documentador` (cierre de la fase 3, T19; ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3)). Revisión anterior: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-13, agente `arquitecto` (fase 4, T0 hecha: la usuaria respondió las [decisiones de la fase 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13); [ADR 0010](adr/0010-geometria-3d-amigurumi.md) y [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md) aceptados con enmiendas; tareas y criterios ajustados). Revisión anterior: 2026-11-13, agente `arquitecto` (planificación de la fase 4, ADR 0010 y 0011 propuestos, [sección "Fase 4 en detalle"](#fase-4-en-detalle)). Revisión anterior: 2026-11-13, agentes `arquitecto` y `documentador` (cierre de la fase 3, T19; ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3)). Revisión anterior: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -9,10 +9,11 @@
 | 1 | Base: modelo canónico, validador, lanas, Supabase con RLS, acceso, proyectos y cuenta | Lista | — |
 | 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Lista en código; ADR 0003 a 0006 aceptados. Faltan CA-P6, T1b, T16 y el E2E con sesión | Alta |
 | 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Lista en código (PR #9 a #11 en `main`). Pendiente lo que no es código: T1b (tras T1c), CA-P6, lector de pantalla real y la puesta en público. Ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3) | Media-alta |
-| 4 | Estudio amigurumi 3D | En planificación: ADR 0010 y 0011 propuestos, a la espera de T0 (aprobación de la usuaria). Ver [Fase 4 en detalle](#fase-4-en-detalle) | Alta |
+| 4 | Estudio amigurumi 3D | Planificada; T0 hecha el 2026-11-13 (ADR 0010 y 0011 aceptados con enmiendas). Sigue T1 (`experto-tejido`). Ver [Fase 4 en detalle](#fase-4-en-detalle) | Alta |
 | 5 | Imagen → patrón (IA) | Pendiente | Alta |
 | 6 | Modo tejiendo completo (amigurumi punto a punto, contadores, tiempo) | Pendiente | Media |
 | 7 | Compartir y publicar, exportación PDF y lanzamiento | Pendiente | Media |
+| Futuras | Trabajo registrado sin fecha, por ejemplo el [editor de bloques completo](#editor-de-bloques-completo) | Sin fecha | — |
 
 ### Ajuste al orden propuesto: seguir colorwork fila a fila pasa a la fase 3
 
@@ -124,7 +125,7 @@ Detalle completo en la [sección de la fase 3](#fase-3-en-detalle) más abajo (A
 
 ## Fase 4: Estudio amigurumi 3D
 
-Detalle completo en la [sección de la fase 4](#fase-4-en-detalle) más abajo (ADR [0010](adr/0010-geometria-3d-amigurumi.md) y [0011](adr/0011-posicion-de-partes-y-editor-escrito.md), propuestos). Donde el detalle precisa este resumen, manda el detalle. En particular: la posición de las partes **sí** requiere `schemaVersion: 2` (el documento es cerrado, ADR 0003 E16), y `glossary` se diseña como sección del ADR 0011.
+Detalle completo en la [sección de la fase 4](#fase-4-en-detalle) más abajo (ADR [0010](adr/0010-geometria-3d-amigurumi.md) y [0011](adr/0011-posicion-de-partes-y-editor-escrito.md), aceptados el 2026-11-13). Donde el detalle precisa este resumen, manda el detalle. En particular: la posición de las partes **sí** requiere `schemaVersion: 2` (el documento es cerrado, ADR 0003 E16), `glossary` se diseña como sección del ADR 0011, el 3D lleva aspecto por fibra desde esta fase (decisión 10) y los límites de tamaño son recomendaciones con advertencia (decisión 5).
 
 - **Objetivo**: escribir un patrón de amigurumi por partes (con sintaxis o bloques), con color por punto y un modelo 3D que se actualiza en vivo.
 - **Entregables**:
@@ -144,13 +145,14 @@ Detalle completo en la [sección de la fase 4](#fase-4-en-detalle) más abajo (A
   - **ADR nuevo**:
     - geometría 3D derivada de las vueltas;
     - cómo se guarda la posición de las partes (probablemente requiere `schemaVersion: 2`).
-- **Paquetes**: `pattern-core`, `viewer-3d` (nuevo), `glossary` (nuevo), `stitch-render` (puntos de crochet, si se usan en miniaturas), `apps/web`.
+- **Paquetes**: `pattern-core`, `viewer-3d` (nuevo), `glossary` (nuevo), `stitch-render` (`yarnLook` para el aspecto por fibra del 3D; puntos de crochet, si se usan en miniaturas), `yarn-catalog` (datos de fibras, sin cambios de contrato), `apps/web`.
 - **Agentes**:
 
   | Agente | Responsabilidad |
   |---|---|
   | `arquitecto` | ADR de geometría y posición de partes |
-  | `visor-3d` | `viewer-3d` |
+  | `visor-3d` | `viewer-3d`, incluido el aspecto por fibra |
+  | `catalogo-lanas` | Revisión de los datos de fibra y de la calibración del aspecto en el 3D (T11c) |
   | `motor-patrones` | Bloques y validación |
   | `frontend-editor` | Editor |
   | `documentador` | `glossary` |
@@ -160,7 +162,7 @@ Detalle completo en la [sección de la fase 4](#fase-4-en-detalle) más abajo (A
 
 - **Dependencias**: fase 3 (selector de lanas). La fase 1 ya tiene el modelo escrito y el validador.
 - **Criterios de salida**:
-  - editar una vuelta actualiza el 3D en menos de 100 ms con una pieza de 40 vueltas;
+  - editar una vuelta actualiza el 3D en menos de 100 ms con una pieza de 40 vueltas, dentro de los límites recomendados y con el aspecto por fibra activado;
   - el texto y los bloques producen el mismo documento (ida y vuelta sin pérdida);
   - el glosario tiene ES, US y UK, marcado como pendiente de validación con tejedoras;
   - el 3D muestra el aviso de prototipo digital.
@@ -916,7 +918,7 @@ Fecha: 2026-11-13. Los grupos A a E están implementados en la rama `fase-3/grup
 
 ## Fase 4 en detalle
 
-Planificada el 2026-11-13 por `arquitecto` sobre `main` (fase 3 lista en código, PR #9 a #11), en la rama `fase-4/planificacion`. Las decisiones están en dos ADR, los dos **propuestos** a la espera de T0:
+Planificada el 2026-11-13 por `arquitecto` sobre `main` (fase 3 lista en código, PR #9 a #11), en la rama `fase-4/planificacion`. **T0 hecha el 2026-11-13**: la usuaria respondió las [decisiones de la fase 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), y los dos ADR quedaron **aceptados** con enmiendas:
 
 - el [ADR 0010](adr/0010-geometria-3d-amigurumi.md): geometría 3D derivada de las vueltas y paquete `viewer-3d`;
 - el [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md): posición de las partes, `schemaVersion: 2`, editor de texto y bloques, y `glossary`.
@@ -931,28 +933,31 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
   - crear un diseño escrito;
   - partes con nombre, construcción (espiral, vueltas unidas o hileras), inicio (anillo mágico o cadeneta), lana inicial, cantidad de copias y cierre;
   - lista de partes con su cantidad de vueltas y su conteo final (del motor).
-- **Editor de texto** por parte, con la sintaxis de `text.ts` ampliada (notas `>`, cantidad de copias) en ES y US. UK solo con selector explícito, según la [decisión 4](#decisiones-de-la-fase-4-propuestas). Errores de lectura en su línea y errores del validador junto a cada vuelta.
-- **Editor de bloques** equivalente al texto, con ida y vuelta sin pérdida (ADR 0011, sección 7). El alcance de la edición lo fija la [decisión 2](#decisiones-de-la-fase-4-propuestas).
+- **Editor de texto** por parte, con la sintaxis de `text.ts` ampliada (notas `>`, cantidad de copias) en ES y US. UK solo con selector explícito, según la [decisión 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13). Errores de lectura en su línea y errores del validador junto a cada vuelta.
+- **Editor de bloques** equivalente al texto, con ida y vuelta sin pérdida (ADR 0011, sección 7). Edición básica ([decisión 2](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)): punto, cantidad, hebra, cambio de lana, grupos hasta 2 niveles, insertar y borrar vueltas, mover con botones. Todo se ve. Las operaciones, el árbol de bloques y el almacén soportan la profundidad completa del núcleo; solo la interfaz limita a 2 niveles (`BlockEditPolicy`).
+- **Límites recomendados** ([decisión 5](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)): 20 partes, 10 copias, 100 vueltas por parte, 200 puntos por vuelta y 40.000 puntos en la escena, **solo como advertencia**. Se informan desde el inicio (medidor y ayuda visibles) y, al superarlos, la usuaria decide si sigue (ADR 0011, sección 3b; ADR 0010, sección 6c).
 - **Borradores**: un patrón escrito con vueltas que no cuadran se guarda y se ve (ADR 0011, sección 4). Los errores de conteo se ven, pero no impiden guardar.
 - **Visor 3D** (`viewer-3d`, ADR 0010):
   - forma de cada parte derivada de los conteos y la muestra;
   - color por punto;
   - partes en espiral, en vueltas unidas y en hileras (panel plano);
-  - copias, ubicación automática y posicionado a mano ([decisión 3](#decisiones-de-la-fase-4-propuestas));
+  - copias, ubicación automática y posicionado anclado a la superficie ([decisión 3](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13));
+  - **aspecto por fibra** (halo, brillo, definición) con `yarnLook` de `stitch-render` e interruptor "Colores planos" compartido con la fase 3 ([decisión 10](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13); ADR 0010, sección 6b);
   - medidas estimadas, aviso de prototipo digital y silueta 2D si no hay WebGL.
 - **Lanas**: el selector de la fase 3 (grosor, composición, paleta o color personalizado, "Mis lanas") en el estudio amigurumi; los cambios de lana con `@id` y en bloques.
 - **Armado**: pasos escritos (`assembly`) y la lista derivada "Dónde va cada pieza".
-- **`glossary`**: ES, US y UK, todo marcado como pendiente de validación. Preferencia de dialecto en la cuenta ([decisión 4](#decisiones-de-la-fase-4-propuestas)).
+- **`glossary`**: ES, US y UK, todo marcado como pendiente de validación. Preferencia de dialecto en la cuenta ([decisión 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)).
 - **`schemaVersion: 2`** con su migración y la compatibilidad de la sección 5 del ADR 0011.
 
 **Fuera** (fase en que entra)
 
 | Tema | Fase |
 |---|---|
-| Seguir un amigurumi punto a punto, 3D parcial en "Tejiendo" (el contrato `limit` queda listo) | 6 ([decisión 8](#decisiones-de-la-fase-4-propuestas)) |
+| Seguir un amigurumi punto a punto, 3D parcial en "Tejiendo" (el contrato `limit` queda listo). En la fase 4, aviso "Seguir un amigurumi punto a punto llega en una próxima versión" | 6 ([decisión 8](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)) |
 | Amigurumi desde una foto | 5 (ruta 3D) |
 | Metraje del amigurumi (no hay factores validados en crochet) | Después de validar factores con tejedoras, como el metraje en crochet de la fase 3 |
-| Aspecto por fibra (halo, brillo) en el 3D | Después ([decisión 10](#decisiones-de-la-fase-4-propuestas)) |
+| Editor de bloques completo: editar grupos de 3 a 6 niveles y arrastrar y soltar | Fase futura ([Editor de bloques completo](#editor-de-bloques-completo)); la fase 4 lo deja preparado |
+| Pelaje por capas para el halo, materiales físicos de tela | Sin fecha; se reevalúa con medición si las tejedoras lo piden (ADR 0010, sección 6b) |
 | Simulación física del relleno, aumentos asimétricos (hocicos) en la forma | Sin fecha (ADR 0010, alternativas y consecuencias) |
 | Ojos de seguridad, bordados y accesorios como objetos 3D | Sin fecha. En la fase 4 se anotan en `assembly` |
 | Crochet tapestry en el estudio de colorwork | Después de la fase 4 |
@@ -977,20 +982,25 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
 | HU4-10 | Escribo notas por vuelta ("coloca el marcador") y pasos de armado, y no se pierden al cambiar de vista ni al recargar. |
 | HU4-11 | Elijo si veo los patrones con abreviaturas de Chile, de EE. UU. o del Reino Unido, y la elección me sigue en otros dispositivos. |
 | HU4-12 | Si mi equipo no tiene 3D, igual veo la silueta de cada parte y una descripción. |
+| HU4-13 | Desde que abro el estudio sé cuáles son los tamaños recomendados para que la vista previa sea fluida. Si los paso, me avisa y yo decido si sigo. |
+| HU4-14 | Veo en el 3D el halo de una lana con mohair o el brillo de una con seda, y puedo apagarlo con "Colores planos". |
 
 ### Criterios de aceptación medibles
 
-**Rendimiento (regla de oro 7)**. Escenario del ADR 0010, sección 6: un cuerpo esférico de unas 40 vueltas (máximo de 60 puntos), 9 partes más (orejas, brazos y piernas con 2 copias) y 3 lanas. Playwright en Chromium, CPU ×4, WebGL por software en la CI; el equipo de referencia de la fase 2 decide.
+**Rendimiento (regla de oro 7)**. Escenario del ADR 0010, sección 6: un cuerpo esférico de unas 40 vueltas (máximo de 60 puntos), 9 partes más (orejas, brazos y piernas con 2 copias) y 3 lanas, **una de ellas con mohair y otra con seda**, para que el aspecto por fibra trabaje. Queda dentro de los límites recomendados. Playwright en Chromium, CPU ×4, WebGL por software en la CI; el equipo de referencia de la fase 2 decide. **CA4-P1 a CA4-P4 se exigen dentro de los límites recomendados y con el aspecto por fibra activado**; fuera de los límites rigen CA4-P8 y CA4-P9 (ADR 0010, sección 6c).
 
 | ID | Criterio |
 |---|---|
 | CA4-P1 | Editar una vuelta del cuerpo en el texto (50 ediciones: cambiar un conteo, agregar un aumento): p95 de `edit-to-paint-3d` < 100 ms |
 | CA4-P2 | Lo mismo con bloques (50 acciones): p95 < 100 ms |
-| CA4-P3 | Cambiar la lana de un cambio de color o el color de una lana (50 veces): p95 < 100 ms, y la malla no se reconstruye (contador de `buildPartMesh` en 0; solo `colorizePartMesh`) |
-| CA4-P4 | Girar y acercar: ≥ 30 fps en el equipo de referencia (medición manual; en la CI es solo informativo) |
+| CA4-P3 | Cambiar el color o la composición de una lana, o activar y desactivar "Colores planos" (50 veces): p95 < 100 ms, con 0 llamadas a `buildPartMesh` y a `colorizePartMesh` y 0 atributos subidos (solo la tabla por lana). Cambiar la lana de un cambio de color (`@B` → `@C`, 50 veces): p95 < 100 ms, con 0 llamadas a `buildPartMesh` (solo `colorizePartMesh`). En los dos casos, `renderer.info.programs.length` no crece |
+| CA4-P4 | Girar y acercar con el aspecto por fibra activado: ≥ 30 fps en el equipo de referencia (medición manual; en la CI es solo informativo) |
 | CA4-P5 | La validación completa y las medidas corren diferidas: 0 llamadas a `validatePattern` dentro de la ventana de una edición (extiende CA-P7) |
 | CA4-P6 | Guardia en Node: `partProfile` y `buildPartMesh` del cuerpo bajo 3 veces la referencia registrada; `buildScene` con una sola parte editada reconstruye exactamente 1 malla |
 | CA4-P7 | El estudio de colorwork no carga `three`: ninguna petición del fragmento de `three` en `/disenos/[id]` de un gráfico (E2E), y el PR informa el tamaño del fragmento del estudio amigurumi |
+| CA4-P8 | **Fuera de los límites recomendados** (escena de unos 60.000 puntos, una parte de 120 vueltas y una vuelta de 300 puntos): la advertencia aparece; el nivel de detalle pasa a `"smooth"`; el editor (texto, conteo de la vuelta y errores de lectura) responde con p95 < 100 ms medido como `edit-to-feedback` (no espera al 3D); el 3D llega a la última edición sin cola (nunca más de una reconstrucción en curso) y muestra "Actualizando 3D…" mientras tanto. El PR informa el p95 de `edit-to-paint-3d` en este escenario, sin umbral obligatorio |
+| CA4-P9 | Con más de `SCENE_HARD_STITCH_CAP` puntos (documento armado en la prueba, dentro de los topes del núcleo), el visor muestra siluetas y el mensaje, la pestaña no se cuelga (ninguna tarea larga de más de 500 ms) y el diseño se sigue editando y guardando |
+| CA4-P10 | `hover-to-paint-3d` (vista previa de una lana al pasar el cursor por un color, con el aspecto activado, 50 veces): p95 < 100 ms. Latencia A/B con `E2E_FLAT_COLORS=1` informada en el PR, como en la fase 3 |
 
 **Modelo y motor**
 
@@ -998,9 +1008,10 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
 |---|---|
 | CA4-M1 | Las propiedades M1 a M4 de la migración (ADR 0011, sección 5) pasan con tres semillas y con todos los fixtures v1 del repositorio |
 | CA4-M2 | Un diseño v1 guardado en la base se abre, se guarda como v2 (`schema_version = 2`) y sigue igual. Un proyecto con una versión fijada v1 abre "Tejiendo" con los mismos pasos (E2E con sesión) |
-| CA4-M3 | Cada código de `layout` de la tabla del ADR 0011, sección 3, tiene su prueba. Documentos hostiles (ciclos, cadenas de 10.000 anclas, `NaN`, 1e308, 50 × 20 copias) se rechazan sin lanzar y en menos de 50 ms |
+| CA4-M3 | Cada código de `layout` de la tabla del ADR 0011, sección 3, tiene su prueba. Documentos hostiles (ciclos, cadenas de 10.000 anclas, `NaN`, 1e308, 50 partes con `LIMITS.maxCopies + 1` copias) se rechazan sin lanzar y en menos de 50 ms. Un documento que supera los cinco límites recomendados, pero no los topes duros, es `valid` |
+| CA4-M8 | `recommendedLimitUsage` y `recommendedLimitNotices` (ADR 0011, sección 3b): coinciden con `concreteRounds` y `copies` en documentos aleatorios (tres semillas), el total de la escena es igual a `stitchCount` de `buildScene` (G13), nunca lanzan y no aparecen en `validatePattern` |
 | CA4-M4 | Un patrón escrito con `ROUND_CONSUMPTION_MISMATCH` se guarda como borrador; uno con `STITCH_UNKNOWN` o un error de `layout` no, ni siquiera llamando directo a la acción |
-| CA4-M5 | Las propiedades G1 a G11 (ADR 0010) y RT1 a RT6 (ADR 0011) pasan con tres semillas |
+| CA4-M5 | Las propiedades G1 a G13 (ADR 0010; G12 solo si se implementa `reuse`) y RT1 a RT6 (ADR 0011) pasan con tres semillas. RT3 genera operaciones de bloques a toda la profundidad de `LIMITS.maxNesting`, no solo a 2 niveles |
 | CA4-M6 | Revisión de código: ningún conteo de puntos se calcula en `apps/web` ni en `viewer-3d`; todos salen de `concreteRounds`, `countRound`, `expandRound` y `STITCHES` |
 | CA4-M7 | Los casos F4-* de `docs/casos-dominio-fase-4.md` (T1) pasan como pruebas |
 
@@ -1013,11 +1024,13 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
 | CA4-E3 | Ida y vuelta: 20 cambios de pestaña texto ↔ bloques con ediciones aleatorias dejan el documento igual al que producen las mismas ediciones en una sola vista (E2E con `deepEqual` del documento guardado) |
 | CA4-E4 | Las notas por vuelta (`>`) y un cierre de varias líneas sobreviven a guardar, recargar y cambiar de vista |
 | CA4-E5 | Una línea `#` muestra el aviso de que los comentarios no se guardan |
-| CA4-E6 | Los bloques muestran todo documento `savable`, incluidos grupos anidados hasta `LIMITS.maxNesting`; editan lo que fija la decisión 2; cada acción es un paso de deshacer |
+| CA4-E6 | Los bloques muestran todo documento `savable`, incluidos grupos anidados hasta `LIMITS.maxNesting`. Editan lo que fija la decisión 2 (punto, cantidad, hebra, cambio de lana, grupos hasta 2 niveles, insertar y borrar vueltas, subir y bajar); los niveles 3 a 6 se ven en solo lectura con "Editar en el texto". Cada acción es un paso de deshacer |
 | CA4-E7 | La forma canónica se aplica al salir de la línea, nunca mientras se escribe: el cursor no salta (E2E) |
-| CA4-E8 | Partes: agregar, renombrar, reordenar, fijar copias y borrar. Borrar o bajar copias avisa qué piezas quedaron sin ubicar. Los límites de la decisión 5 se informan con un mensaje claro |
+| CA4-E8 | Partes: agregar, renombrar, reordenar, fijar copias y borrar. Borrar o bajar copias avisa qué piezas quedaron sin ubicar. Los topes duros del núcleo (`LIMITS`) se informan con un mensaje claro cuando una acción no se puede hacer |
 | CA4-E9 | Las líneas sin leer se conservan en el respaldo local y se recuperan al recargar; nunca entran al documento |
 | CA4-E10 | El selector de lanas de la fase 3 funciona en el estudio amigurumi; quitar una lana usada pide la de reemplazo y actualiza `@id` y `startYarn` |
+| CA4-E11 | **Editor de bloques preparado para la versión completa** (decisión 2; ADR 0011, sección 7): (1) una prueba de Vitest monta el editor con `{ maxEditDepth: LIMITS.maxNesting, dragAndDrop: false }` y edita, agrupa y mueve un ítem a 6 niveles de profundidad sin cambiar otro código; (2) la revisión de código confirma que ninguna comparación de profundidad vive fuera de `canEditBlock` y que la selección se guarda por rutas (`ItemPath`); (3) RT3 corre a profundidad completa (CA4-M5) |
+| CA4-E12 | **Límites recomendados desde el inicio** (decisión 5; ADR 0011, sección 3b): al abrir un amigurumi nuevo ya se ven el medidor de puntos de la escena, "N de 20 partes recomendadas" y la ayuda "¿Por qué hay límites recomendados?", antes de acercarse a ningún límite (E2E). El medidor avisa con texto desde el 80 %. Al superar un límite con una acción puntual aparece el diálogo "Seguir igual" o "Cancelar"; "Cancelar" deja el documento igual y "Seguir igual" aplica la acción y no vuelve a preguntar por ese límite en la sesión. Al superarlo escribiendo texto no hay diálogo: la advertencia aparece junto a la vuelta. Ninguna de las dos cosas entra al documento |
 
 **Visor 3D**
 
@@ -1030,6 +1043,7 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
 | CA4-V5 | Sin WebGL, o si se pierde el contexto y no vuelve, se muestran las siluetas (`profileToSvg`) y la descripción; el estudio sigue editable |
 | CA4-V6 | Con aumentos de más, aparece `ROUND_GROWS_FAST` como información (nunca como error) y el 3D muestra la ondulación acotada |
 | CA4-V7 | "Tejer este diseño" no está disponible para patrones escritos, con el texto de la decisión 8; el servidor ya lo rechaza (`start_chart_project` exige `kind = 'chart'`) |
+| CA4-V8 | **Aspecto por fibra** (decisión 10; ADR 0010, sección 6b): activado por defecto; capturas de Playwright en el PR de la misma pieza con 100 % algodón, 100 % acrílico, 70/30 lana y mohair, 100 % seda y "Colores planos", revisadas por `catalogo-lanas` y `experto-tejido` (T11c). Con el aspecto neutro, el píxel es igual al del material base (prueba de captura). "Colores planos" es la misma preferencia que el estudio de colorwork (`loopita:vista:colores-planos`), sobrevive a recargar y nunca entra al documento. Ninguna textura viene de un archivo de imagen. Sin WebGL, la silueta usa el color plano y el texto dice que el halo y el brillo solo se ven en 3D. Una prueba de tipos asegura que `YarnLook` y `SurfaceLook` son intercambiables, y `viewer-3d` no importa `stitch-render` ni `yarn-catalog` (revisión de dependencias) |
 
 **Glosario**
 
@@ -1054,7 +1068,8 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
   - `WrittenPattern.layout` (posiciones libres y ancladas) y `Part.copies`;
   - condicionales, según T1 y la decisión 6: `Part.stuffing` y el inicio en óvalo;
   - paso de migración `STEPS[1]` sin transformar datos;
-  - validador v2 con los códigos `PART_COPIES` y `LAYOUT_*`, y límites nuevos en `LIMITS` (`maxCopies`, `maxLayoutDepth`, `maxPositionCm`, `maxOffsetCm`; valores según la decisión 5).
+  - validador v2 con los códigos `PART_COPIES` y `LAYOUT_*`, y topes duros nuevos en `LIMITS` (`maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`; ADR 0011, sección 3).
+- **Límites recomendados** (decisión 5; ADR 0011, sección 3b): `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage` y `recommendedLimitNotices`, puros y **fuera del validador**. Los topes duros de `LIMITS` no cambian.
 - **Borradores escritos**: cinco códigos de conteo pasan a `DRAFT_ERROR_CODES` (ADR 0011, sección 4). Enmienda del ADR 0006.
 - **Derivados nuevos** ([ADR 0010](adr/0010-geometria-3d-amigurumi.md), secciones 1 y 2): `shapeMetrics`, `partProfile`, `partDimensions`, `STITCH_HEIGHT_FACTOR` y `PROFILE_RADIAL_TOLERANCE`. Avisos informativos nuevos: `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST`.
 - **Texto** (ADR 0011, sección 7):
@@ -1069,7 +1084,7 @@ Los casos de prueba de dominio irán en `docs/casos-dominio-fase-4.md`, que prod
 
 | Paquete | Qué hace | Depende de | Contrato |
 |---|---|---|---|
-| `packages/viewer-3d` | Malla por punto, escena con copias y anclas, silueta SVG (puro); adaptador `three` en la subruta `./three` | Puro: solo `pattern-core`. `./three`: `three` como dependencia par | `buildPartMesh`, `shapeSignature`, `colorizePartMesh`, `surfaceFrame`, `buildScene`, `profileToSvg`; `createThreeRenderer` (`AmigurumiRenderer`) ([ADR 0010](adr/0010-geometria-3d-amigurumi.md), secciones 3 a 5 y 9) |
+| `packages/viewer-3d` | Malla por punto, escena con copias y anclas, silueta SVG (puro); adaptador `three` en la subruta `./three` | Puro: solo `pattern-core`. `./three`: `three` como dependencia par | `buildPartMesh` (con `reuse` opcional), `shapeSignature`, `colorizePartMesh`, `surfaceFrame`, `buildScene` (con `stitchCount`), `profileToSvg`, `SurfaceLook`; `createThreeRenderer` (`AmigurumiRenderer` con `setLooks` y `setPreviewOverride`) ([ADR 0010](adr/0010-geometria-3d-amigurumi.md), secciones 3 a 6c y 9). No depende de `stitch-render` ni de `yarn-catalog` |
 | `packages/glossary` | Términos de patrón ES, US y UK, nombres completos, variantes regionales y su estado de validación | Solo `pattern-core` | `term`, `stitchLabel`, `roundWord`, `TERMS` ([ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md), sección 8) |
 
 Misma convención que `follow`: TypeScript sin compilar, `exports` a `src/index.ts` (más `./three` en `viewer-3d`), `node:test`, generador de propiedades con semilla. Se agregan al job "Núcleo" de la CI y a `transpilePackages`.
@@ -1080,8 +1095,9 @@ Misma convención que `follow`: TypeScript sin compilar, `exports` a `src/index.
 |---|---|---|
 | `pattern-core` | Lo de la sección anterior | 0010, 0011 |
 | `pattern-render` | `describeWritten` (descripción accesible del amigurumi, con partes, vueltas, conteos y medidas estimadas) | 0010, sección 8 |
-| `yarn-catalog` | Sin cambios: la muestra supuesta en crochet sale de `suggestedGauge(grosor, "crochet")` | 0010, sección 1 |
-| `apps/web` | Componente r3f del visor (`components/amigurumi/`), almacén del estudio amigurumi, traducción de rutas del validador a líneas, respaldo local de líneas sin leer, preferencia de dialecto | 0010, 0011 |
+| `yarn-catalog` | Sin cambios de contrato: la muestra supuesta en crochet sale de `suggestedGauge(grosor, "crochet")`, y los niveles de fibra (`halo`, `brillo`, `definicion`) son los de la fase 3. `catalogo-lanas` revisa en T11c que cubran las fibras habituales en amigurumi, sin inventar datos | 0010, secciones 1 y 6b |
+| `stitch-render` | Sin cambios: el 3D reutiliza `yarnLook`, `lookInputKey` y `lookKey` desde la aplicación | 0010, sección 6b |
+| `apps/web` | Componente r3f del visor (`components/amigurumi/`), almacén del estudio amigurumi, traducción de rutas del validador a líneas, respaldo local de líneas sin leer, preferencia de dialecto, aspectos por lana para el 3D (`yarnLook`) con "Colores planos" compartido, árbol de bloques (`blockTree`, `BlockEditPolicy`), medidor y advertencias de límites recomendados | 0010, 0011 |
 
 **Dependencias nuevas**: `three` y `@react-three/fiber`, solo para `apps/web` y `viewer-3d/three`, con su justificación en el PR (ADR 0010, sección 9). **Sin `drei`.**
 
@@ -1097,10 +1113,11 @@ Misma convención que `follow`: TypeScript sin compilar, `exports` a `src/index.
 **Estudio amigurumi** (`frontend-editor`, con `visor-3d` para el visor; revisa `ux-accesibilidad`):
 
 - **Partes** (columna o pestaña): nombre, "× 2" si tiene copias, vueltas, conteo final y estado (bien, con errores de conteo o sin leer). Agregar, renombrar, reordenar, copias, borrar.
-- **Editor** de la parte elegida, con pestañas "Texto" y "Bloques".
+- **Editor** de la parte elegida, con pestañas "Texto" y "Bloques" (bloques: edición básica hasta 2 niveles; niveles más profundos en solo lectura con "Editar en el texto").
   - Encabezado de la parte: inicio, construcción, lana inicial y cierre.
   - Errores junto a cada vuelta y conteo de cada vuelta, del motor.
-- **Visor 3D**: muñeco armado o la parte sola, giro y acercamiento, aviso de prototipo, medidas estimadas, modo "Posicionar" (tocar la superficie, inclinar y girar) y "Restablecer cámara".
+- **Visor 3D**: muñeco armado o la parte sola, giro y acercamiento, aviso de prototipo, medidas estimadas, interruptor "Colores planos", medidor "N de 40.000 puntos recomendados", indicador "Actualizando 3D…" fuera de los límites, modo "Posicionar" (tocar la superficie, inclinar y girar) y "Restablecer cámara".
+- **Límites recomendados**: medidor y ayuda "¿Por qué hay límites recomendados?" siempre visibles; "N de 20 partes recomendadas" en la lista de partes; diálogo "Seguir igual" o "Cancelar" en acciones puntuales; advertencia junto a la vuelta al escribir.
 - **Lanas y muestra**: el selector de la fase 3 y la muestra, con "supuesto" si falta.
 - **Armado**: pasos escritos y "Dónde va cada pieza".
 - **En teléfono**: pestañas Partes, Editor y 3D. El conteo de la vuelta en edición queda siempre visible.
@@ -1122,14 +1139,14 @@ Lo que vive en cada capa:
   - ¿algún índice o CHECK depende de la forma de `parts`?
 - **Preferencia de dialecto**: migración `profiles.pattern_dialect text not null default 'es' check (pattern_dialect in ('es', 'us', 'uk'))`, con permiso de UPDATE por columna para la propia fila y una Server Action que valida el valor. Pasa por `revisor-seguridad`.
 - **Borradores escritos**: se guardan por el flujo actual (ADR 0006, E10) con los códigos nuevos de `DRAFT_ERROR_CODES`. El servidor sigue rechazando todo documento no `savable`.
-- **Tamaño**: un amigurumi con los límites de la decisión 5 queda muy por debajo del tope de 750 KB (ADR 0006, E11). `layout` está acotado por `LIMITS`.
+- **Tamaño**: un amigurumi dentro de los límites recomendados de la decisión 5 queda muy por debajo del tope de 750 KB (ADR 0006, E11). Como esos límites son solo advertencia, un diseño puede pasarlos: el tope de 750 KB y los de `LIMITS` siguen siendo la barrera dura, y `layout` está acotado por `LIMITS`.
 - **Cuotas**: sin cambios (500 diseños por usuaria, versiones como hoy).
 
 ### Pendientes de la fase 3 que afectan a la fase 4
 
 | Pendiente | Impacto en la fase 4 | Dónde se resuelve |
 |---|---|---|
-| T1b de las fases 2 y 3 (tejedoras), que depende de T1c (revisión legal) | La terminología de la fase 4 también queda pendiente, y no se puede publicar sin T1b | T1b de esta fase se suma a la misma ronda ([decisión 9](#decisiones-de-la-fase-4-propuestas)) |
+| T1b de las fases 2 y 3 (tejedoras), que depende de T1c (revisión legal) | La terminología de la fase 4 también queda pendiente, y no se puede publicar sin T1b | T1b de esta fase se suma a la misma ronda ([decisión 9](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)) |
 | CA-P6 en el equipo de referencia | El mismo equipo mide CA4-P1 a CA4-P4 | T12 (la usuaria mide) |
 | Repetir `10_rls_check.sql` en el proyecto real | La migración de `profiles` agrega verificaciones | T8 |
 | Puesta en público (P0 a P5 de `docs/despliegue-publico.md`) | Desde la puesta en público, los cambios de esquema se despliegan en dos pasos (ADR 0011, sección 5). Si la puesta en público ocurre durante la fase 4, la v2 se despliega antes o en dos pasos | T4, coordinado con `devops` |
@@ -1149,10 +1166,12 @@ Lo que vive en cada capa:
   - **copias**: el término del encabezado ("Cantidad: 2", "Hacer 2"…);
   - **forma**: valores de `STITCH_HEIGHT_FACTOR`; calibración de `PROFILE_RADIAL_TOLERANCE` (¿un disco de pb con 6 aumentos por vuelta queda plano?, ¿desde cuántos ondula?); si la vuelta en hebra trasera quiebra el perfil; fixture de referencia de unas 40 vueltas;
   - **terminología**: tabla UK completa y variantes regionales del español que se puedan respaldar; términos de amigurumi para el [glosario pendiente](#glosario-pendiente);
-  - **textos**: avisos `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST`, aviso de prototipo del 3D, "Dónde va cada pieza", comentarios `#` y notas `>`.
+  - **límites recomendados** (decisión 5): si 20 partes, 10 copias, 100 vueltas y 200 puntos por vuelta cubren los amigurumi habituales con holgura. Si no, se ajustan los valores antes de T4 (son advertencias, así que el ajuste no cambia qué se puede guardar);
+  - **textos**: avisos `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST`, aviso de prototipo del 3D (con el halo y el brillo), "Dónde va cada pieza", comentarios `#`, notas `>` y las advertencias de límites recomendados.
 - **Tejedoras (T1b de esta fase, en la misma ronda que T1b de las fases 2 y 3, después de T1c)**:
   - lectura y escritura de la sintaxis, y utilidad de los bloques;
-  - parecido del 3D con piezas reales (2 o 3 patrones propios tejidos);
+  - parecido del 3D con piezas reales (2 o 3 patrones propios tejidos), incluido el aspecto por fibra (algodón, acrílico y alguna mezcla con halo);
+  - si usan grupos de más de 2 niveles y si echan de menos arrastrar y soltar (decide la prioridad del [editor de bloques completo](#editor-de-bloques-completo));
   - nombres ES, US y UK, y variantes regionales;
   - copias, relleno y "Dónde va cada pieza".
 - **`experto-tejido` al cierre (T21)**: aprobación final de la lógica de tejido, la forma y los textos, con las respuestas de T1b si llegaron.
@@ -1169,7 +1188,10 @@ Lo que vive en cada capa:
 | R4-6 | La ida y vuelta texto ↔ documento pierde algún caso no previsto | Generador de partes que cubre todos los campos (notas, cierres de varias líneas, hebras, grupos anidados, rangos, copias); RT1 a RT3 con tres semillas |
 | R4-7 | Expresiones regulares del lector con entradas desmedidas (texto pegado, IA en la fase 5) | `PARSE_LIMITS`; prueba de tiempo con líneas hostiles; revisión de T20 |
 | R4-8 | Ambigüedad entre US y UK ("dc", "tr") cambia los conteos sin que se note | Modo de lectura explícito; RT5; el modo se ve junto al editor |
-| R4-9 | El editor de bloques crece sin control | Alcance fijado en la decisión 2; todo se ve, se edita lo acordado |
+| R4-9 | El editor de bloques crece sin control, o la v1 básica se arma de forma que la versión completa obligue a rehacerla | Alcance fijado en la decisión 2; todo se ve, se edita lo acordado. Operaciones y árbol con profundidad completa, tope solo en `BlockEditPolicy`; CA4-E11 lo verifica |
+| R4-15 | El aspecto por fibra rompe el presupuesto de 100 ms o los 30 fps, sobre todo con WebGL por software | Tabla por lana en uniformes (sin reconstruir ni subir atributos), un solo programa de shader, `"smooth"` mantiene solo los términos baratos; CA4-P3, CA4-P4 y CA4-P10 con el aspecto activado; A/B con `E2E_FLAT_COLORS`. Si no alcanza, enmienda del ADR 0010 que baja el aspecto en `"smooth"` |
+| R4-16 | El aspecto 3D no coincide con el 2D de la misma lana, o no se parece a lanas reales | Una sola fuente (`yarnLook`); capturas 2D y 3D revisadas juntas en T11c; "validar con tejedora" en T1b; aviso de prototipo |
+| R4-17 | Al ser solo advertencia, una usuaria arma escenas enormes y el navegador se pone lento o se cuelga | Información desde el inicio (CA4-E12); degradación explícita sobre 40.000 puntos y siluetas sobre `SCENE_HARD_STITCH_CAP` (CA4-P8 y CA4-P9); los topes duros de `LIMITS` y los 750 KB siguen vigentes |
 | R4-10 | T1b sigue bloqueada por T1c y la terminología no se valida | La fase 4 avanza con `experto-tejido` y todo queda "pendiente" (decisión 9); nada se publica sin T1b |
 | R4-11 | Los errores parpadean mientras se escribe | El error de lectura se muestra tras una pausa o al salir de la línea; el 3D queda en el último estado bueno |
 | R4-12 | La puesta en público ocurre durante la fase 4 y cambia la regla de reversión | Desplegar la v2 antes de P5 o en dos pasos (lector y después escritor); T4 coordina con `devops` |
@@ -1182,43 +1204,45 @@ El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir e
 
 | # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
 |---|---|---|---|---|---|
-| T0 | A | La usuaria aprueba los ADR 0010 y 0011 y las [decisiones de la fase 4](#decisiones-de-la-fase-4-propuestas) | (usuaria) | — | — |
-| T1 | A | Revisión de dominio **antes de implementar** (lista en "Qué depende de `experto-tejido` o de T1b"): anillo mágico, cadeneta base (aro u óvalo; hileras), espiral frente a cerradas, pb/aum/dism, conteos, relleno, copias, alto de los puntos y calibración del disco plano, tabla UK, textos. Produce `docs/casos-dominio-fase-4.md` (casos F4-n, incluido el fixture de unas 40 vueltas). `arquitecto` registra las correcciones como enmiendas de los ADR 0010 y 0011. **Aceptación**: cada tema tiene una regla o queda marcado "validar con tejedora"; `STITCH_HEIGHT_FACTOR` tiene valores; la decisión 6 queda resuelta | `experto-tejido` | Media (sonnet) | T0 |
+| T0 | A | **Hecha el 2026-11-13.** La usuaria aprueba los ADR 0010 y 0011 y las [decisiones de la fase 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13). `arquitecto` registró las enmiendas (decisiones 2, 5 y 10) en los dos ADR y en esta sección | (usuaria) | — | — |
+| T1 | A | Revisión de dominio **antes de implementar** (lista en "Qué depende de `experto-tejido` o de T1b"): anillo mágico, cadeneta base (aro u óvalo; hileras), espiral frente a cerradas, pb/aum/dism, conteos, relleno, copias, alto de los puntos y calibración del disco plano, tabla UK, textos. Produce `docs/casos-dominio-fase-4.md` (casos F4-n, incluido el fixture de unas 40 vueltas). `arquitecto` registra las correcciones como enmiendas de los ADR 0010 y 0011. Incluye la revisión de los límites recomendados (decisión 5). **Aceptación**: cada tema tiene una regla o queda marcado "validar con tejedora"; `STITCH_HEIGHT_FACTOR` tiene valores; la decisión 6 queda resuelta (`stuffing` y óvalo con regla antes de T4, o fuera de la v2); los cinco límites recomendados quedan confirmados o ajustados | `experto-tejido` | Media (sonnet) | T0 |
 | T1b | A | Agregar los temas de la fase 4 a `docs/validacion-tejedoras.md` y validarlos en la misma ronda que T1b de las fases 2 y 3, **después de T1c** de la fase 3. **Aceptación**: lo marcado "validar con tejedora" en los ADR 0010 y 0011 y en los casos F4 queda confirmado o corregido | `experto-tejido` con la usuaria | Media (sonnet) | T1; T1c de la fase 3 |
 | T2 | A | Auditoría de la base real (ver "Persistencia en Supabase"): cantidad de documentos escritos, funciones o restricciones que supongan `schema_version = 1` o una forma de `parts`. **Aceptación**: informe con las consultas usadas y la conclusión "la v2 no necesita migración SQL de `patterns`" (o la lista de cambios) | `backend-supabase` | Baja (haiku) | — |
 | T3 | A | CI: WebGL por software (SwiftShader) en Chromium para el E2E y la latencia del visor; jobs de `viewer-3d` y `glossary` en "Núcleo"; presupuesto por variable de entorno. **Aceptación**: una página de prueba con un lienzo WebGL pasa en la CI tres veces seguidas | `devops` | Media (sonnet) | — |
-| T3b | A | Prototipo: lienzo r3f en `/dev` con `next/dynamic`, `frameloop="demand"`, una malla de 10.000 vértices actualizada en el lugar. Confirmar versiones de `three` y r3f con React 19.2 y Next 16, `transpilePackages` y tamaño del fragmento. Primera calibración de `LOD_STITCH_BUDGET`. **Aceptación**: informe con versiones, tamaño, tiempo de actualización de atributos con CPU ×4 y la recomendación; si algo falla, enmienda del ADR 0010 antes de T11 | `visor-3d` | Media (sonnet) | T0 |
-| T4 | B | `pattern-core` v2 (ADR 0011, secciones 1 a 5): tipos, `STEPS[1]`, validador v2 (`PART_COPIES`, `LAYOUT_*`, `LIMITS` nuevos), campos condicionales según T1, `DRAFT_ERROR_CODES` escritos (y enmienda del ADR 0006), lista de todos los lectores del documento, propiedades M1 a M4, README. **Aceptación**: CA4-M1, CA4-M3 y CA4-M4 en pruebas de `pattern-core`; `pnpm test` en verde | `motor-patrones` | Alta (opus) | T0, T1, T2 |
+| T3b | A | Prototipo: lienzo r3f en `/dev` con `next/dynamic`, `frameloop="demand"`, una malla de 10.000 vértices actualizada en el lugar. Confirmar versiones de `three` y r3f con React 19.2 y Next 16, `transpilePackages` y tamaño del fragmento. Primera calibración de `LOD_STITCH_BUDGET`. **Aspecto por fibra** (ADR 0010, sección 6b): `MeshStandardMaterial` con `onBeforeCompile` y la tabla de 32 lanas en uniformes (o en textura de datos si los uniformes no alcanzan, con la razón), medición de `setLooks` y de fps con el aspecto activado y apagado, y comprobación de que cambiar aspectos no recompila. Escena de 40.000 y de 60.000 puntos para una primera cifra de `SCENE_HARD_STITCH_CAP`. **Aceptación**: informe con versiones, tamaño, tiempo de actualización de atributos con CPU ×4, costo del aspecto por fibra (A/B), programas de shader y la recomendación; si algo falla, enmienda del ADR 0010 antes de T11 | `visor-3d` | Media (sonnet) | T0 |
+| T4 | B | `pattern-core` v2 (ADR 0011, secciones 1 a 5): tipos, `STEPS[1]`, validador v2 (`PART_COPIES`, `LAYOUT_*`, topes duros nuevos de `LIMITS`), campos condicionales según T1, `DRAFT_ERROR_CODES` escritos (y enmienda del ADR 0006), lista de todos los lectores del documento, propiedades M1 a M4, README. Más los **límites recomendados** (ADR 0011, sección 3b): `RECOMMENDED_WRITTEN_LIMITS` (con los valores de T1), `recommendedLimitUsage` y `recommendedLimitNotices`, fuera del validador. **Aceptación**: CA4-M1, CA4-M3, CA4-M4 y CA4-M8 en pruebas de `pattern-core`; `pnpm test` en verde | `motor-patrones` | Alta (opus) | T0, T1, T2 |
 | T4b | B | Actualizar los fixtures y pruebas que escriben `schemaVersion: 1` a mano para usar `SCHEMA_VERSION`, salvo los de migración (tarea mecánica en muchos archivos). **Aceptación**: `pnpm -r test` y `pnpm typecheck` en verde; ningún `schemaVersion: 1` fuera de las pruebas de migración y de `10_rls_check.sql` | `motor-patrones` | Baja (haiku) | T4 |
 | T5 | B | `pattern-core`: `shapeMetrics`, `partProfile`, `partDimensions`, `STITCH_HEIGHT_FACTOR`, `PROFILE_RADIAL_TOLERANCE` con los valores de T1, avisos `ROUND_GROWS_FAST` y `ROUND_SHRINKS_FAST` (ADR 0010, secciones 1 y 2), propiedades G1 a G3 y G11 (la parte del perfil), guardia de rendimiento. **Aceptación**: los casos F4 de forma pasan; el fixture de 40 vueltas da un perfil cerrado arriba y abajo | `motor-patrones` | Alta (opus) | T1, T4 |
-| T6 | B | `pattern-core`, texto y operaciones (ADR 0011, secciones 6 y 7): `normalizePart`, notas `>`, encabezado de copias, `formatPartLines`, `parseWrittenParts`, modo `es-uk` y tabla UK de T1, `PARSE_LIMITS`, `edit-written.ts`, generalización de las operaciones de lanas, propiedades RT1 a RT6. **Aceptación**: CA4-M5 (la parte RT) y CA4-G2 en pruebas; una línea hostil de 2.000 caracteres se lee en menos de 5 ms | `motor-patrones` | Alta (opus) | T1, T4 |
+| T6 | B | `pattern-core`, texto y operaciones (ADR 0011, secciones 6 y 7): `normalizePart`, notas `>`, encabezado de copias, `formatPartLines`, `parseWrittenParts`, modo `es-uk` y tabla UK de T1, `PARSE_LIMITS`, `edit-written.ts` con **profundidad completa** (rutas hasta `LIMITS.maxNesting`, `moveItem` entre grupos y niveles; sin ningún tope de 2 niveles en el núcleo, decisión 2), generalización de las operaciones de lanas, propiedades RT1 a RT6. **Aceptación**: CA4-M5 (la parte RT, con RT3 a profundidad completa) y CA4-G2 en pruebas; una línea hostil de 2.000 caracteres se lee en menos de 5 ms; las operaciones respetan los topes duros y nunca los recomendados | `motor-patrones` | Alta (opus) | T1, T4 |
 | T7 | B | `packages/glossary` (ADR 0011, sección 8): datos del glosario pendiente y de T1, API, pruebas de cobertura de códigos y de marcas, README, job de CI. **Aceptación**: CA4-G1 y CA4-G4 | `documentador` | Media (sonnet) | T1, T6 (tabla UK) |
 | T8 | B | Migración `profiles.pattern_dialect` con permiso por columna, Server Action, verificaciones en `10_rls_check.sql`; repetir el check en el proyecto real. **Aceptación**: CA4-G3 (parte de la base); el check pasa en local y en el proyecto real | `backend-supabase` | Media (sonnet) | T0, T2 |
 | T9 | B | `pattern-render`: `describeWritten` con partes, vueltas, conteo final, copias, posiciones en lenguaje de tejedora y medidas estimadas, más sus propiedades. **Aceptación**: la descripción no calcula conteos propios (solo del motor) y dice "estimación" y "supuesto" cuando corresponde | `motor-patrones` | Media (sonnet) | T5, T6 |
-| T10 | C | `viewer-3d` puro (ADR 0010, secciones 3, 4 y 9): `buildPartMesh` con topología por punto, `shapeSignature`, `colorizePartMesh`, `surfaceFrame`, `buildScene` con caché, copias, anclas y ubicación automática, `limit` para la fase 6, `profileToSvg`, propiedades G4 a G11, guardia de rendimiento, README, CI y `transpilePackages`. **Aceptación**: CA4-P6 y CA4-M5 (la parte G) en Node | `visor-3d` | Alta (opus) | T4, T5 |
-| T11 | C | `viewer-3d/three` y componente r3f en `apps/web` (ADR 0010, secciones 5 a 8): atributos reservados y actualizados en el lugar, materiales con color por vértice y relieve procedural, nivel de detalle, selección con el puntero, resaltado, controles con teclado, aviso de prototipo, medidas, silueta sin WebGL, pérdida de contexto, `dispose`. **Aceptación**: CA4-V1, CA4-V5 y capturas para CA4-V2 | `visor-3d` | Alta (opus) | T3b, T10 |
-| T12 | C | Latencia del visor en E2E (CA4-P1 a CA4-P5 y CA4-P7) con instrumentación `edit-to-paint-3d`; guía para que la usuaria mida en el equipo de referencia (con CA-P6 pendiente de la fase 3); calibración final de `LOD_STITCH_BUDGET`. **Aceptación**: CA4-P1 a CA4-P3 con p95 < 100 ms en la CI con su presupuesto; guía publicada en `docs/qa-fase-4.md` | `visor-3d` con `devops` | Alta (opus) | T3, T11, T14, T15 |
+| T10 | C | `viewer-3d` puro (ADR 0010, secciones 3, 4 y 9): `buildPartMesh` con topología por punto, `shapeSignature`, `colorizePartMesh`, `surfaceFrame`, `buildScene` con caché, copias, anclas, ubicación automática y `stitchCount`, `limit` para la fase 6, `reuse` desde la vuelta editada (deseable; obligatorio si CA4-P8 falla), `profileToSvg` con relleno de color plano, tipo `SurfaceLook`, propiedades G4 a G13, guardia de rendimiento, README, CI y `transpilePackages`. Sin importar `stitch-render` ni `yarn-catalog`. **Aceptación**: CA4-P6 y CA4-M5 (la parte G) en Node | `visor-3d` | Alta (opus) | T4, T5 |
+| T11 | C | `viewer-3d/three` y componente r3f en `apps/web` (ADR 0010, secciones 5 a 8): atributos reservados y actualizados en el lugar, un solo material con la tabla por lana y relieve procedural, **aspecto por fibra** (sección 6b: brillo, halo y definición con las constantes con nombre, `setLooks`, `setPreviewOverride`, los dos programas de nivel de detalle compilados al montar), aspectos calculados en la aplicación con `yarnLook` y "Colores planos" compartido con el estudio de colorwork, nivel de detalle con la degradación de la sección 6c ("smooth" forzado, razón de píxeles 1, una sola reconstrucción en curso, "Actualizando 3D…", siluetas sobre `SCENE_HARD_STITCH_CAP`), selección con el puntero, resaltado, controles con teclado, aviso de prototipo, medidas, silueta sin WebGL, pérdida de contexto, `dispose`, contadores del modo de medición. **Aceptación**: CA4-V1, CA4-V5, CA4-V8 (menos la revisión de T11c) y capturas para CA4-V2 | `visor-3d` | Alta (opus) | T3b, T10 |
+| T11c | C | Calibración del aspecto por fibra en el 3D (ADR 0010, sección 6b): `visor-3d` ajusta `ROUGHNESS_BASE`, `FIBER_SHEEN_ROUGHNESS`, `FIBER_HALO_RIM`, `FIBER_HALO_SOFTEN` y `FIBER_DEFINITION_RELIEF` con capturas 2D y 3D de las mismas lanas (100 % algodón, 100 % acrílico, 70/30 lana y mohair, 100 % seda, un lurex y "Colores planos"). `catalogo-lanas` revisa que los niveles de `fibras.json` cubran las fibras habituales en amigurumi y que el 3D sea coherente con el 2D; lo que no tenga fuente (por ejemplo, lanas tipo chenille, que son una construcción y no una fibra) queda "validar con tejedora", sin inventar datos ni marcas. `experto-tejido` revisa el parecido. **Aceptación**: constantes fijadas con las capturas en el PR; informe de `catalogo-lanas` con la cobertura de fibras y lo pendiente para T1b; CA4-V8 completo | `visor-3d` con `catalogo-lanas` y `experto-tejido` | Media (sonnet) | T11 |
+| T12 | C | Latencia del visor en E2E (CA4-P1 a CA4-P5 y CA4-P7 a CA4-P10) con instrumentación `edit-to-paint-3d`, `edit-to-feedback` y `hover-to-paint-3d`, siempre con el aspecto por fibra activado y el A/B de `E2E_FLAT_COLORS`; escenario fuera de los límites recomendados (unos 60.000 puntos) y escenario sobre `SCENE_HARD_STITCH_CAP`; guía para que la usuaria mida en el equipo de referencia (con CA-P6 pendiente de la fase 3); calibración final de `LOD_STITCH_BUDGET` y de `SCENE_HARD_STITCH_CAP`. **Aceptación**: CA4-P1 a CA4-P3 y CA4-P10 con p95 < 100 ms en la CI con su presupuesto; CA4-P8 y CA4-P9 cumplidos; guía publicada en `docs/qa-fase-4.md` | `visor-3d` con `devops` | Alta (opus) | T3, T11, T11c, T14, T15 |
 | T13 | D | Flujo de diseños escritos: `/disenos/nuevo` con tipo, `/disenos/[id]` que despacha por `kind`, guardado de borradores escritos, mensajes de los códigos nuevos, "Tejer" fuera para escritos (decisión 8), tipo en `/disenos`. **Aceptación**: CA4-M2, CA4-M4 (parte de la acción) y CA4-V7 | `frontend-editor` | Media (sonnet) | T4 |
-| T14 | D | Estudio amigurumi: almacén fuera de React, partes, editor de texto por parte (lectura en cada cambio, errores por línea y por vuelta, forma canónica al salir de la línea, respaldo de líneas sin leer, aviso de `#`), selector de lanas, muestra, visor integrado. **Aceptación**: CA4-E1, CA4-E2, CA4-E4, CA4-E5, CA4-E7 a CA4-E10 | `frontend-editor` | Media (sonnet) | T6, T11, T13 |
-| T15 | D | Editor de bloques con el alcance de la decisión 2, sobre las operaciones de `edit-written.ts`; cambio de pestaña con líneas sin leer. **Aceptación**: CA4-E3 y CA4-E6 | `frontend-editor` | Media (sonnet) | T6, T14 |
+| T14 | D | Estudio amigurumi: almacén fuera de React, partes, editor de texto por parte (lectura en cada cambio, errores por línea y por vuelta, forma canónica al salir de la línea, respaldo de líneas sin leer, aviso de `#`), selector de lanas, muestra, visor integrado con "Colores planos". **Límites recomendados** (ADR 0011, sección 3b): medidor de puntos de la escena y "N de 20 partes recomendadas" visibles desde el inicio, ayuda "¿Por qué hay límites recomendados?", diálogo "Seguir igual" o "Cancelar" en acciones puntuales (recordado por límite en la sesión, nunca en el documento), advertencia junto a la vuelta al escribir, todo con `recommendedLimitUsage` (sin contar en la interfaz). **Aceptación**: CA4-E1, CA4-E2, CA4-E4, CA4-E5, CA4-E7 a CA4-E10 y CA4-E12 | `frontend-editor` | Media (sonnet) | T6, T11, T13 |
+| T15 | D | Editor de bloques con el alcance de la decisión 2 (edición básica), sobre las operaciones de `edit-written.ts`, **preparado para la versión completa** (ADR 0011, sección 7): árbol `blockTree` recursivo sin límite de profundidad, un solo componente recursivo, `BlockEditPolicy` (`BLOCK_EDIT_POLICY_V1 = { maxEditDepth: 2, dragAndDrop: false }`) como único lugar del tope, `canEditBlock`, selección por rutas, "subir" y "bajar" con `moveItem`, niveles 3 a 6 en solo lectura con "Editar en el texto"; cambio de pestaña con líneas sin leer. **Aceptación**: CA4-E3, CA4-E6 y CA4-E11 | `frontend-editor` | Media (sonnet) | T6, T14 |
 | T16 | D | Posicionado y armado (decisión 3): modo "Posicionar" (tocar la superficie, inclinar, girar, separar), pieza principal libre, "Quitar posición", aviso de piezas sin ubicar, pasos de armado y "Dónde va cada pieza". **Aceptación**: CA4-V3, CA4-V4 y CA4-E8 (parte de las posiciones) | `frontend-editor` con `visor-3d` | Media (sonnet) | T10, T11, T14 |
-| T17 | D | Accesibilidad: teclado en partes, texto, bloques y visor; anuncios de conteo y errores; descripción y siluetas; movimiento reducido; 390 px, 200 % y contraste; preferencia de dialecto en `/cuenta`. **Aceptación**: CA4-A1 a CA4-A3 | `ux-accesibilidad` | Media (sonnet) | T14, T15, T16 |
-| T18 | D | Textos: aviso de prototipo del 3D, medidas como estimación, ayuda de la sintaxis (con `>` y el encabezado de copias), mensajes de `LAYOUT_*`, `PART_COPIES` y `ROUND_GROWS_FAST`, piezas sin ubicar, "Dónde va cada pieza", modo UK, terminología pendiente. **Aceptación**: los textos usan el glosario (`term`) y los términos de T1, marcados "validar con tejedora" donde corresponde | `documentador` | Baja (haiku) | T1, T7 |
-| T19 | E | QA: propiedades (M, G y RT), casos F4, E2E con sesión (CA4-M2, CA4-E3, CA4-V3), latencia, matriz de criterios en `docs/qa-fase-4.md`. Revisión con opus de T4, T5, T6, T10, T11 y T12 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T12 a T18 |
-| T20 | E | Seguridad: validador v2 como barrera ante documentos hostiles (ciclos, profundidad, números extremos, tamaño), `PARSE_LIMITS` y tiempos del lector, migración y permisos de `profiles.pattern_dialect`, dependencias nuevas (`three`, r3f: *lockfile*, procedencia y transitivas), recursos WebGL en el cliente. Con opus, porque T4 y T6 son de complejidad alta | `revisor-seguridad` | Alta (opus) | T4, T6, T8, T11, T13 |
+| T17 | D | Accesibilidad: teclado en partes, texto, bloques y visor; anuncios de conteo y errores; descripción y siluetas; movimiento reducido; 390 px, 200 % y contraste; preferencia de dialecto en `/cuenta`; medidor y diálogo de límites recomendados (texto además del color, anuncio `polite` sin repetir en cada tecla, foco del diálogo); "Colores planos" alcanzable junto al visor. **Aceptación**: CA4-A1 a CA4-A3 | `ux-accesibilidad` | Media (sonnet) | T14, T15, T16 |
+| T18 | D | Textos: aviso de prototipo del 3D (con el halo y el brillo como aproximación), medidas como estimación, ayuda de la sintaxis (con `>` y el encabezado de copias), mensajes de `LAYOUT_*`, `PART_COPIES` y `ROUND_GROWS_FAST`, piezas sin ubicar, "Dónde va cada pieza", modo UK, terminología pendiente, **límites recomendados** (medidor, ayuda "¿Por qué hay límites recomendados?", diálogo, advertencia junto a la vuelta, "Actualizando 3D…", mensaje de siluetas sobre el tope del visor), "Editar en el texto" de los bloques profundos, "el halo y el brillo solo se ven en la vista 3D". **Aceptación**: los textos usan el glosario (`term`) y los términos de T1, marcados "validar con tejedora" donde corresponde | `documentador` | Baja (haiku) | T1, T7 |
+| T19 | E | QA: propiedades (M, G y RT), casos F4, E2E con sesión (CA4-M2, CA4-E3, CA4-V3), latencia, matriz de criterios en `docs/qa-fase-4.md`, incluidos CA4-E11 (editor preparado para la versión completa), CA4-E12 (límites desde el inicio) y CA4-V8 (aspecto por fibra). Revisión con opus de T4, T5, T6, T10, T11 y T12 (complejidad alta); sonnet para el resto | `qa-tester` | Alta (opus) / Media (sonnet) | T11c, T12 a T18 |
+| T20 | E | Seguridad: validador v2 como barrera ante documentos hostiles (ciclos, profundidad, números extremos, tamaño), `PARSE_LIMITS` y tiempos del lector, migración y permisos de `profiles.pattern_dialect`, dependencias nuevas (`three`, r3f: *lockfile*, procedencia y transitivas), recursos WebGL en el cliente (incluido que un documento sobre los límites recomendados, pero dentro de los topes duros, no cuelgue la pestaña: CA4-P9). Con opus, porque T4 y T6 son de complejidad alta | `revisor-seguridad` | Alta (opus) | T4, T6, T8, T11, T13 |
 | T21 | E | Revisión final de la lógica de tejido: forma y calibración con las capturas, sintaxis, borradores, copias, textos. Con las respuestas de T1b si llegaron; si no, la aprobación final queda abierta como en la fase 3 | `experto-tejido` | Media (sonnet) | T19; T1b |
-| T22 | E | Cierre: README, este roadmap y los ADR 0010 y 0011 (aceptados, con las enmiendas de la implementación) | `arquitecto` + `documentador` | Baja (haiku) | T20, T21 |
+| T22 | E | Cierre: README, este roadmap y los ADR 0010 y 0011 (ya aceptados en T0; se agregan las enmiendas de la implementación) | `arquitecto` + `documentador` | Baja (haiku) | T20, T21 |
 
 ### Criterios de salida de la fase 4
 
-- CA4-P1 a CA4-P7, CA4-M1 a CA4-M7, CA4-E1 a CA4-E10, CA4-V1 a CA4-V7, CA4-G1 a CA4-G4 y CA4-A1 a CA4-A3 cumplidos, con la evidencia en el PR (mediciones, capturas, informe de QA).
-- Editar una vuelta actualiza el 3D en menos de 100 ms con una pieza de 40 vueltas (CA4-P1 y CA4-P2), medido también en el equipo de referencia.
+- CA4-P1 a CA4-P10, CA4-M1 a CA4-M8, CA4-E1 a CA4-E12, CA4-V1 a CA4-V8, CA4-G1 a CA4-G4 y CA4-A1 a CA4-A3 cumplidos, con la evidencia en el PR (mediciones, capturas, informe de QA).
+- Editar una vuelta actualiza el 3D en menos de 100 ms con una pieza de 40 vueltas (CA4-P1 y CA4-P2), dentro de los límites recomendados y con el aspecto por fibra activado, medido también en el equipo de referencia. Fuera de los límites, el editor sigue inmediato y el 3D se degrada como dice el ADR 0010, sección 6c (CA4-P8 y CA4-P9).
+- El editor de bloques básico queda preparado para la versión completa (CA4-E11), y los límites recomendados se ven desde el inicio (CA4-E12).
 - El texto y los bloques producen el mismo documento (RT1 a RT3 y CA4-E3).
 - El glosario tiene ES, US y UK, marcado como pendiente de validación con tejedoras.
 - El 3D muestra el aviso de prototipo digital (CA4-V1).
 - `pnpm test` y `pnpm typecheck` en verde, incluidos `viewer-3d` y `glossary`; la CI corre el E2E del visor con WebGL por software.
 - `experto-tejido`, `qa-tester` y `revisor-seguridad` aprueban.
-- Los ADR 0010 y 0011 quedan "aceptado" o enmendados.
+- Los ADR 0010 y 0011 (aceptados en T0) llevan las enmiendas de la implementación.
 
 ---
 
@@ -1299,44 +1323,99 @@ Propuestas de `arquitecto` (2026-11-09); quedó aprobada la opción marcada como
 7. **Nota de una lana guardada**: no se copia al diseño salvo que se marque "copiar también la nota" (**recomendada**), porque suele llevar la marca.
 8. **Sin conexión en la fase 3**: solo cortes con la página ya abierta (**recomendada**); abrir "Tejiendo" sin conexión, en la fase 6.
 
-### Decisiones de la fase 4 (propuestas)
+### Decisiones de la fase 4 (aprobadas el 2026-11-13)
 
-Propuestas de `arquitecto` (2026-11-13), pendientes de la usuaria (T0). Cada una tiene sus opciones; la recomendada va marcada, con su razón.
+Propuestas de `arquitecto` (2026-11-13). La usuaria las respondió el 2026-11-13 (T0 hecha). Resumen de lo elegido:
+
+| # | Tema | Elegida | Notas de la usuaria |
+|---|---|---|---|
+| 1 | ADR 0010 y 0011, `schemaVersion: 2` | (a), la recomendada | — |
+| 2 | Editor de bloques | (a), la recomendada, **con un agregado** | "Deja registro y déjalo preparado para la versión completa" |
+| 3 | Posicionado | (a), la recomendada | — |
+| 4 | Glosario | (a), la recomendada | — |
+| 5 | Límites | Valores de (a), **pero solo como advertencia** | "Déjalo claro desde el inicio" |
+| 6 | Campos condicionales | (a), la recomendada | — |
+| 7 | Forma canónica del texto | (a), la recomendada | — |
+| 8 | "Tejer" amigurumi | (a), la recomendada | — |
+| 9 | Validación con tejedoras | (a), la recomendada | — |
+| 10 | Aspecto por fibra en el 3D | **(b)**, no la recomendada | Desde ya, en la fase 4 |
+
+Cada punto conserva sus opciones como registro; la línea **Resolución** dice lo elegido y dónde quedó.
 
 1. **Aprobar los ADR 0010 y 0011, con `schemaVersion: 2` en la fase 4.**
    - (a) Aprobar los dos, con la v2 limitada a `layout` y `copies` más los campos condicionales del punto 6 (**recomendada**). El documento es cerrado, así que ubicar partes exige v2. La migración es trivial y no hace falta tocar SQL de `patterns`.
    - (b) Seguir en v1 y guardar las posiciones en una tabla aparte. Las versiones fijadas, la exportación y la IA no las verían, y el diseño quedaría en dos lugares.
    - (c) Seguir en v1 sin posicionado: las piezas se ven lado a lado y no hay copias. Se puede, pero el 3D no muestra el muñeco armado, que es el valor del estudio.
+   - **Resolución: (a).** ADR 0010 y 0011 aceptados el 2026-11-13, con las enmiendas de las decisiones 2, 5 y 10.
 2. **Alcance del editor de bloques en la v1.**
    - (a) Todo se ve, y se edita punto, cantidad, hebra, cambio de lana, grupos de hasta 2 niveles, insertar y borrar vueltas, y mover con botones (**recomendada**). Cubre los patrones habituales sin construir un editor de arrastrar y soltar. Los grupos más anidados se ven en bloques y se editan en el texto.
    - (b) Bloques completos: anidación hasta 6 niveles y arrastrar y soltar. Es más trabajo de interfaz y de accesibilidad para casos raros.
    - (c) Bloques solo de lectura en la fase 4. No cumple el criterio de salida "texto y bloques producen el mismo documento" como edición.
+   - **Resolución: (a), edición básica, con el agregado de la usuaria**: "deja registro y déjalo preparado para la versión completa".
+     - **Registro**: el ADR 0011, sección 7, documenta lo que queda fuera de la v1 y por qué: editar grupos de 3 a 6 niveles (raros en amigurumi; costo alto de interfaz y accesibilidad por nivel en 390 px) y arrastrar y soltar (necesita igual una alternativa de un toque por WCAG 2.2, 2.5.7; costo táctil y de E2E).
+     - **Preparado**: las operaciones de `edit-written.ts` y RT3 trabajan a la profundidad completa del núcleo (`LIMITS.maxNesting`); el árbol de bloques (`BlockNode`, `blockTree`) es recursivo y sin límite; el tope de 2 niveles vive solo en `BlockEditPolicy` (interfaz); la selección va por rutas y `moveItem` ya mueve entre niveles.
+     - **Verificación**: CA4-E11 (T15) y RT3 a profundidad completa (CA4-M5, T6).
+     - **Versión completa**: entrada [Editor de bloques completo](#editor-de-bloques-completo), fase futura.
 3. **Posicionado de las partes.**
    - (a) Anclar las piezas a la superficie del anfitrión (vuelta y punto), con la pieza principal libre (**recomendada**). Si la cabeza crece, la oreja la sigue, y la posición se dice en lenguaje de tejedora ("entre la V10 y la V11").
    - (b) Todo libre, con posición y rotación en el espacio. Es más simple, pero las piezas quedan flotando al cambiar una parte y no hay texto de armado.
    - (c) Sin posicionado en la fase 4: ubicación automática lado a lado.
+   - **Resolución: (a).** Sin cambios al ADR 0011 (secciones 2 y 9); T16.
 4. **Glosario en la fase 4.**
    - (a) `glossary` con ES, US y UK para mostrar y escribir; leer UK solo con un selector explícito; preferencia de dialecto en el perfil, todo marcado como pendiente (**recomendada**). Es lo que pide el criterio de salida, y el selector explícito evita la ambigüedad de "dc" entre US y UK.
    - (b) ES y US en la fase 4, UK en la fase 7. Es menos trabajo, pero no cumple el criterio de salida tal como está.
    - (c) Igual que (a), pero con la preferencia guardada solo en el navegador. No hay migración, pero la preferencia no sigue a la usuaria entre dispositivos.
+   - **Resolución: (a).** ES, US y UK, con `profiles.pattern_dialect` (ADR 0011, sección 8); T6, T7 y T8.
 5. **Límites de partes, vueltas y puntos en la interfaz.** Los topes del núcleo se mantienen (50 partes, 1000 vueltas por parte, 50.000 puntos por vuelta) como barrera para la IA y para JSON manipulados.
    - (a) 20 partes, 10 copias por parte, 100 vueltas por parte, 200 puntos por vuelta y 40.000 puntos en la escena (**recomendada**). Cubre los amigurumi habituales con holgura (validar con `experto-tejido` en T1) y deja el presupuesto de 100 ms con margen. T3b y T12 confirman con mediciones; subir un límite después es compatible, bajarlo no.
    - (b) Solo los topes del núcleo. No se puede garantizar la regla de oro 7 con piezas enormes.
    - (c) Más estrictos (10 partes, 60 vueltas, 120 puntos). Deja fuera piezas grandes sin necesidad técnica.
+   - **Resolución: los valores de (a), pero solo como advertencia.** Si se supera un límite, se muestra una advertencia y la usuaria decide si sigue. Nota de la usuaria: "déjalo claro desde el inicio".
+     - **Contrato**: `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage` y `recommendedLimitNotices` en `pattern-core`, puros y fuera del validador (ADR 0011, sección 3b). Los conteos salen del motor.
+     - **Desde el inicio**: medidor "N de 40.000 puntos recomendados", "N de 20 partes recomendadas" y la ayuda "¿Por qué hay límites recomendados?" siempre visibles, no solo al superarlos.
+     - **Al superarlos**: diálogo "Seguir igual" o "Cancelar" en acciones puntuales; advertencia junto a la vuelta, sin diálogo, al escribir texto. Nada de esto entra al documento.
+     - **Topes duros**: `LIMITS` y la validación estructural y de la base se mantienen; se agregan los de la v2 (`maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`).
+     - **Rendimiento**: los 100 ms se exigen dentro de los límites recomendados (CA4-P1 a CA4-P4). Fuera de ellos, la advertencia dice que la vista previa puede ir más lenta; sobre 40.000 puntos el 3D pasa a `"smooth"` con razón de píxeles 1, el editor nunca espera al 3D y aparece "Actualizando 3D…" (CA4-P8); sobre `SCENE_HARD_STITCH_CAP`, siluetas (CA4-P9). ADR 0010, sección 6c.
+     - **Tareas**: T1 (revisión de los valores), T4, T11, T12, T14 (CA4-E12), T17 y T18.
 6. **Campos condicionales de la v2** (`stuffing`, para piezas con o sin relleno, e inicio en óvalo).
    - (a) Incluirlos solo si T1 confirma sus reglas antes de que empiece T4 (**recomendada**). Si entran ahora, se evita una v3 a corto plazo; si no hay reglas validadas, no se inventan.
    - (b) Incluirlos siempre, con reglas provisionales. Arriesga guardar datos con un significado que después cambia.
    - (c) Dejarlos para una v3.
+   - **Resolución: (a).** `stuffing` y el inicio en óvalo entran en la v2 solo si T1 (`experto-tejido`) confirma sus reglas antes de que empiece T4; si no, quedan para una v3 con su ADR.
 7. **Forma canónica del texto.**
    - (a) Al salir de una línea que se leyó bien, el editor la reescribe en forma canónica ("pb x6" → "6 pb") (**recomendada**). Es la consecuencia visible de que la fuente de verdad sea el documento, y nunca pasa mientras se escribe.
    - (b) Reescribir solo al recargar o al cambiar de pestaña. Hay menos cambios a la vista, pero sorprende más cuando ocurren.
    - (c) Conservar el texto tal como se escribió. Exige guardar el texto aparte, una segunda copia del patrón (regla de oro 1). Descartada.
+   - **Resolución: (a).** El texto se reescribe en forma canónica al salir de una línea bien leída, nunca mientras se escribe (CA4-E7, T14).
 8. **"Tejer este diseño" para amigurumi.**
    - (a) En la fase 6, como está planificado. En la fase 4 no está disponible, con el texto "Seguir un amigurumi punto a punto llega en una próxima versión" (**recomendada**). Mantiene la fase 4 acotada; el contrato `limit` del 3D parcial ya queda listo.
    - (b) Adelantar a la fase 4 un seguimiento por vuelta (sin punto a punto), como se adelantó el colorwork a la fase 3. Agrega `follow` escrito, la migración de `project_progress` con la copia y su revisión de seguridad.
+   - **Resolución: (a).** "Tejer" amigurumi queda para la fase 6, con el aviso en la fase 4 (CA4-V7, T13).
 9. **Validación con tejedoras.** T1b sigue bloqueada por T1c (revisión legal).
    - (a) La fase 4 avanza con `experto-tejido` (T1 y T21), todo lo de dominio queda "validar con tejedora", y su T1b se suma a la misma ronda que T1b de las fases 2 y 3. Nada se publica sin T1b (**recomendada**). No frena el código y respeta la regla de oro 5.
    - (b) No empezar la implementación hasta cerrar T1b. Es lo más seguro en dominio, pero detiene la fase por un trámite legal ajeno al código.
+   - **Resolución: (a).** Se avanza con `experto-tejido` (T1 y T21); todo queda pendiente de la ronda T1b, junto con T1b de las fases 2 y 3, después de T1c.
 10. **Aspecto por fibra en el 3D** (halo del mohair, brillo de la seda).
     - (a) No en la fase 4: color por punto más el relieve del punto (**recomendada**). El amigurumi se teje casi siempre en lanas lisas (validar con tejedora), y así se protege el presupuesto de 100 ms.
     - (b) Sí, reutilizando `yarnLook` de `stitch-render`. Agrega materiales y medición en una fase ya cargada.
+    - **Resolución: (b), desde ya** (no la recomendada). Quedó en el ADR 0010, sección 6b:
+      - **Cómo**: la aplicación calcula los aspectos con el mismo `yarnLook` de `stitch-render` (niveles de `yarn-catalog`) y los pasa al visor como `SurfaceLook`; `viewer-3d` no depende de `stitch-render` ni de `yarn-catalog`. Un solo `MeshStandardMaterial` con `onBeforeCompile` y una tabla de 32 lanas en uniformes, indexada por el atributo `yarn`: el brillo baja la rugosidad, el halo agrega un borde difuso y suaviza el relieve, y la definición marca el relieve. El aspecto neutro da exactamente el material base. Sin texturas de marcas ni fotos: todo procedural.
+      - **Presupuesto**: cambiar el color o la composición de una lana, o "Colores planos", solo actualiza uniformes (sin reconstruir la malla ni subir atributos ni recompilar). Cambiar la lana de un punto usa `colorizePartMesh`, sin reconstruir.
+      - **"Colores planos"**: la misma preferencia de la fase 3 (`loopita:vista:colores-planos`), compartida entre los dos estudios y fuera del documento.
+      - **Nivel de detalle y sin WebGL**: `"smooth"` conserva el brillo y el borde del halo; sin WebGL, siluetas con el color plano y el aviso de que el aspecto solo se ve en 3D.
+      - **Guardia**: contadores (0 `buildPartMesh`, 0 `colorizePartMesh`, 0 atributos subidos al cambiar aspectos), programas de shader constantes, A/B con `E2E_FLAT_COLORS`, `hover-to-paint-3d` y 30 fps con el aspecto activado (CA4-P3, CA4-P4, CA4-P10, CA4-V8).
+      - **Tareas**: T3b (prototipo y medición), T10 (`SurfaceLook`), T11 (material y conexión), **T11c nueva** (calibración con `catalogo-lanas` y `experto-tejido`), T12, T18 y T1b (parecido con lanas reales).
+
+---
+
+## Fases futuras (sin fecha)
+
+Trabajo registrado para después de la fase 7. Cada entrada se planifica con su ADR o enmienda cuando se decida.
+
+### Editor de bloques completo
+
+- **Qué**: editar con bloques los grupos de 3 a 6 niveles (la anidación completa del núcleo, `LIMITS.maxNesting`) y mover ítems con arrastrar y soltar, además de los botones.
+- **Por qué no está en la fase 4**: decisión 2 de la fase 4 (edición básica). Razones en el ADR 0011, sección 7.
+- **Qué ya queda listo en la fase 4**: operaciones de `edit-written.ts` con profundidad completa y `moveItem` entre niveles; RT3 a profundidad completa; árbol `BlockNode` recursivo; `BlockEditPolicy` como único lugar del tope; selección por rutas; deshacer por acción (CA4-E11).
+- **Qué falta**: la interfaz por nivel (sangrías, foco, anuncios de lector de pantalla, diseño en 390 px), el arrastre con puntero, táctil y teclado, con la alternativa de un toque (WCAG 2.2, 2.5.7), y sus E2E. Cambiar `BLOCK_EDIT_POLICY_V1` por `{ maxEditDepth: LIMITS.maxNesting, dragAndDrop: true }`.
+- **Cuándo**: según T1b de la fase 4 (si las tejedoras usan bloques y grupos profundos). Agentes: `frontend-editor`, `ux-accesibilidad`, `qa-tester`. Complejidad media.
