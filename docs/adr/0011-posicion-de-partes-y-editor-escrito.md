@@ -1,6 +1,6 @@
 # ADR 0011: Posición de las partes, `schemaVersion: 2`, editor de texto y bloques, y glosario
 
-- Estado: **aceptado** (2026-11-13, T0 de la fase 4), con las enmiendas de las [decisiones de la fase 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13) (ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-13)): editor de bloques básico preparado para la versión completa (decisión 2) y límites recomendados solo como advertencia (decisión 5). Lo marcado "validar con `experto-tejido`" se confirma en T1 de la fase 4 antes de implementarse; lo marcado "validar con tejedora", en T1b.
+- Estado: **aceptado** (2026-11-13, T0 de la fase 4), con las enmiendas de las [decisiones de la fase 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13) (ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-13)): editor de bloques básico preparado para la versión completa (decisión 2) y límites recomendados solo como advertencia (decisión 5). **Enmendado el 2026-11-13** con la revisión de dominio T1 ([casos de dominio de la fase 4](../casos-dominio-fase-4.md), correcciones C-13 a C-21, y las de validación C-9 y C-10 compartidas con el ADR 0010); ver [Enmiendas por T1](#enmiendas-por-t1-2026-11-13). Lo que T1 dejó "validar con tejedora" se confirma en T1b.
 - Fecha: 2026-11-13
 - Paquetes: `packages/pattern-core` (esquema v2, migración, validador, texto, operaciones), `packages/glossary` (nuevo), `packages/viewer-3d` (resuelve las posiciones), `apps/web`, `supabase/` (preferencia de dialecto)
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md) (sección 5, `migratePattern`; E10, errores de tejido; E16, documento cerrado), [ADR 0006](0006-guardado-de-disenos.md) (guardado, `savable`), [ADR 0007](0007-follow-secuencia-de-colorwork.md) (sección 5, migración de punteros), [ADR 0010](0010-geometria-3d-amigurumi.md) (geometría)
@@ -59,9 +59,9 @@ Posición **C** (sección `layout`) con expresión **3** (mixta). **`schemaVersi
 | Campo | Entra | Por qué |
 |---|---|---|
 | `WrittenPattern.layout` | Sí | Ubicar las partes (sección 2) |
-| `Part.copies` | Sí | Partes que se tejen N veces, sin duplicarlas (validar el término con `experto-tejido`) |
-| `Part.stuffing` | **Condicional** | Relleno o pieza plana (una oreja sin relleno se aplasta en el 3D). Entra solo si T1 confirma sus valores y su efecto antes de que empiece T4 ([decisión 6](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada) |
-| `PartStart` de cadeneta en óvalo | **Condicional** | Bases ovaladas (trabajar alrededor de la cadeneta). Hoy `startAvailable` supone una cadeneta cerrada en aro. Entra solo si T1 da la regla de consumo de la primera vuelta antes de que empiece T4 (decisión 6). Si no llega, los dos campos quedan para una v3 con su ADR |
+| `Part.copies` | Sí | Partes que se tejen N veces, sin duplicarlas. En el texto, encabezado "Cantidad" (enmienda C-14) |
+| `Part.stuffing` | **No (fuera de la v2)** | Decisión 6 resuelta por T1 (enmienda C-13): no hay regla de forma con fuente para una pieza rellena o aplanada; depende de la tensión, la cantidad de relleno y cómo se aplana (F4-52 a F4-54). "No rellenar; aplanar y coser abierta" va como texto en `finish` o `note`. Queda para una v3 con su ADR y reglas validadas por tejedoras |
+| `PartStart` de cadeneta en óvalo | **No (fuera de la v2)** | Decisión 6 resuelta por T1 (enmienda C-13): la regla de consumo de la V1 no es única (las recetas dan 2n o variantes, F4-55) y la superficie de revolución del ADR 0010 no puede dibujarlo (F4-56). `Inicio: óvalo N` es un error de lectura con mensaje claro (F4-9). Queda para una v3 con su ADR |
 | Secciones banda + copa, tallas, símbolos por casilla (ADR 0003, sección 6) | No | Sin necesidad confirmada por tejedoras. Irán en una v3 con su propio ADR |
 | Ojos de seguridad, bordados y accesorios | No | No son tejido; se anotan en `assembly`. Se reevalúan después de la fase 6 |
 
@@ -115,10 +115,9 @@ export interface Layout {
 
 export interface Part {
   // … campos v1 sin cambios …
-  /** Cuántas veces se teje la parte. Omitido = 1. */
+  /** Cuántas veces se teje la parte. Omitido = 1. Todas las copias son idénticas (sin variantes ni espejo). */
   copies?: number;
-  /** Condicional (sección 1). */
-  stuffing?: "stuffed" | "unstuffed";
+  // Sin `stuffing` en la v2 (enmienda C-13).
 }
 
 export interface WrittenPattern extends PatternBase {
@@ -130,14 +129,14 @@ export interface WrittenPattern extends PatternBase {
 ```
 
 - **Unidades**: cm y grados. Las posiciones libres no siguen a la muestra, pero las ancladas sí. Por eso lo normal es anclar, y libre queda solo la pieza principal.
-- **Sin espejo**: la segunda oreja se teje igual que la primera y se gira. Un espejo mostraría una pieza que no existe.
+- **Sin espejo**: la segunda oreja se teje igual que la primera y se gira. Un espejo mostraría una pieza que no existe (confirmado por T1, F4-59). Piezas que difieren en algo (un pulgar a un lado, otros colores) son partes distintas, no copias (F4-60).
 - **`SurfaceAt` también vale sobre partes en hileras**: `round` es la fila y `stitch` el punto de la fila (`surfaceFrame` del ADR 0010).
 - **No guarda medidas derivadas** (radios ni posiciones resueltas). Se calculan siempre.
 - **Los tipos v1** quedan como `PatternV1` en `migrate.ts`, solo para las pruebas de migración.
 
 ### 3. Validación v2
 
-Claves nuevas en `SCHEMA_KEYS`: `layout`, `placement`, `partRef`, `freeAt` y `surfaceAt`; en `part`, `copies` (y `stuffing` si entra).
+Claves nuevas en `SCHEMA_KEYS`: `layout`, `placement`, `partRef`, `freeAt` y `surfaceAt`; en `part`, `copies`. `stuffing` no entra (enmienda C-13): un documento con esa clave da `UNKNOWN_KEY`.
 
 | Código | Severidad | Regla |
 |---|---|---|
@@ -156,7 +155,7 @@ Claves nuevas en `SCHEMA_KEYS`: `layout`, `placement`, `partRef`, `freeAt` y `su
 
 ### 3b. Límites recomendados (decisión 5: solo advertencia)
 
-Son los valores de la opción (a) de la decisión 5: **20 partes, 10 copias por parte, 100 vueltas por parte, 200 puntos por vuelta y 40.000 puntos en la escena**. No bloquean nada: si se superan, la interfaz advierte y la usuaria decide si sigue. Qué hace el 3D fuera de ellos está en el ADR 0010, sección 6c.
+Son los valores de la opción (a) de la decisión 5: **20 partes, 10 copias por parte, 100 vueltas por parte, 200 puntos por vuelta y 40.000 puntos en la escena**. T1 los **confirma sin cambios** (enmienda C-18, F4-70 a F4-76): cubren con holgura los amigurumi habituales (8 a 15 partes, hasta 8 copias, una pelota de 60 vueltas, peluches de 40 a 60 cm). Los casos que los pasan (ciempiés, serpientes, cojines, peluches de más de 80 cm) son raros y solo reciben la advertencia. Estimaciones propias, validar con tejedora. No bloquean nada: si se superan, la interfaz advierte y la usuaria decide si sigue. Qué hace el 3D fuera de ellos está en el ADR 0010, sección 6c.
 
 **Contrato** (`pattern-core`, puro; los conteos salen del motor):
 
@@ -211,15 +210,29 @@ Se agregan a `DRAFT_ERROR_CODES`: `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MIS
 - **Tejer un patrón escrito** (fase 6) exige `valid`, verificado en el servidor, como el gráfico (ADR 0009).
 - **No cambia la forma del documento**, pero sí lo que se acepta guardar. Se registra como enmienda del ADR 0006 cuando T4 lo implemente.
 
+**Ajustes de T1 a la validación de patrones escritos** (enmiendas C-9, C-10, C-19 y C-20; los implementa T4 en `validate.ts`; los textos finales, `documentador`; todo "validar con tejedora"):
+
+| Código | Severidad | Regla |
+|---|---|---|
+| `ROUND_CONSUMPTION_MISMATCH` en la V1 con `start: chain` y `spiral` o `joined` | **advertencia** (antes error) | Pista: "Si trabajas dentro del aro, la cantidad de la primera vuelta es libre". En hileras ya era advertencia (F4-3, F4-4 y F4-6). Desde la V2, sigue siendo error de borrador |
+| `PART_START_RING_SHORT` (nuevo) | advertencia | `start: chain` con `count` 1 en `spiral` o `joined`: "una cadeneta en aro necesita al menos 2". No es error para no romper M1 (C-9) |
+| `PART_START_FLAT_RING` (nuevo) | info | Hileras (`flat`) con `start: magic_ring`: "las hileras suelen empezar con una cadeneta base". El panel ignora el anillo (F4-7, C-19). `parsePart` sigue poniendo anillo mágico por omisión cuando falta `Inicio:` (no cambia lo que se lee, RT2); en hileras, eso hace aparecer este aviso |
+| `MAGIC_RING_UNUSUAL` (nuevo) | info | V1 sobre anillo mágico con menos de 3 o más de 12 puntos. Nunca error. Umbral provisional (F4-2, C-20) |
+| Pista de subida y unión | (en el mensaje) | `ROUND_CONSUMPTION_MISMATCH` y `ROUND_COUNT_MISMATCH` en vueltas cerradas o hileras con diferencia de 1 o 2 puntos agregan: "¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan" (F4-11, F4-12, C-10) |
+| `ROUND_RANGE_CHANGES` | (en el mensaje) | Sugiere escribir cada vuelta cuando un rango aumenta o disminuye (F4-84) |
+
+- Los nuevos códigos son advertencias o información: **no cambian qué es `valid` ni qué es `savable`**, salvo que la V1 con cadeneta en aro deja de ser error.
+- `PARSE_START` también para `Inicio: óvalo N` ("Usa AM o cad N"), sin interpretarlo como cadeneta (F4-9).
+
 ### 5. Migración v1 → v2 y compatibilidad
 
-**Paso de migración** (`STEPS[1]` en `migrate.ts`): devuelve una copia con `schemaVersion: 2`. Todos los campos nuevos son opcionales y sus valores por omisión equivalen a la v1: `copies` omitido es 1, sin `layout` la ubicación es automática y sin `stuffing` la pieza se ve rellena. **No transforma datos**: las notas y los cierres de varias líneas se conservan, porque la sintaxis de texto nueva los admite (sección 7).
+**Paso de migración** (`STEPS[1]` en `migrate.ts`): devuelve una copia con `schemaVersion: 2`. Todos los campos nuevos son opcionales y sus valores por omisión equivalen a la v1: `copies` omitido es 1 y sin `layout` la ubicación es automática. **No transforma datos**: las notas y los cierres de varias líneas se conservan, porque la sintaxis de texto nueva los admite (sección 7).
 
 **Propiedades de la migración** (con los fixtures v1 del repositorio y documentos v1 aleatorios):
 
 | # | Propiedad |
 |---|---|
-| M1 | Un v1 `valid` (o `savable`) migrado es v2 `valid` (o `savable`), con los mismos códigos de problemas salvo `SCHEMA_VERSION` |
+| M1 | Un v1 `valid` (o `savable`) migrado es v2 `valid` (o `savable`), con los mismos códigos de **error** salvo `SCHEMA_VERSION`. Advertencias e información pueden sumar **solo** los códigos nuevos de la v2 (`PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL`, `ROUND_GROWS_FAST`, `ROUND_SHRINKS_FAST`), y `ROUND_CONSUMPTION_MISMATCH` de la V1 con cadeneta en aro puede pasar de error a advertencia (sección 4; enmienda de T1) |
 | M2 | Es idempotente: migrar un v2 devuelve el mismo objeto (`===`) |
 | M3 | Los derivados no cambian: en gráficos, `stitchTotal`, `rowStitchCounts`, `yarnUsage` y todos los pasos de `planChart`; en escritos, `concreteRounds` y `summarizePart` |
 | M4 | Nunca lanza, con cualquier entrada (como hoy) |
@@ -279,11 +292,11 @@ Calcular la posición en el mundo de una pieza (por ejemplo, para convertir un a
 
 No se fusionan puntos seguidos ("pb, pb" no pasa a "2 pb") ni se reordena nada: eso cambiaría lo que escribió la usuaria sin que lo pida.
 
-**Sintaxis nueva** (v2; los términos los valida `experto-tejido` en T1):
+**Sintaxis nueva** (v2; términos revisados por `experto-tejido` en T1):
 
 ```
 Parte: Oreja
-Cantidad: 2                # término a validar ("Hacer: 2", "Piezas: 2"…)
+Cantidad: 2
 Inicio: AM
 Construcción: espiral
 Lana: A
@@ -297,7 +310,8 @@ Cierre: no rellenar; aplanar y coser abierta.
 
 - **Una línea `> texto`** es la nota de la vuelta anterior, o una línea más del cierre si sigue a "Cierre:". Varias líneas `>` forman una nota de varias líneas, así que nada se pierde.
 - **Las líneas `#`** siguen siendo comentarios que no se guardan. El editor avisa: "Los comentarios con # no se guardan; usa > para una nota".
-- **Con `stuffing`** (si entra), un encabezado "Relleno: sí | no" (validar con `experto-tejido`).
+- **Encabezado de copias** (enmienda C-14, F4-61): `formatPart` escribe siempre **"Cantidad: N"** (solo si `N > 1`). `parsePart` acepta también **"Hacer"**, **"Piezas"** y **"Tejer"** (lo más usual entre patronistas es "Hacer 2"), con o sin dos puntos ("Hacer 2" y "Hacer: 2"), sin distinguir mayúsculas. Leer un alias y volver a escribir da "Cantidad" (RT2: forma canónica estable). En la interfaz se evita la palabra "copias", que es de software: "se teje 2 veces", y en la lista de partes "Oreja (1 de 2)" (F4-62). El término queda "validar con tejedora".
+- **Sin encabezado de relleno**: `stuffing` no entra en la v2 (enmienda C-13). "Relleno:" no es un encabezado; "no rellenar" se escribe en `Cierre:` o en una nota `>`.
 
 **Ida y vuelta sin pérdida** (propiedades con semilla en `pattern-core`; criterio de salida de la fase 4):
 
@@ -386,7 +400,28 @@ La versión completa (anidación de 6 niveles y arrastrar y soltar) queda en la 
 - `Dialect` pasa a `"es" | "us" | "uk"`.
 - `parseRound` y `parsePart` reciben `mode: "es-us" | "es-uk"`. Por omisión es `"es-us"`, que es lo que hacen hoy.
 - **Nunca se adivina el dialecto**: "dc" es punto bajo en UK y punto alto en US. RT5 lo garantiza.
-- La tabla UK (por ejemplo, `sc` = "dc", `hdc` = "htr", `dc` = "tr", `tr` = "dtr") la confirma `experto-tejido` en T1 (validar con `experto-tejido`).
+- **Tabla de abreviaturas** (enmienda C-15, confirmada por T1 con la tabla "U.S. vs. U.K. Terminology" del Craft Yarn Council; F4-63 a F4-68). Las variantes ES son las de `stitches.ts` (Chile):
+
+  | Código | `es` | `us` (escribe) | `uk` (escribe) | Notas |
+  |---|---|---|---|---|
+  | `sc` | pb | sc | **dc** | "dc" significa otro punto en US |
+  | `hdc` | mpa | hdc | **htr** | |
+  | `dc` | pa | **dc** | **tr** | |
+  | `tr` | pad | **tr** | **dtr** | |
+  | `slst` | pd | **sl st** | **ss** | US pasa a escribir "sl st" como el CYC (enmienda C-16); "slst" se sigue leyendo en `es-us` |
+  | `ch` | cad | ch | ch | |
+  | `inc` | aum | inc | inc | De punto bajo |
+  | `inc3` | aum3 | inc3 | inc3 | No es CYC; provisional |
+  | `dec` | dism | dec (alias `sc2tog`) | dec (alias **`dc2tog`**) | En US, "dc2tog" sería de punto alto: no se lee en `es-us` |
+  | `sk` | saltar | sk | **miss** | "miss" provisional |
+  | hebra trasera / delantera | ht / hd | blo / flo | blo / flo | |
+  | anillo mágico | AM | mr | mr | "mr" provisional (no está en la página del CYC) |
+
+- **Alias por modo** (enmienda C-16, RT5): cada modo de lectura carga su propia tabla de alias. `es-us` = alias `es` más `us`; `es-uk` = alias `es` más `uk`. Un alias compartido entre modos solo si significa lo mismo en los dos (`pb`, `mpa`, `pa`, `pad`, `pd`, `cad`, `aum`, `dism`, `ch`, `inc`, `dec`, `blo`, `flo`). En concreto:
+  - en `es-uk`, `dc` = `sc`, `tr` = `dc`, `htr` = `hdc`, `dtr` = `tr`, `ss` = `slst`, `miss` = `sk`, `dc2tog` = `dec`; **`sc2tog` no es alias** en `es-uk`;
+  - en `es-us`, `htr`, `dtr`, `ss`, `miss` y `dc2tog` son desconocidos (`PARSE_UNKNOWN_STITCH`);
+  - **términos del otro dialecto con pista**: `sc`, `hdc` y `sc2tog` en `es-uk` dan error de lectura con la pista "sc es US; en UK el punto bajo se llama dc" (o la equivalente), en vez de aceptarse en silencio (F4-64). `htr` y `dtr` en `es-us` dan la pista inversa.
+- **Variantes regionales del español** ("medio punto", "pma", "punto raso", "punto bajísimo"): **no se agregan como alias** hasta que T1b las respalde (F4-69). "Medio punto" en particular se confunde con "medio punto alto".
 
 **Contrato** (puro, sin dependencias de terceros; depende solo de `pattern-core`):
 
@@ -410,7 +445,7 @@ export function roundWord(construction: Part["construction"] | "rounds" | "rows"
 export const TERMS: readonly TermEntry[];
 ```
 
-- **Datos**: los del [glosario pendiente](../roadmap.md#glosario-pendiente) más los de amigurumi de T1. **Las variantes regionales del español** (Chile como base; otras) se cargan solo con lo que entregue `experto-tejido`, en estado "pendiente". No se inventan.
+- **Datos**: los del [glosario pendiente](../roadmap.md#glosario-pendiente) más los de amigurumi de T1 ([casos de dominio](../casos-dominio-fase-4.md), sección 11: anillo mágico, cadeneta base, espiral, vueltas cerradas, aumento, disminución, disminución invisible, cantidad, cierre, parte y pieza). **"Cadeneta de subida", "pd de unión" y "cadeneta de giro"** entran como términos con la nota de que **no cuentan como puntos** y no se escriben como ítems (enmienda C-21, F4-11 y F4-12). "Relleno" entra como término, aunque no sea un campo del modelo. **Las variantes regionales del español** (Chile como base; otras) se cargan solo con lo que entregue `experto-tejido`, en estado "pendiente". No se inventan.
 - **Pruebas**: cada código de `STITCHES` tiene entrada en los tres dialectos; ninguna clave falta en `es`; los datos no tienen marcas ni nombres de tienda (como CA3-L11).
 - **Preferencia de la usuaria**: el dialecto con que ve y escribe los patrones se guarda en `profiles.pattern_dialect` (`'es' | 'us' | 'uk'`, por omisión `'es'`), con una migración pequeña y RLS de la propia fila ([decisión 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada).
 - **Alcance**: la interfaz sigue en español. `glossary` es la terminología de los patrones, no la traducción de la aplicación.
@@ -418,7 +453,12 @@ export const TERMS: readonly TermEntry[];
 ### 9. Armado
 
 - **`assembly: string[]` no cambia**. Son los pasos que escribe la diseñadora.
-- **"Dónde va cada pieza"**: junto al armado, el estudio muestra una lista derivada de `layout` y del perfil del anfitrión. Por ejemplo, "Oreja (1 de 2): cabeza, entre la V10 y la V11, a 4 puntos del inicio de la vuelta". **No se copia** en `assembly`: sería una segunda fuente que se desincroniza. El texto exacto lo valida `experto-tejido`.
+- **"Dónde va cada pieza"**: junto al armado, el estudio muestra una lista derivada de `layout` y del perfil del anfitrión. **No se copia** en `assembly`: sería una segunda fuente que se desincroniza.
+- **Texto** (enmienda C-17, F4-80):
+  - forma: "Oreja (1 de 2): se cose a la cabeza, entre la V10 y la V11, contando desde el anillo mágico". Con cadeneta inicial, "contando desde la cadeneta inicial"; en hileras, "entre la H10 y la H11, contando desde la cadeneta base"; con `attach: "start"`, "se cose por el centro del inicio";
+  - **sin distancia en puntos** desde "el inicio de la vuelta": en espiral ese inicio es el marcador, que se mueve, y "a 4 puntos" no se puede seguir. `SurfaceAt.stitch` se sigue guardando para el 3D, pero el texto no lo usa;
+  - una referencia a la cara ("a la derecha del centro de la cara") necesitaría saber dónde está el frente de la pieza, que el modelo no guarda: queda fuera de la v2;
+  - el verbo ("se cose" o "se une") y la redacción final quedan "validar con tejedora"; `documentador` la redacta.
 - El PDF de la fase 7 incluye las dos cosas: los pasos escritos y la lista derivada.
 
 ## Alternativas descartadas
@@ -447,7 +487,7 @@ export const TERMS: readonly TermEntry[];
 - Los patrones escritos se pueden guardar como borrador con errores de conteo (enmienda del ADR 0006 en T4).
 - `follow` (fase 6) recorre parte × copia, y `project_progress` necesitará la copia.
 - La interfaz deja de reescribir lo que la usuaria tipea mientras escribe, pero sí al salir de la línea. Es una decisión visible ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)).
-- Los campos condicionales (`stuffing` y el inicio en óvalo) dependen de T1. Si no llegan antes de T4, quedan para una v3 con su ADR.
+- Los campos condicionales (`stuffing` y el inicio en óvalo) **quedan fuera de la v2** (T1, enmienda C-13). La v2 tiene solo `layout` y `copies`. Si se retoman, van en una v3 con su ADR y reglas validadas por tejedoras.
 - La preferencia de dialecto agrega una columna a `profiles`. Pasa por `revisor-seguridad`.
 - Los límites recomendados no impiden nada: un diseño puede tener 30 partes y seguir siendo `valid`. La regla de oro 7 se garantiza dentro de ellos (ADR 0010, sección 6c), y la interfaz lo dice desde el inicio.
 - El editor de bloques v1 es básico, pero el núcleo, el árbol de bloques y el almacén ya soportan la profundidad completa. La versión completa es trabajo de interfaz, no de modelo.
@@ -460,3 +500,29 @@ La usuaria aprobó el ADR, `schemaVersion: 2` y el posicionado anclado ([decisio
 - **Decisión 5 (límites solo como advertencia)**: nueva sección 3b con `RECOMMENDED_WRITTEN_LIMITS`, `recommendedLimitUsage` y `recommendedLimitNotices`, fuera del validador, y cómo la interfaz los informa antes de alcanzarlos y al superarlos. Topes duros nuevos de `LIMITS` en la sección 3 (`maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`). Las operaciones respetan solo los topes duros (sección 6).
 - **Decisión 4 (glosario ES, US y UK con preferencia en el perfil)**, **6 (campos condicionales solo con reglas de T1 antes de T4)** y **7 (forma canónica al salir de la línea)**: aprobadas tal como estaban; solo se actualizan los enlaces.
 - **Decisión 9**: todo lo marcado "validar con tejedora" en este ADR queda pendiente de T1b, que se suma a la ronda de las fases 2 y 3.
+
+## Enmiendas por T1 (2026-11-13)
+
+Registradas por `arquitecto` a partir de la revisión T1 de `experto-tejido` ([casos de dominio de la fase 4](../casos-dominio-fase-4.md), "Decisión 6" y "Correcciones para las enmiendas de los ADR"). Los números C-* son los de ese documento; C-9 y C-10 se comparten con el ADR 0010.
+
+| ID | Clase | Sección | Enmienda |
+|---|---|---|---|
+| C-9 | Mejora | 4 y 5 (M1) | La V1 con cadeneta en aro (`spiral` o `joined`) que no consume `count` es **advertencia** con la pista del aro. Advertencia nueva `PART_START_RING_SHORT` para una cadeneta en aro de 1. M1 enmendada: un v1 migrado conserva sus códigos de error y solo puede sumar las advertencias e informaciones nuevas de la v2 |
+| C-10 | Mejora | 4 | Pista "¿escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan" en los desajustes de 1 o 2 puntos en vueltas cerradas e hileras |
+| C-13 | Error de dominio | 1, 2, 3, 5, 7 y consecuencias | **Decisión 6 resuelta: `stuffing` y el inicio en óvalo quedan fuera de la v2.** La v2 tiene solo `layout` y `copies`. `stuffing` no está en los tipos ni en `SCHEMA_KEYS`; `Inicio: óvalo N` es `PARSE_START` con mensaje claro. Si se retoman, van en una v3 con su ADR |
+| C-14 | Mejora | 7 | Encabezado de copias: se escribe "Cantidad: N"; se leen también "Hacer", "Piezas" y "Tejer", con o sin dos puntos. En la interfaz, "se teje N veces" y no "copias" |
+| C-15 | Ambigüedad terminológica | 8 | Tabla UK confirmada con el CYC: `sc` = dc, `hdc` = htr, `dc` = tr, `tr` = dtr, `slst` = ss, `dec` = dec o dc2tog, `sk` = miss (provisional). `sc` en `es-uk` es error de lectura con pista |
+| C-16 | Ambigüedad terminológica | 8 | `Dialect` agrega `uk`. Alias cargados por modo (RT5). US escribe "sl st". `sc2tog` no es alias en `es-uk` (allí la disminución de pb es `dc2tog`). Extensión de `arquitecto`: también `hdc` en `es-uk`, y `htr` y `dtr` en `es-us`, dan la pista del otro dialecto |
+| C-17 | Mejora | 9 | "Dónde va cada pieza" sin distancia en puntos desde el inicio de la vuelta, y aclarando que se cuenta desde el anillo mágico (o la cadeneta inicial) |
+| C-18 | Mejora | 3b | Se mantienen los cinco límites recomendados (20, 10, 100, 200 y 40.000) |
+| C-19 | Mejora | 4 | Hileras con anillo mágico: información `PART_START_FLAT_RING` |
+| C-20 | Mejora | 4 | Información `MAGIC_RING_UNUSUAL` con una V1 de menos de 3 o más de 12 puntos sobre anillo mágico (umbral provisional) |
+| C-21 | Ambigüedad terminológica | 8 | "Cadeneta de subida", "pd de unión" y "cadeneta de giro" entran al glosario con la advertencia de que no cuentan como puntos |
+
+**Lo que no cambia**: la posición C con expresión mixta, `schemaVersion: 2` con migración trivial, el editor III, los topes duros de `LIMITS`, RT1 a RT6 y las propiedades de la sección 6.
+
+**Riesgos abiertos**:
+
+- Los códigos nuevos (`PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL`) son propuestos por `arquitecto` a partir de C-9, C-19 y C-20; `motor-patrones` puede renombrarlos en T4 si choca con la convención de `validate.ts`, actualizando esta tabla.
+- El umbral de `MAGIC_RING_UNUSUAL` (3 a 12), la lectura de la cadeneta en aro (un punto en cada cadeneta) y el término "Cantidad" son "validar con tejedora" (T1b). Cambiarlos no cambia el documento.
+- Con el óvalo fuera, los patrones con base ovalada se escriben con `Inicio: AM` y la V1 con sus puntos finales, y el 3D los dibuja redondos (F4-57). El aviso de prototipo lo cubre, pero puede confundir: la ayuda de la sintaxis lo dice.
