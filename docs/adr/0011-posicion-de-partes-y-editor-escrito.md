@@ -1,6 +1,6 @@
 # ADR 0011: Posición de las partes, `schemaVersion: 2`, editor de texto y bloques, y glosario
 
-- Estado: **aceptado** (2026-11-13, T0 de la fase 4), con las enmiendas de las [decisiones de la fase 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13) (ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-13)): editor de bloques básico preparado para la versión completa (decisión 2) y límites recomendados solo como advertencia (decisión 5). **Enmendado el 2026-11-13** con la revisión de dominio T1 ([casos de dominio de la fase 4](../casos-dominio-fase-4.md), correcciones C-13 a C-21, y las de validación C-9 y C-10 compartidas con el ADR 0010); ver [Enmiendas por T1](#enmiendas-por-t1-2026-11-13). Lo que T1 dejó "validar con tejedora" se confirma en T1b.
+- Estado: **aceptado** (2026-11-13, T0 de la fase 4), con las enmiendas de las [decisiones de la fase 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13) (ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-13)): editor de bloques básico preparado para la versión completa (decisión 2) y límites recomendados solo como advertencia (decisión 5). **Enmendado el 2026-11-13** con la revisión de dominio T1 ([casos de dominio de la fase 4](../casos-dominio-fase-4.md), correcciones C-13 a C-21, y las de validación C-9 y C-10 compartidas con el ADR 0010); ver [Enmiendas por T1](#enmiendas-por-t1-2026-11-13). Lo que T1 dejó "validar con tejedora" se confirma en T1b. **Enmendado el 2026-11-13** con la implementación del grupo B: T4 (commit `e4db73e`, enmiendas T4-1 a T4-7), T6 (commit `29b1cde`, T6-1 a T6-6) y T8 (commit `18a0f02`, T8-1); ver [Enmiendas por la implementación del grupo B](#enmiendas-por-la-implementación-del-grupo-b-2026-11-13).
 - Fecha: 2026-11-13
 - Paquetes: `packages/pattern-core` (esquema v2, migración, validador, texto, operaciones), `packages/glossary` (nuevo), `packages/viewer-3d` (resuelve las posiciones), `apps/web`, `supabase/` (preferencia de dialecto)
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md) (sección 5, `migratePattern`; E10, errores de tejido; E16, documento cerrado), [ADR 0006](0006-guardado-de-disenos.md) (guardado, `savable`), [ADR 0007](0007-follow-secuencia-de-colorwork.md) (sección 5, migración de punteros), [ADR 0010](0010-geometria-3d-amigurumi.md) (geometría)
@@ -146,12 +146,12 @@ Claves nuevas en `SCHEMA_KEYS`: `layout`, `placement`, `partRef`, `freeAt` y `su
 | `LAYOUT_DUPLICATE` | error estructural | Dos entradas para la misma copia |
 | `LAYOUT_CYCLE` | error estructural | Una pieza anclada a sí misma o un ciclo de anclas |
 | `LAYOUT_DEPTH` | error estructural | Cadena de anclas de más de `LIMITS.maxLayoutDepth` |
-| `LIMIT` | error estructural | Números no finitos o fuera de cota: posiciones de ±`LIMITS.maxPositionCm`, rotaciones de −180 a 180, separación de ±`LIMITS.maxOffsetCm` y `round`, `stitch` y `placements.length` acotados |
+| `LIMIT` | error estructural | Números no finitos o fuera de cota: posiciones de ±`LIMITS.maxPositionCm`, rotaciones de ±`LIMITS.maxRotationDeg` (180), separación de ±`LIMITS.maxOffsetCm` y `round`, `stitch` y `placements.length` (hasta `LIMITS.maxPlacements`, 2.500) acotados (enmienda T4-6) |
 | `LAYOUT_ANCHOR_RANGE` | advertencia | La vuelta o el punto ya no existen en el anfitrión (por ejemplo, después de borrar vueltas). El 3D acota y lo dice. Es advertencia para que editar el anfitrión nunca impida guardar |
 
 - **Los errores estructurales de `layout` no pueden aparecer editando**: las operaciones de la sección 6 limpian las referencias. Solo llegan con documentos armados a mano o generados por IA (fase 5), y ahí el validador es la barrera.
 - **El ciclo y la profundidad** se revisan en tiempo lineal, sin recursión sin tope (`revisor-seguridad`, T20).
-- **Topes duros nuevos en `LIMITS`** (errores estructurales; protegen al motor, no son la recomendación de la sección 3b): `maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`; `placements.length` hasta `maxParts × maxCopies`. Son holgados a propósito: con la decisión 5, la usuaria puede pasar los límites recomendados, así que el tope duro tiene que quedar bastante más arriba (10 copias recomendadas, 50 como tope). `motor-patrones` puede ajustarlos en T4 con su razón, como enmienda de este ADR; subirlos después es compatible, bajarlos no.
+- **Topes duros nuevos en `LIMITS`** (errores estructurales; protegen al motor, no son la recomendación de la sección 3b): `maxCopies: 50`, `maxLayoutDepth: 16`, `maxPositionCm: 1000`, `maxOffsetCm: 100`; desde T4 también `maxRotationDeg: 180` y `maxPlacements: 2500` (`maxParts × maxCopies`; enmienda T4-6). Son holgados a propósito: con la decisión 5, la usuaria puede pasar los límites recomendados, así que el tope duro tiene que quedar bastante más arriba (10 copias recomendadas, 50 como tope). `motor-patrones` puede ajustarlos en T4 con su razón, como enmienda de este ADR; subirlos después es compatible, bajarlos no.
 
 ### 3b. Límites recomendados (decisión 5: solo advertencia)
 
@@ -208,7 +208,7 @@ Se agregan a `DRAFT_ERROR_CODES`: `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MIS
 - **Un patrón escrito con una vuelta que no cuadra se guarda como borrador** (`savable: true`, `valid: false`) y se ve en 3D (ADR 0010, sección 2). Siguen siendo estructurales `STITCH_UNKNOWN`, `COLOR_UNKNOWN_YARN`, `ITEM_COUNT`, `GROUP_*`, `SHAPE`, `LIMIT` y los de `layout`.
 - **Invariante**: todo derivado (conteos, texto, perfil, malla y, en la fase 6, `follow`) funciona con cualquier documento `savable` y nunca lanza (propiedad G10 del ADR 0010 y RT6 de abajo).
 - **Tejer un patrón escrito** (fase 6) exige `valid`, verificado en el servidor, como el gráfico (ADR 0009).
-- **No cambia la forma del documento**, pero sí lo que se acepta guardar. Se registra como enmienda del ADR 0006 cuando T4 lo implemente.
+- **No cambia la forma del documento**, pero sí lo que se acepta guardar. Registrado como [enmienda E12 del ADR 0006](0006-guardado-de-disenos.md#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4) (T4, enmienda T4-1).
 
 **Ajustes de T1 a la validación de patrones escritos** (enmiendas C-9, C-10, C-19 y C-20; los implementa T4 en `validate.ts`; los textos finales, `documentador`; todo "validar con tejedora"):
 
@@ -217,8 +217,8 @@ Se agregan a `DRAFT_ERROR_CODES`: `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MIS
 | `ROUND_CONSUMPTION_MISMATCH` en la V1 con `start: chain` y `spiral` o `joined` | **advertencia** (antes error) | Pista: "Si trabajas dentro del aro, la cantidad de la primera vuelta es libre". En hileras ya era advertencia (F4-3, F4-4 y F4-6). Desde la V2, sigue siendo error de borrador |
 | `PART_START_RING_SHORT` (nuevo) | advertencia | `start: chain` con `count` 1 en `spiral` o `joined`: "una cadeneta en aro necesita al menos 2". No es error para no romper M1 (C-9) |
 | `PART_START_FLAT_RING` (nuevo) | info | Hileras (`flat`) con `start: magic_ring`: "las hileras suelen empezar con una cadeneta base". El panel ignora el anillo (F4-7, C-19). `parsePart` sigue poniendo anillo mágico por omisión cuando falta `Inicio:` (no cambia lo que se lee, RT2); en hileras, eso hace aparecer este aviso |
-| `MAGIC_RING_UNUSUAL` (nuevo) | info | V1 sobre anillo mágico con menos de 3 o más de 12 puntos. Nunca error. Umbral provisional (F4-2, C-20) |
-| Pista de subida y unión | (en el mensaje) | `ROUND_CONSUMPTION_MISMATCH` y `ROUND_COUNT_MISMATCH` en vueltas cerradas o hileras con diferencia de 1 o 2 puntos agregan: "¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan" (F4-11, F4-12, C-10) |
+| `MAGIC_RING_UNUSUAL` (nuevo) | info | V1 sobre anillo mágico con menos de 3 o más de 12 puntos, **solo en espiral y vueltas cerradas** (en hileras ya está `PART_START_FLAT_RING`; enmienda T4-3). Nunca error. Umbral provisional (F4-2, C-20) |
+| Pista de subida y unión | (en el mensaje y en `data.hints`, enmienda T4-2) | `ROUND_CONSUMPTION_MISMATCH` y `ROUND_COUNT_MISMATCH` en vueltas cerradas o hileras con diferencia de 1 o 2 puntos agregan: "¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan" (F4-11, F4-12, C-10) |
 | `ROUND_RANGE_CHANGES` | (en el mensaje) | Sugiere escribir cada vuelta cuando un rango aumenta o disminuye (F4-84) |
 
 - Los nuevos códigos son advertencias o información: **no cambian qué es `valid` ni qué es `savable`**, salvo que la V1 con cadeneta en aro deja de ser error.
@@ -232,7 +232,7 @@ Se agregan a `DRAFT_ERROR_CODES`: `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MIS
 
 | # | Propiedad |
 |---|---|
-| M1 | Un v1 `valid` (o `savable`) migrado es v2 `valid` (o `savable`), con los mismos códigos de **error** salvo `SCHEMA_VERSION`. Advertencias e información pueden sumar **solo** los códigos nuevos de la v2 (`PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL`, `ROUND_GROWS_FAST`, `ROUND_SHRINKS_FAST`), y `ROUND_CONSUMPTION_MISMATCH` de la V1 con cadeneta en aro puede pasar de error a advertencia (sección 4; enmienda de T1) |
+| M1 | Un v1 `valid` (o `savable`) migrado es v2 `valid` (o `savable`), con los mismos códigos de **error** salvo `SCHEMA_VERSION`. Advertencias e información pueden sumar **solo** los códigos nuevos de la v2 (`PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL`, `ROUND_GROWS_FAST`, `ROUND_SHRINKS_FAST`), y `ROUND_CONSUMPTION_MISMATCH` de la V1 con cadeneta en aro puede pasar de error a advertencia (sección 4; enmienda de T1). Se prueba contra un validador v1 congelado (enmienda T4-7). Excepción deliberada: el tope de lo que trabaja una vuelta (enmienda T4-4) |
 | M2 | Es idempotente: migrar un v2 devuelve el mismo objeto (`===`) |
 | M3 | Los derivados no cambian: en gráficos, `stitchTotal`, `rowStitchCounts`, `yarnUsage` y todos los pasos de `planChart`; en escritos, `concreteRounds` y `summarizePart` |
 | M4 | Nunca lanza, con cualquier entrada (como hoy) |
@@ -268,7 +268,8 @@ Puras, inmutables y con salida normalizada (sección 7), con la misma convenció
   - `insertRound`, `removeRound` y `replaceRound` los usa el editor de bloques y **renumeran** las vueltas siguientes (conservan los rangos).
 - **Ítems** (bloques), con una ruta `ItemPath = number[]` dentro de la vuelta: `insertItem`, `updateItem`, `removeItem`, `moveItem`, `wrapInGroup(desde, hasta, veces)` y `unwrapGroup`.
   - **Profundidad completa** (decisión 2): las operaciones aceptan rutas de cualquier profundidad hasta `LIMITS.maxNesting` (6). El tope de 2 niveles del editor v1 es **solo de la interfaz** (sección 7) y no existe en `pattern-core`. Una operación que dejaría la anidación por encima de `LIMITS.maxNesting` devuelve el documento sin cambios, como toda entrada fuera de rango.
-  - `moveItem(pattern, partId, roundIndex, from: ItemPath, to: ItemPath)` es general: mueve entre grupos y niveles distintos. La v1 lo usa solo para "subir" y "bajar" entre hermanos; arrastrar y soltar usará la misma operación.
+  - `moveItem(pattern, partId, roundIndex, from: ItemPath, to: ItemPath)` es general: mueve entre grupos y niveles distintos. `to` es la ruta **después** de mover (enmienda T6-4). La v1 lo usa solo para "subir" y "bajar" entre hermanos; arrastrar y soltar usará la misma operación.
+  - "Profundidad" se cuenta en niveles de ítems: `LIMITS.maxNesting` (6) son 6 niveles, o sea la vuelta y 5 grupos anidados, y una `ItemPath` tiene hasta 6 índices (enmienda T6-1).
 - **Límites**: las operaciones respetan los topes duros de `LIMITS` (devuelven el documento sin cambios si se pasarían), **nunca los recomendados** de la sección 3b: superar un recomendado lo decide la usuaria en la interfaz.
 - **Posición**: `setPlacement(pattern, placement)`, `clearPlacement(pattern, ref)`.
 - **Armado**: `setAssembly(pattern, steps)`.
@@ -310,7 +311,7 @@ Cierre: no rellenar; aplanar y coser abierta.
 
 - **Una línea `> texto`** es la nota de la vuelta anterior, o una línea más del cierre si sigue a "Cierre:". Varias líneas `>` forman una nota de varias líneas, así que nada se pierde.
 - **Las líneas `#`** siguen siendo comentarios que no se guardan. El editor avisa: "Los comentarios con # no se guardan; usa > para una nota".
-- **Encabezado de copias** (enmienda C-14, F4-61): `formatPart` escribe siempre **"Cantidad: N"** (solo si `N > 1`). `parsePart` acepta también **"Hacer"**, **"Piezas"** y **"Tejer"** (lo más usual entre patronistas es "Hacer 2"), con o sin dos puntos ("Hacer 2" y "Hacer: 2"), sin distinguir mayúsculas. Leer un alias y volver a escribir da "Cantidad" (RT2: forma canónica estable). En la interfaz se evita la palabra "copias", que es de software: "se teje 2 veces", y en la lista de partes "Oreja (1 de 2)" (F4-62). El término queda "validar con tejedora".
+- **Encabezado de copias** (enmienda C-14, F4-61): `formatPart` escribe siempre **"Cantidad: N"** (solo si `N > 1`) en `es`, y **"Make: N"** en `us` y `uk` (enmienda T6-2). `parsePart` acepta también **"Hacer"**, **"Piezas"** y **"Tejer"** (lo más usual entre patronistas es "Hacer 2"), con o sin dos puntos ("Hacer 2" y "Hacer: 2"), sin distinguir mayúsculas. Leer un alias y volver a escribir da "Cantidad" (RT2: forma canónica estable). En la interfaz se evita la palabra "copias", que es de software: "se teje 2 veces", y en la lista de partes "Oreja (1 de 2)" (F4-62). El término queda "validar con tejedora".
 - **Sin encabezado de relleno**: `stuffing` no entra en la v2 (enmienda C-13). "Relleno:" no es un encabezado; "no rellenar" se escribe en `Cierre:` o en una nota `>`.
 
 **Ida y vuelta sin pérdida** (propiedades con semilla en `pattern-core`; criterio de salida de la fase 4):
@@ -373,7 +374,7 @@ El documento completo no pasa por texto: el texto es por parte. `layout`, `yarns
 
    ```ts
    export interface BlockEditPolicy {
-     maxEditDepth: number;   // v1: 2; versión completa: LIMITS.maxNesting
+     maxEditDepth: number;   // v1: 2; versión completa: LIMITS.maxNesting (niveles de ítems, enmienda T6-1)
      dragAndDrop: boolean;   // v1: false
    }
    export const BLOCK_EDIT_POLICY_V1: BlockEditPolicy = { maxEditDepth: 2, dragAndDrop: false };
@@ -447,7 +448,7 @@ export const TERMS: readonly TermEntry[];
 
 - **Datos**: los del [glosario pendiente](../roadmap.md#glosario-pendiente) más los de amigurumi de T1 ([casos de dominio](../casos-dominio-fase-4.md), sección 11: anillo mágico, cadeneta base, espiral, vueltas cerradas, aumento, disminución, disminución invisible, cantidad, cierre, parte y pieza). **"Cadeneta de subida", "pd de unión" y "cadeneta de giro"** entran como términos con la nota de que **no cuentan como puntos** y no se escriben como ítems (enmienda C-21, F4-11 y F4-12). "Relleno" entra como término, aunque no sea un campo del modelo. **Las variantes regionales del español** (Chile como base; otras) se cargan solo con lo que entregue `experto-tejido`, en estado "pendiente". No se inventan.
 - **Pruebas**: cada código de `STITCHES` tiene entrada en los tres dialectos; ninguna clave falta en `es`; los datos no tienen marcas ni nombres de tienda (como CA3-L11).
-- **Preferencia de la usuaria**: el dialecto con que ve y escribe los patrones se guarda en `profiles.pattern_dialect` (`'es' | 'us' | 'uk'`, por omisión `'es'`), con una migración pequeña y RLS de la propia fila ([decisión 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada).
+- **Preferencia de la usuaria**: el dialecto con que ve y escribe los patrones se guarda en `profiles.pattern_dialect` (`'es' | 'us' | 'uk'`, por omisión `'es'`), con una migración pequeña y RLS de la propia fila ([decisión 4](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13), aprobada). Implementado en T8 (enmienda T8-1): la columna guarda el **dialecto de escritura**, no el modo de lectura; la interfaz lee con `readingModeFor(dialect)`.
 - **Alcance**: la interfaz sigue en español. `glossary` es la terminología de los patrones, no la traducción de la aplicación.
 
 ### 9. Armado
@@ -484,7 +485,7 @@ export const TERMS: readonly TermEntry[];
 ## Consecuencias
 
 - `SCHEMA_VERSION` pasa a 2. Todo el código que escribe `schemaVersion: 1` a mano (pruebas y fixtures) se actualiza en una tarea mecánica.
-- Los patrones escritos se pueden guardar como borrador con errores de conteo (enmienda del ADR 0006 en T4).
+- Los patrones escritos se pueden guardar como borrador con errores de conteo (enmienda E12 del ADR 0006, T4).
 - `follow` (fase 6) recorre parte × copia, y `project_progress` necesitará la copia.
 - La interfaz deja de reescribir lo que la usuaria tipea mientras escribe, pero sí al salir de la línea. Es una decisión visible ([decisión 7](../roadmap.md#decisiones-de-la-fase-4-aprobadas-el-2026-11-13)).
 - Los campos condicionales (`stuffing` y el inicio en óvalo) **quedan fuera de la v2** (T1, enmienda C-13). La v2 tiene solo `layout` y `copies`. Si se retoman, van en una v3 con su ADR y reglas validadas por tejedoras.
@@ -526,3 +527,51 @@ Registradas por `arquitecto` a partir de la revisión T1 de `experto-tejido` ([c
 - Los códigos nuevos (`PART_START_RING_SHORT`, `PART_START_FLAT_RING`, `MAGIC_RING_UNUSUAL`) son propuestos por `arquitecto` a partir de C-9, C-19 y C-20; `motor-patrones` puede renombrarlos en T4 si choca con la convención de `validate.ts`, actualizando esta tabla.
 - El umbral de `MAGIC_RING_UNUSUAL` (3 a 12), la lectura de la cadeneta en aro (un punto en cada cadeneta) y el término "Cantidad" son "validar con tejedora" (T1b). Cambiarlos no cambia el documento.
 - Con el óvalo fuera, los patrones con base ovalada se escriben con `Inicio: AM` y la V1 con sus puntos finales, y el 3D los dibuja redondos (F4-57). El aviso de prototipo lo cubre, pero puede confundir: la ayuda de la sintaxis lo dice.
+
+## Enmiendas por la implementación del grupo B (2026-11-13)
+
+Registradas por `arquitecto` a partir de T4 (commit `e4db73e`), T6 (commit `29b1cde`) y T8 (commit `18a0f02`) de la fase 4. Cada punto se verificó contra `packages/pattern-core/src/` (`validate.ts`, `limits.ts`, `text.ts`, `stitches.ts`, `edit-written.ts`), `packages/pattern-core/test/support/validate-v1.ts` y `supabase/migrations/20261114015632_perfil_dialecto.sql`. Las enmiendas de T5 (forma) están en el [ADR 0010](0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t5-2026-11-13).
+
+### T4: esquema v2 y validador
+
+| ID | Clase | Sección | Enmienda |
+|---|---|---|---|
+| T4-1 | Cambio de contrato | 4 | Los cinco códigos (`ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MISMATCH`, `ROUND_ZERO`, `ROUND_RANGE_CHANGES`, `ROUND_NUMBERING`) están en `DRAFT_ERROR_CODES`: el documento se guarda como borrador (`savable`); tejer, publicar, exportar y aceptar una salida de IA siguen exigiendo `valid`. Registrado como [E12 del ADR 0006](0006-guardado-de-disenos.md#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4) |
+| T4-2 | Contrato nuevo | 4 | **Pistas en `data.hints`** (`Array<"ring" \| "join" \| "turning_chain">`), además del texto al final del mensaje, para que la interfaz las muestre aparte. `ring`: `ROUND_CONSUMPTION_MISMATCH` en la V1 sobre cadeneta en aro (advertencia, C-9). `turning_chain`: `ROUND_CONSUMPTION_MISMATCH` en hileras, con cualquier diferencia (advertencia; "revisa si la cadeneta para girar cuenta como punto", F4-6). `join`: `ROUND_CONSUMPTION_MISMATCH` y `ROUND_COUNT_MISMATCH` en vueltas cerradas o hileras con 1 o 2 puntos de diferencia (C-10); nunca en espiral. Sin pistas, `data` no lleva la clave `hints`. Textos provisionales (`documentador`, T18) |
+| T4-3 | Precisión | 4 | `MAGIC_RING_UNUSUAL` sale **solo en espiral y vueltas cerradas**, no en hileras (ahí ya está `PART_START_FLAT_RING`). Además exige que la V1 produzca más de 0 puntos |
+| T4-4 | Endurecimiento deliberado | 3 y 5 (M1) | **Tope de lo que trabaja una vuelta**: `LIMIT` (estructural) cuando `consumed` supera `LIMITS.maxRoundStitches`, además del tope de lo que produce (si las dos se pasan, se informa solo el de `produced`). Acota `expandRound` ante una vuelta de `saltar` desmedida. **Rompe M1 a propósito**: un v1 hostil que era `savable` deja de serlo. Ningún documento real cambia (la base no tiene patrones escritos, auditoría T2) |
+| T4-5 | Precisión | 4 | `ROUND_NUMBERING` con un número entre −`LIMITS.maxRounds` y 0 (−1000 a 0): la vuelta se sigue revisando y contando (error de tejido). **Bajo −`maxRounds`** da además `LIMIT` (estructural) y no se cuenta: desde −1e308, `n++` no avanza. Sobre `maxRounds`, solo `LIMIT` |
+| T4-6 | Contrato nuevo | 3 | `LIMITS` agrega **`maxRotationDeg: 180`** y **`maxPlacements: 2500`** (`maxParts × maxCopies`). Los códigos que emite el validador de `layout` se informan **como máximo 20 veces cada uno** (`MAX_LAYOUT_ISSUES_PER_CODE`). Ver la diferencia con el código en "Lo que no coincide" |
+| T4-7 | Precisión | 5 (M1) | **M1 se prueba contra un validador v1 congelado** (`packages/pattern-core/test/support/validate-v1.ts`), copia de `validate.ts` anterior a T4. Es solo de pruebas y no se actualiza: si cambiara, M1 dejaría de comparar con la v1 real |
+
+### T6: texto y operaciones
+
+| ID | Clase | Sección | Enmienda |
+|---|---|---|---|
+| T6-1 | Precisión de contrato | 6 y 7 | **Anidación del lector alineada con el validador**: `LIMITS.maxNesting` (6) son **6 niveles de ítems**, es decir, la vuelta y **5 grupos anidados**. `parseRound` da `PARSE_NESTING` desde 6 corchetes anidados, y una `ItemPath` llega a **6 índices**. **`BlockEditPolicy.maxEditDepth` y `canEditBlock` de T15 usan esta misma definición** (niveles de ítems, con 1 = ítems de la vuelta), y CA4-E11 ("editar un ítem a 6 niveles") también |
+| T6-2 | Desvío | 7 | **Encabezados en inglés**: en `us` y `uk`, `formatPart` escribe `Make: N` (y también `Part:`, `Start:`, `Construction:`, `Yarn:`, `Finish:`, con el prefijo de vuelta `R`). `parsePart` lee `Make` en los dos modos, junto con "Cantidad", "Hacer", "Piezas" y "Tejer" |
+| T6-3 | Ambigüedad terminológica | 8 | **Alias**: se quita "pr" (punto raso, variante regional sin respaldo, F4-69); "ss" no se lee en `es-us` (solo `es-uk`); **`invdec`, `sk` y `skip` quedan solo en `es-us`** (lectura estricta de C-16: en `es-uk` la disminución es `dec` o `dc2tog` y saltar es `miss`). **Pendiente de `experto-tejido`** (T21) |
+| T6-4 | Semántica de operaciones | 6 y 7 | `moveItem`: `to` es la ruta **después** de mover (se quita de `from` y se inserta en `to` sobre la vuelta ya sin el ítem). `unwrapGroup` repite los ítems `times` veces (el conteo no cambia). `insertRound` y `replaceRound` **ignoran `number`** del argumento y renumeran (conservan el largo del rango). Se leen `V0:` y vueltas negativas (dan `ROUND_NUMBERING`, error de tejido, así un borrador hace la ida y vuelta). Dos líneas `Cierre:` se juntan en un cierre de varias líneas. Una nota o cierre que solo tiene espacios se omite (regla 6 de `normalizePart`). **Una operación que agregaría un error estructural que la entrada no tenía devuelve la entrada sin cambios** (misma referencia) |
+| T6-5 | API real | 7 y 8 | `Dialect = "es" \| "us" \| "uk"`; `ReadingMode = "es-us" \| "es-uk"`; `readingModeFor(dialect)` (`uk` → `es-uk`; `es` y `us` → `es-us`); `PARSE_LIMITS = { maxTextLength: 100_000, maxLineLength: 2_000 }` (unidades UTF-16). Códigos `PARSE_*` que este ADR no nombraba y pasan a ser contrato (la interfaz y `documentador` los usan): `PARSE_TOO_LONG` y `PARSE_LINE_TOO_LONG` (los dos topes de `PARSE_LIMITS`), `PARSE_TOO_MANY_PARTS` (`parseWrittenParts`, más de `LIMITS.maxParts`), `PARSE_NESTING` (más de 5 grupos anidados), `PARSE_COPIES` (encabezado de copias sin un número de 1 a `LIMITS.maxCopies`), `PARSE_NOTE` (línea `>` sin vuelta ni cierre encima) y `PARSE_COMMENT` (advertencia, en `warnings`, también cuando la lectura falla). `PARSE_UNKNOWN_STITCH` lleva `data.hint` y `data.mode` cuando hay pista del otro dialecto; `PARSE_START` cubre el óvalo |
+| T6-6 | Huecos abiertos | 3, 7 y RT1 | Ver "Huecos para T20" abajo |
+
+**Huecos para T20 (propuestas, no decididas)**:
+
+- **`start.count` y `expected` no tienen tope superior.** El validador solo pide un entero (≥ 1 o ≥ 2 en `start.count`, ≥ 0 en `expected`). Un `expected` de 1e20 es `savable`, pero el texto no lo representa: `formatPart` lo escribe y `parsePart` lo rechaza (`PARSE_NUMBER`), así que RT1 no se cumple para ese documento. **Propuesta**: `expected` ≤ `LIMITS.maxRoundStitches` y `start.count` ≤ `LIMITS.maxRoundStitches` (o un tope propio de la cadeneta), como `LIMIT` estructural. Hay que verificar que no rompa M1 con documentos reales (la base no tiene escritos).
+- **No hay tope de ítems por vuelta** distinto de `LIMITS.maxItemCount` (que acota la cantidad de un punto, no la cantidad de ítems), así que una vuelta `savable` puede escribirse en una línea de más de 2.000 caracteres, que `parsePart` rechaza (`PARSE_LINE_TOO_LONG`): RT1 tampoco se cumple. **Propuesta**: un tope de ítems por vuelta (por ejemplo, `LIMITS.maxRoundItems`, contando los de todos los grupos), calibrado para que la peor vuelta formateada quepa en `PARSE_LIMITS.maxLineLength`, o que `formatPart` corte la vuelta en varias líneas.
+- **Tope de 20 por código en `layout`** (ver "Lo que no coincide").
+- Los decide `revisor-seguridad` en T20 con `motor-patrones`; `qa-tester` agrega en T19 las pruebas de RT1 en el borde.
+
+### T8: preferencia de dialecto
+
+| ID | Clase | Sección | Enmienda |
+|---|---|---|---|
+| T8-1 | Confirmación | 8 | `profiles.pattern_dialect text not null default 'es'` con `check (pattern_dialect in ('es', 'us', 'uk'))` (`20261114015632_perfil_dialecto.sql`), permiso de UPDATE por columna para la propia fila y Server Action. Coincide con la sección 8. Guarda el dialecto de escritura; **T14 lo traduce con `readingModeFor`** para leer. **Falta aplicar la migración y repetir `10_rls_check.sql` en el proyecto real** |
+
+### Lo que no coincide con el código
+
+- **Tope de 20 por código en `layout` (T4-6)**: el tope solo vale para los códigos que pasan por el emisor de `validateLayout` (`SHAPE`, `LIMIT` de números, `LAYOUT_*`). Dos caminos no lo respetan:
+  - `UNKNOWN_KEY` tiene su propio tope de 20, pero **por documento** (`MAX_UNKNOWN_KEY_ISSUES`), no por `layout`;
+  - la revisión de texto del identificador de parte en `target` y `host` (`checkText`: `LIMIT` por largo y `TEXT_CONTROL_CHAR`) escribe directo en la lista **sin tope**. Con 2.500 ubicaciones, un documento hostil produce hasta unos 5.000 problemas. Queda para T20: pasar esa revisión por el emisor con tope.
+
+**Lo que no cambia**: la posición C con expresión mixta, `schemaVersion: 2` con migración trivial, el editor III, RT1 a RT6 (salvo los huecos de arriba, que piden topes nuevos) y los límites recomendados.

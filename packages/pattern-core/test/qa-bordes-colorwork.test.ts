@@ -25,6 +25,7 @@ import {
   type ChartPattern,
   type Issue,
   type ValidateOptions,
+  SCHEMA_VERSION,
 } from "../src/index.ts";
 import { ballPattern, smallChart, yarnA, yarnB } from "./support/fixtures.ts";
 import { forAll, type Rng } from "./support/property.ts";
@@ -48,7 +49,7 @@ function chartOf(rows: number[][], over: Partial<Chart> = {}): Chart {
 
 function doc(chart: Chart, over: Partial<ChartPattern> = {}): ChartPattern {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p",
     title: "Prueba",
     technique: "knit",
@@ -389,7 +390,9 @@ describe("QA: validatePattern y migratePattern nunca lanzan con JSON.parse arbit
       (input) => {
         const before = JSON.stringify(input);
         const m = migratePattern(input);
-        assert.equal(m.document, input);
+        // Un v1 se copia con la versión nueva (STEPS[1]); cualquier otra entrada vuelve sin tocar.
+        if (m.ok && m.from !== SCHEMA_VERSION) assert.deepEqual(m.document, { ...(input as object), schemaVersion: SCHEMA_VERSION });
+        else assert.equal(m.document, input);
         const res = validatePattern(m.document, { weightCat: 4, fibers: new Set(["lana"]), paletteIds: new Set(["crudo"]) });
         // El try/catch de respaldo de validatePattern no debe activarse con JSON: si lo hace, algo lanzó por dentro.
         assert.ok(!res.issues.some((i) => i.message === "El patrón no se pudo leer."), JSON.stringify(res.issues.slice(0, 3)));

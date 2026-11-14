@@ -70,7 +70,7 @@ function chartOf(rows: number[][], over: Partial<Chart> = {}): Chart {
 /** Documento de palillo, sin muestra salvo que se pase. */
 function doc(chart: Chart, over: Partial<ChartPattern> = {}): ChartPattern {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p",
     title: "Prueba",
     technique: "knit",
@@ -503,7 +503,7 @@ describe("C1: MigrationResult discriminado por ok", () => {
     assert.equal(good.ok, true);
     if (good.ok) {
       const from: number = good.from; // el tipo lo garantiza
-      assert.equal(from, 1);
+      assert.equal(from, SCHEMA_VERSION);
       assert.equal(good.to, SCHEMA_VERSION);
     }
     for (const input of [{}, null, { schemaVersion: 7 }, { schemaVersion: "1" }, [], 3]) {
@@ -864,8 +864,8 @@ describe("O5: los derivados de conteo no lanzan con un gráfico dañado", () => 
 // ------------------------------------------------------------------ T2d
 
 describe("C10: savable, DRAFT_ERROR_CODES e isDraftError (E10)", () => {
-  it("la lista es cerrada, congelada y tiene los dos errores de tejido", () => {
-    assert.deepEqual([...DRAFT_ERROR_CODES], ["CHART_EMPTY", "CHART_ROW_EMPTY_FULL"]);
+  it("la lista es cerrada, congelada y tiene los errores de tejido del gráfico y del patrón escrito (ADR 0011, sección 4)", () => {
+    assert.deepEqual([...DRAFT_ERROR_CODES], ["CHART_EMPTY", "CHART_ROW_EMPTY_FULL", "ROUND_CONSUMPTION_MISMATCH", "ROUND_COUNT_MISMATCH", "ROUND_ZERO", "ROUND_RANGE_CHANGES", "ROUND_NUMBERING"]);
     assert.ok(Object.isFrozen(DRAFT_ERROR_CODES));
   });
 

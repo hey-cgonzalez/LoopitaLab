@@ -1,0 +1,14 @@
+{
+  "name": "@loopitalab/glossary",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Terminología de los patrones en español, US y UK (ADR 0011, sección 8). Todo en estado pendiente de validación. Sin marcas. Sin dependencias de terceros.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@loopitalab/pattern-core": "workspace:*"
+  }
+}

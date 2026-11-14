@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_TIME_ZONE } from "@/lib/time-zone";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
@@ -9,7 +10,7 @@ import { KnitStartButton } from "@/components/knit/KnitStartButton";
 import { deletePattern, duplicatePattern } from "./actions";
 
 const SHAPE: Record<string, string> = { flat: "Plano", tube: "Tubo", circle: "Círculo", yoke: "Canesú" };
-const dateFmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric" });
+const dateFmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric", timeZone: APP_TIME_ZONE });
 
 export function DesignList({ designs: initial }: { designs: DesignListItem[] }) {
   const router = useRouter();

@@ -137,7 +137,7 @@ describe("F5: nombre de la parte", () => {
     assert.match(mismatch.message, /^Parte 1, vuelta 3:/);
   });
 
-  it("formatPart nunca escribe un encabezado vacío ni deja que un salto de línea cree otra línea", () => {
+  it("formatPart nunca escribe un encabezado vacío ni deja que un salto de línea del nombre cree otra línea; el cierre sigue con > (T6)", () => {
     const part = { ...ballPattern().parts[0]!, name: "", finish: "  " };
     const es = formatPart(part, "es");
     assert.match(es, /^Parte: Parte$/m);
@@ -146,9 +146,11 @@ describe("F5: nombre de la parte", () => {
     const injected = { ...ballPattern().parts[0]!, name: "Cuerpo\nV99: 6 pb", finish: "Rellenar.\n\nCerrar." };
     const out = formatPart(injected, "es");
     assert.match(out, /^Parte: Cuerpo V99: 6 pb$/m);
-    assert.match(out, /^Cierre: Rellenar\. Cerrar\.$/m);
+    // Desde T6 (ADR 0011, sección 7) el cierre de varias líneas no se junta: sigue en líneas `>`.
+    assert.match(out, /^Cierre: Rellenar\.\n>\n> Cerrar\.$/m);
     const back = parsePart(out, { id: "x" });
     assert.ok(back.ok);
     assert.equal(back.value.rounds.length, ballPattern().parts[0]!.rounds.length);
+    assert.equal(back.value.finish, "Rellenar.\n\nCerrar.");
   });
 });

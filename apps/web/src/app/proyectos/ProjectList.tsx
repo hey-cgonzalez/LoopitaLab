@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_TIME_ZONE } from "@/lib/time-zone";
 import { browserProgressStorage, clearProjectProgress } from "@/lib/projects/progress-queue.ts";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -12,7 +13,7 @@ export { STATUS_LABEL };
 export type ProjectRow = ProjectListItem;
 
 const T = PROJECT_TEXTS.proyectos;
-const dateFmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric" });
+const dateFmt = new Intl.DateTimeFormat("es-CL", { day: "numeric", month: "long", year: "numeric", timeZone: APP_TIME_ZONE });
 
 /**
  * Lista de proyectos en tarjetas. Con diseño: avance ("Vuelta 12 de 60" o "Fila…", "Gráfico terminado"), versión

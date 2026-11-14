@@ -1,5 +1,6 @@
 "use client";
 
+import { APP_TIME_ZONE } from "@/lib/time-zone";
 import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import Link from "next/link";
 import { memo, useCallback, useDeferredValue, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -56,7 +57,7 @@ interface Props {
 
 type Tab = "editor" | "preview" | "settings";
 
-const timeFmt = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short" });
+const timeFmt = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short", timeZone: APP_TIME_ZONE });
 const TABS: { id: Tab; label: string }[] = [
   { id: "editor", label: T.pestanas.editor },
   { id: "preview", label: T.pestanas.vista },

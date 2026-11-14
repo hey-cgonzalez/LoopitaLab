@@ -1,3 +1,4 @@
+import { SCHEMA_VERSION } from "@loopitalab/pattern-core";
 import { vi } from "vitest";
 
 /**
@@ -116,7 +117,7 @@ export function createFakeDb(me: { id: string } | null) {
         title: String(row.document.title ?? "Sin título"),
         technique: "knit",
         kind: "chart",
-        schema_version: 1,
+        schema_version: SCHEMA_VERSION,
         origin: "manual",
         visibility: "private",
         created_at: stamp(db.clock),
@@ -201,7 +202,7 @@ export function createFakeDb(me: { id: string } | null) {
           kind: "chart",
           origin: "manual",
           visibility: "private",
-          schema_version: 1,
+          schema_version: SCHEMA_VERSION,
           created_at: db.tick(),
           updated_at: db.tick(),
           ...p,

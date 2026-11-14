@@ -96,6 +96,12 @@ importers:
         specifier: workspace:*
         version: link:../pattern-core
 
+  packages/glossary:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
+
   packages/pattern-core: {}
 
   packages/pattern-render:

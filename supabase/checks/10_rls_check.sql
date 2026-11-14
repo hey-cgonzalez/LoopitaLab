@@ -1818,6 +1818,62 @@ do $$ begin
   raise notice 'ok - T17: part_id hasta 64 caracteres (65 es check_violation)';
 end $$;
 
+-- T8 (fase 4): profiles.pattern_dialect, 'es' por defecto, solo la cambia su dueña, con CHECK.
+reset role;
+insert into auth.users (id, email) values
+  ('81818181-8181-4181-8181-818181818181', 'dialecto-a@example.test'),
+  ('82828282-8282-4282-8282-828282828282', 'dialecto-b@example.test');
+do $$ begin
+  assert (select pattern_dialect from public.profiles where id = '81818181-8181-4181-8181-818181818181') = 'es', 'el perfil de la dueña trae pattern_dialect = es';
+  assert (select pattern_dialect from public.profiles where id = '82828282-8282-4282-8282-828282828282') = 'es', 'el perfil de la otra usuaria trae pattern_dialect = es';
+  raise notice 'ok - el perfil nuevo trae pattern_dialect = es';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '81818181-8181-4181-8181-818181818181', true);
+do $$ declare n int; v text; begin
+  foreach v in array array['uk', 'us', 'es'] loop
+    update public.profiles set pattern_dialect = v where id = '81818181-8181-4181-8181-818181818181';
+    get diagnostics n = row_count;
+    assert n = 1, 'la dueña puede cambiar su pattern_dialect a ' || v;
+    assert (select pattern_dialect from public.profiles where id = '81818181-8181-4181-8181-818181818181') = v, 'la dueña lee su dialecto ' || v;
+  end loop;
+  update public.profiles set pattern_dialect = 'uk' where id = '82828282-8282-4282-8282-828282828282';
+  get diagnostics n = row_count;
+  assert n = 0, 'la dueña no puede cambiar el pattern_dialect de la otra usuaria';
+  begin
+    update public.profiles set pattern_dialect = 'es-uk' where id = '81818181-8181-4181-8181-818181818181';
+    raise exception 'FALLO: un dialecto fuera del CHECK debe rechazarse';
+  exception when check_violation then null; end;
+  begin
+    update public.profiles set pattern_dialect = null where id = '81818181-8181-4181-8181-818181818181';
+    raise exception 'FALLO: pattern_dialect no admite null';
+  exception when not_null_violation then null; end;
+  assert (select pattern_dialect from public.profiles where id = '81818181-8181-4181-8181-818181818181') = 'es', 'el valor de la dueña no cambió con los intentos inválidos';
+  raise notice 'ok - la usuaria cambia su pattern_dialect; no el ajeno; el CHECK rechaza valores fuera de es/us/uk';
+end $$;
+reset role;
+do $$ begin
+  assert (select pattern_dialect from public.profiles where id = '82828282-8282-4282-8282-828282828282') = 'es', 'el de la otra usuaria sigue en es';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '82828282-8282-4282-8282-828282828282', true);
+do $$ begin
+  assert (select count(*) from public.profiles where pattern_dialect is not null) = 1, 'la otra usuaria lee solo su propio dialecto';
+  raise notice 'ok - la otra usuaria solo lee su dialecto';
+end $$;
+reset role;
+set local role anon;
+select set_config('request.jwt.claim.sub', '', true);
+do $$ begin
+  begin
+    update public.profiles set pattern_dialect = 'uk' where id = '81818181-8181-4181-8181-818181818181';
+    raise exception 'FALLO: anon no puede cambiar pattern_dialect';
+  exception when insufficient_privilege then null; end;
+  assert (select count(*) from public.profiles) = 0, 'anon no lee pattern_dialect';
+  raise notice 'ok - anon no lee ni cambia pattern_dialect';
+end $$;
+reset role;
+
 rollback;
 
 \echo 'RLS: todas las verificaciones pasaron'

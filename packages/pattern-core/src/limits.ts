@@ -42,4 +42,21 @@ export const LIMITS = {
   maxNotes: 50,
   /** `origin.model` y `origin.promptVersion`: identificadores técnicos del pipeline de IA. */
   maxOriginFieldLength: 100,
+  /*
+   * Topes duros de la v2 (ADR 0011, sección 3). Protegen al motor; no son los límites
+   * recomendados de la sección 3b (`RECOMMENDED_WRITTEN_LIMITS`), que solo advierten.
+   * Subirlos después es compatible; bajarlos, no.
+   */
+  /** Veces que se teje una parte (`Part.copies`). Recomendado: 10. */
+  maxCopies: 50,
+  /** Largo máximo de una cadena de anclas (pieza cosida a pieza cosida a…). */
+  maxLayoutDepth: 16,
+  /** Cota de cada componente de `FreeAt.positionCm`, en cm. */
+  maxPositionCm: 1_000,
+  /** Cota de `SurfaceAt.offsetCm`, en cm. */
+  maxOffsetCm: 100,
+  /** Cota de cada componente de una rotación, en grados (de −180 a 180). */
+  maxRotationDeg: 180,
+  /** Entradas de `layout.placements`: una por copia de cada parte (`maxParts × maxCopies`). */
+  maxPlacements: 2_500,
 } as const;

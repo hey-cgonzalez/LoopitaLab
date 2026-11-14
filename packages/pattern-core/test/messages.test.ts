@@ -95,7 +95,8 @@ describe("textos del patrón escrito", () => {
 
     const mismatch = clone(base);
     mismatch.parts[0]!.rounds[0]!.expected = 9;
-    assert.deepEqual(msg(mismatch, "ROUND_COUNT_MISMATCH"), ["Panel, fila 1: el patrón declara 9 puntos, pero las instrucciones dan 10."]);
+    // Diferencia de 1 en hileras: pista de la cadeneta de subida y del pd de unión (C-10).
+    assert.deepEqual(msg(mismatch, "ROUND_COUNT_MISMATCH"), ["Panel, fila 1: el patrón declara 9 puntos, pero las instrucciones dan 10. ¿Escribiste la cadeneta de subida o el pd de unión como puntos? No cuentan."]);
 
     const numbering = clone(base);
     numbering.parts[0]!.rounds[1]!.number = 3;
@@ -112,7 +113,7 @@ describe("textos del patrón escrito", () => {
     const range = clone(base);
     range.parts[0]!.rounds[1]!.items = [{ type: "stitch", stitch: "sc", count: 8 }, { type: "stitch", stitch: "inc", count: 2 }];
     range.parts[0]!.rounds[1]!.expected = 12;
-    assert.deepEqual(msg(range, "ROUND_RANGE_CHANGES"), ["Panel, filas 2-4: un rango de filas iguales debe mantener el conteo, pero cada fila pasa de 10 a 12 puntos."]);
+    assert.deepEqual(msg(range, "ROUND_RANGE_CHANGES"), ["Panel, filas 2-4: un rango de filas iguales debe mantener el conteo, pero cada fila pasa de 10 a 12 puntos. Si las filas aumentan, escribe cada fila por separado."]);
 
     const zero = clone(base);
     zero.parts[0]!.rounds[0]!.items = [{ type: "stitch", stitch: "sk", count: 10 }];

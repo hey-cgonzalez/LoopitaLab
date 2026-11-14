@@ -1,5 +1,6 @@
 "use server";
 
+import { isPatternDialect, type PatternDialect } from "@/lib/profile/dialect";
 import { isMissingColumn } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -47,4 +48,47 @@ export async function updateProfile(_prev: ProfileFormState, form: FormData): Pr
   if (error) return { error: "No pudimos guardar tus preferencias. Intenta de nuevo." };
   revalidatePath("/", "layout");
   return { ok: "Preferencias guardadas." };
+}
+
+export interface DialectResult {
+  error?: string;
+  ok?: string;
+  dialect?: PatternDialect;
+}
+
+/** Lee el dialecto de la usuaria con sesión. Los detalles de Postgres no salen al cliente. */
+export async function getPatternDialect(): Promise<DialectResult> {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tu sesión terminó. Vuelve a ingresar." };
+
+  const { data, error } = await supabase.from("profiles").select("pattern_dialect").eq("id", user.id).maybeSingle();
+  if (error) {
+    console.error("perfil: no se pudo leer pattern_dialect", error.code ?? "sin código");
+    return { error: "No pudimos leer tu preferencia de terminología. Intenta de nuevo." };
+  }
+  const value = (data as { pattern_dialect?: unknown } | null)?.pattern_dialect;
+  return { dialect: isPatternDialect(value) ? value : "es" };
+}
+
+/** Guarda el dialecto de la usuaria. Valida en el servidor; la base lo vuelve a validar con su CHECK. */
+export async function updatePatternDialect(value: unknown): Promise<DialectResult> {
+  if (!isPatternDialect(value)) return { error: "No reconocemos esa terminología. Recarga la página e intenta de nuevo." };
+
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) return { error: "Tu sesión terminó. Vuelve a ingresar." };
+
+  const { data, error } = await supabase.from("profiles").update({ pattern_dialect: value }).eq("id", user.id).select("id");
+  if (error) {
+    console.error("perfil: no se pudo guardar pattern_dialect", error.code ?? "sin código");
+    return { error: "No pudimos guardar tu preferencia de terminología. Intenta de nuevo." };
+  }
+  if (!data || data.length === 0) return { error: "No encontramos tu perfil. Vuelve a ingresar." };
+  revalidatePath("/", "layout");
+  return { ok: "Terminología guardada.", dialect: value };
 }

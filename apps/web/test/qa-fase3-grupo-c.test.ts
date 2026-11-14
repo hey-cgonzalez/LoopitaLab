@@ -1,4 +1,4 @@
-import { NO_STITCH, stitchTotal, validatePattern, yarnUsage, type ChartPattern, type WeightCategory, type Yarn } from "@loopitalab/pattern-core";
+import { NO_STITCH, SCHEMA_VERSION, stitchTotal, validatePattern, yarnUsage, type ChartPattern, type WeightCategory, type Yarn } from "@loopitalab/pattern-core";
 import type { RendererOptions, StitchRenderer, YarnLook } from "@loopitalab/stitch-render";
 import { estimateYarnLength, PALETTE } from "@loopitalab/yarn-catalog";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -66,7 +66,7 @@ function genDoc(r: R): ChartPattern {
           ? { stitchesPer10cm: r.pick([0, -3, Number.NaN]), rowsPer10cm: 30 } // inválida: no debería ser savable
           : undefined;
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p",
     title: "Prueba",
     technique: r.bool(0.85) ? "knit" : "crochet",

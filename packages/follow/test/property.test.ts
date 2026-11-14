@@ -8,6 +8,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   NO_STITCH,
+  migratePattern,
   readingDirection,
   rowShapingColumns,
   rowStitchCount,
@@ -420,5 +421,16 @@ describe("propiedades de follow (ADR 0007)", () => {
       assert.deepEqual(p, pBefore);
       assert.ok(Object.isFrozen(plan));
     }, 100);
+  });
+});
+
+describe("M3 (ADR 0011, sección 5): migrar un v1 no cambia el plan", () => {
+  it("planChart de un gráfico v1 migrado es igual al del mismo gráfico en la versión actual, con y sin espejo", () => {
+    forAll("M3 planChart", (r) => ({ p: genPattern(r), mirror: r.bool() }), ({ p, mirror }) => {
+      const v1 = { ...structuredClone(p), schemaVersion: 1 };
+      const m = migratePattern(v1);
+      assert.equal(m.ok, true);
+      assert.deepEqual(planChart(m.document as ChartPattern, { mirror }), planChart(p, { mirror }));
+    }, 150);
   });
 });

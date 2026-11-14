@@ -38,6 +38,7 @@ import {
   type Anchor,
   type Chart,
   type ChartPattern,
+  SCHEMA_VERSION,
 } from "../src/index.ts";
 import { yarnA, yarnB, yarnC } from "./support/fixtures.ts";
 import { forAll, rng } from "./support/property.ts";
@@ -59,7 +60,7 @@ function chart(over: Partial<Chart> = {}): Chart {
 
 function pattern(c: Chart = chart(), yarns = [yarnA, yarnB, yarnC]): ChartPattern {
   return {
-    schemaVersion: 1,
+    schemaVersion: SCHEMA_VERSION,
     id: "p",
     title: "Prueba",
     technique: "knit",
@@ -420,7 +421,8 @@ describe("bordes: documentos congelados en profundidad", () => {
 describe("bordes: migratePattern", () => {
   it("versiones límite", () => {
     assert.equal(migratePattern({ schemaVersion: 1.0 }).ok, true);
-    for (const v of [0, -1, 0.5, 1.5, 2, NaN, Infinity, -Infinity, "1", null, true, 1n]) {
+    assert.equal(migratePattern({ schemaVersion: 2 }).ok, true);
+    for (const v of [0, -1, 0.5, 1.5, 2.5, 3, NaN, Infinity, -Infinity, "1", null, true, 1n]) {
       const m = migratePattern({ schemaVersion: v });
       assert.equal(m.ok, false, String(v));
       assert.deepEqual(m.issues.map((i) => i.code), ["SCHEMA_VERSION"]);
@@ -449,13 +451,16 @@ describe("bordes: migratePattern", () => {
     forAll("migrar JSON", (r) => genJson(r), (doc) => {
       const roundTrip = JSON.parse(JSON.stringify(doc ?? null));
       const m = migratePattern(roundTrip);
-      assert.equal(m.document, roundTrip);
-      assert.equal(m.ok, typeof roundTrip === "object" && roundTrip !== null && !Array.isArray(roundTrip) && roundTrip.schemaVersion === 1);
+      const isDoc = typeof roundTrip === "object" && roundTrip !== null && !Array.isArray(roundTrip);
+      assert.equal(m.ok, isDoc && (roundTrip.schemaVersion === 1 || roundTrip.schemaVersion === SCHEMA_VERSION));
+      // Un v1 se copia con la versión nueva (STEPS[1]); todo lo demás vuelve sin tocar.
+      if (isDoc && roundTrip.schemaVersion === 1) assert.deepEqual(m.document, { ...roundTrip, schemaVersion: SCHEMA_VERSION });
+      else assert.equal(m.document, roundTrip);
     });
   });
 
   it("un arreglo con schemaVersion no es un documento", () => {
-    assert.equal(migratePattern(Object.assign([], { schemaVersion: 1 })).ok, false);
+    assert.equal(migratePattern(Object.assign([], { schemaVersion: SCHEMA_VERSION })).ok, false);
   });
 });
 

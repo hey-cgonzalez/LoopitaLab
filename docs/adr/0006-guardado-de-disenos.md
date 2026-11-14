@@ -1,6 +1,6 @@
 # ADR 0006: Guardado de diseños del estudio
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido; [E11](#enmienda-e11-2026-11-06-revisión-de-t4): revisión de T4, tope de tamaño y patrones de IA)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido; [E11](#enmienda-e11-2026-11-06-revisión-de-t4): revisión de T4, tope de tamaño y patrones de IA). Enmendado el 2026-11-13 ([E12](#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4): borradores de patrones escritos, T4 de la fase 4, commit `e4db73e`)
 - Fecha: 2026-11-05
 - Paquetes: `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0003](0003-colorwork-en-esquema-v1.md), [docs/seguridad.md](../seguridad.md)
@@ -157,3 +157,21 @@ Reemplaza los "2 MB" de las secciones "Límites y tamaño" y "Contexto":
 
 - ~~`backend-supabase` (baja): unificar la cifra del peor documento~~ Hecho (T15-O1): cada cifra dice qué mide.
 - **`backend-supabase`**: aplicar `20261106153401_consistencia_titulo.sql` en el proyecto real (pendiente, como indica T4).
+
+## Enmienda E12 (2026-11-13): borradores de patrones escritos (fase 4, T4)
+
+Pendiente desde la planificación de la fase 4 ([ADR 0011](0011-posicion-de-partes-y-editor-escrito.md), sección 4). Implementada en T4 (commit `e4db73e`) y verificada por `arquitecto` contra `packages/pattern-core/src/validate.ts`.
+
+**Qué cambia.** `DRAFT_ERROR_CODES` pasa de los dos códigos del gráfico a siete:
+
+| Tipo | Errores de tejido (`DRAFT_ERROR_CODES`) |
+|---|---|
+| Gráfico (E10) | `CHART_EMPTY`, `CHART_ROW_EMPTY_FULL` |
+| Patrón escrito (E12) | `ROUND_CONSUMPTION_MISMATCH`, `ROUND_COUNT_MISMATCH`, `ROUND_ZERO`, `ROUND_RANGE_CHANGES`, `ROUND_NUMBERING` |
+
+- **Un patrón escrito con una vuelta que no cuadra se guarda como borrador** (`savable: true`, `valid: false`) y se ve en el 3D (ADR 0010, sección 2). La tabla "Qué bloquea qué" de E10 se aplica sin cambios a los patrones escritos.
+- **Siguen exigiendo `valid`**, verificado en el servidor sobre el documento que se va a usar: tejer (fase 6, ADR 0009), publicar o compartir por enlace (fase 7), exportar a PDF (fase 7) y aceptar una salida de IA (fase 5, regla de oro 3).
+- **El flujo de guardado no cambia**: `savePattern`, `createChartPattern` y duplicar ya deciden por `savable`, validando **sin opciones**. El invariante de opciones (ADR 0003, E10) se mantiene: las opciones nuevas de la fase 4 (`assumedGaugeStitch`, ADR 0010, enmienda T5-1) solo agregan información.
+- **Siguen siendo estructurales** `STITCH_UNKNOWN`, `COLOR_UNKNOWN_YARN`, `ITEM_COUNT`, `GROUP_*`, `SHAPE`, `LIMIT`, `UNKNOWN_KEY`, `PART_COPIES` y los `LAYOUT_*` de error.
+- **Endurecimiento que afecta lo que se guarda** (ADR 0011, enmienda T4-4): una vuelta que trabaja sobre más de `LIMITS.maxRoundStitches` puntos es `LIMIT`. Un documento hostil que antes era `savable` deja de serlo. La base real no tiene patrones escritos ([auditoría T2](../auditoria-base-fase-4.md)), así que ningún dato existente cambia.
+- **Nombre de la función**: el servidor usa `createChartPattern` para gráficos. La creación de diseños escritos (T13) sigue la misma regla (`savable`, sin opciones).

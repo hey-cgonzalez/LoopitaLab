@@ -18,7 +18,8 @@
  * con `EDIT_LIMITS`, `ANCHORS` y un selector de lana que solo ofrece índices existentes.
  */
 import { fullSize, motifCoord } from "./chart.ts";
-import { NO_STITCH, SCHEMA_VERSION, type Chart, type ChartPattern, type Gauge, type Yarn } from "./types.ts";
+import { replaceYarnRefs } from "./edit-written.ts";
+import { NO_STITCH, SCHEMA_VERSION, type Chart, type ChartPattern, type Gauge, type Pattern, type WrittenPattern, type Yarn } from "./types.ts";
 import { LIMITS, validateYarn } from "./validate.ts";
 
 /**
@@ -64,9 +65,16 @@ function isWellFormed(chart: Chart): boolean {
   );
 }
 
-function isChartPattern(p: ChartPattern): boolean {
+function isChartPattern(p: Pattern): p is ChartPattern {
   return typeof p === "object" && p !== null && p.kind === "chart" && Array.isArray(p.yarns) && isWellFormed(p.chart);
 }
+
+function isWrittenPattern(p: Pattern): p is WrittenPattern {
+  return typeof p === "object" && p !== null && p.kind === "written" && Array.isArray(p.yarns) && Array.isArray(p.parts);
+}
+
+/** Gráfico o patrón escrito con la estructura mínima para editar sus lanas. */
+const hasYarns = (p: Pattern) => isChartPattern(p) || isWrittenPattern(p);
 
 /**
  * Pinta celdas del gráfico completo con `value` (índice de lana o `NO_STITCH`).
@@ -187,9 +195,12 @@ function cloneYarn(yarn: Yarn): Yarn {
   }
 }
 
-/** Agrega una lana al final. No acepta lanas inválidas, identificadores repetidos ni pasar de `LIMITS.maxYarns`. */
-export function addYarn(pattern: ChartPattern, yarn: Yarn): ChartPattern {
-  if (!isChartPattern(pattern) || typeof yarn !== "object" || yarn === null) return pattern;
+/**
+ * Agrega una lana al final. No acepta lanas inválidas, identificadores repetidos ni pasar
+ * de `LIMITS.maxYarns`. Vale para gráficos y patrones escritos (ADR 0011, sección 6).
+ */
+export function addYarn<P extends Pattern>(pattern: P, yarn: Yarn): P {
+  if (!hasYarns(pattern) || typeof yarn !== "object" || yarn === null) return pattern;
   if (pattern.yarns.length >= EDIT_LIMITS.maxYarns) return pattern;
   if (pattern.yarns.some((y) => y.id === yarn.id)) return pattern;
   if (!yarnIsValid(yarn)) return pattern;
@@ -197,35 +208,41 @@ export function addYarn(pattern: ChartPattern, yarn: Yarn): ChartPattern {
 }
 
 /**
- * Quita la lana `index`; sus celdas pasan a `replaceWith` y se remapean los índices.
- * `replaceWith` es el índice **actual** (antes de quitar) de otra lana del diseño; no
- * acepta `NO_STITCH` (ADR 0003, E4). No se puede quitar la única lana.
+ * Quita la lana `index`. `replaceWith` es el índice **actual** (antes de quitar) de otra
+ * lana del diseño; no acepta `NO_STITCH` (ADR 0003, E4). No se puede quitar la única lana.
+ * - En un gráfico, sus celdas pasan a `replaceWith` y se remapean los índices.
+ * - En un patrón escrito (ADR 0011, sección 6), sus cambios `@id` y los `startYarn` que la
+ *   usan pasan a la lana de reemplazo.
  *
  * Las lanas que quedan son **los mismos objetos** de la entrada (no se copian): el modelo
  * es inmutable por convención y compartirlas permite comparar por referencia.
  */
-export function removeYarn(pattern: ChartPattern, index: number, replaceWith: number): ChartPattern {
-  if (!isChartPattern(pattern)) return pattern;
+export function removeYarn<P extends Pattern>(pattern: P, index: number, replaceWith: number): P {
+  if (!hasYarns(pattern)) return pattern;
   const n = pattern.yarns.length;
   if (!isInt(index) || !isInt(replaceWith) || index < 0 || index >= n || replaceWith < 0 || replaceWith >= n || replaceWith === index) {
     return pattern;
   }
+  const yarns = pattern.yarns.filter((_, i) => i !== index);
+  if (isWrittenPattern(pattern)) {
+    const from = (pattern.yarns[index] as Yarn).id;
+    const to = (pattern.yarns[replaceWith] as Yarn).id;
+    return { ...pattern, yarns, parts: replaceYarnRefs(pattern.parts, from, to) };
+  }
+  const chart = (pattern as ChartPattern).chart;
   const target = replaceWith > index ? replaceWith - 1 : replaceWith;
-  const cells = pattern.chart.cells.map((v) => (v === index ? target : v > index ? v - 1 : v));
-  return {
-    ...pattern,
-    yarns: pattern.yarns.filter((_, i) => i !== index),
-    chart: { ...pattern.chart, cells },
-  };
+  const cells = chart.cells.map((v) => (v === index ? target : v > index ? v - 1 : v));
+  return { ...pattern, yarns, chart: { ...chart, cells } };
 }
 
 /**
  * Reordena las lanas: `order[i]` es el índice anterior de la lana que queda en la
- * posición i. Debe ser una permutación de `0 … n − 1`. Las celdas se remapean, así que
- * el dibujo no cambia. Como `removeYarn`, comparte los objetos de lana con la entrada.
+ * posición i. Debe ser una permutación de `0 … n − 1`. En un gráfico las celdas se
+ * remapean, así que el dibujo no cambia; en un patrón escrito las lanas se nombran por
+ * `id` y nada más cambia. Como `removeYarn`, comparte los objetos de lana con la entrada.
  */
-export function reorderYarns(pattern: ChartPattern, order: readonly number[]): ChartPattern {
-  if (!isChartPattern(pattern) || !Array.isArray(order)) return pattern;
+export function reorderYarns<P extends Pattern>(pattern: P, order: readonly number[]): P {
+  if (!hasYarns(pattern) || !Array.isArray(order)) return pattern;
   const n = pattern.yarns.length;
   if (order.length !== n) return pattern;
   const newIndex = new Array<number>(n).fill(-1);
@@ -235,12 +252,11 @@ export function reorderYarns(pattern: ChartPattern, order: readonly number[]): C
     newIndex[old] = i;
   }
   if (order.every((old, i) => old === i)) return pattern;
-  const cells = pattern.chart.cells.map((v) => (v === NO_STITCH ? v : (newIndex[v] ?? v)));
-  return {
-    ...pattern,
-    yarns: order.map((old) => pattern.yarns[old] as Yarn),
-    chart: { ...pattern.chart, cells },
-  };
+  const yarns = order.map((old) => pattern.yarns[old] as Yarn);
+  if (isWrittenPattern(pattern)) return { ...pattern, yarns };
+  const chart = (pattern as ChartPattern).chart;
+  const cells = chart.cells.map((v) => (v === NO_STITCH ? v : (newIndex[v] ?? v)));
+  return { ...pattern, yarns, chart: { ...chart, cells } };
 }
 
 export interface NewChartInput {
