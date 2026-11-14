@@ -20,6 +20,7 @@
     "@loopitalab/pattern-core": "workspace:*",
     "@loopitalab/pattern-render": "workspace:*",
     "@loopitalab/stitch-render": "workspace:*",
+    "@loopitalab/viewer-3d": "workspace:*",
     "@loopitalab/yarn-catalog": "workspace:*",
     "@react-three/fiber": "9.8.2",
     "@supabase/ssr": "^0.12.7",

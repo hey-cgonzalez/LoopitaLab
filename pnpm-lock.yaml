@@ -29,6 +29,9 @@ importers:
       '@loopitalab/stitch-render':
         specifier: workspace:*
         version: link:../../packages/stitch-render
+      '@loopitalab/viewer-3d':
+        specifier: workspace:*
+        version: link:../../packages/viewer-3d
       '@loopitalab/yarn-catalog':
         specifier: workspace:*
         version: link:../../packages/yarn-catalog
@@ -118,6 +121,12 @@ importers:
       '@loopitalab/yarn-catalog':
         specifier: workspace:*
         version: link:../yarn-catalog
+
+  packages/viewer-3d:
+    dependencies:
+      '@loopitalab/pattern-core':
+        specifier: workspace:*
+        version: link:../pattern-core
 
   packages/yarn-catalog: {}
 

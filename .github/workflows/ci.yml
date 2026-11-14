@@ -34,12 +34,12 @@ jobs:
       - name: Pruebas de ai-router
         working-directory: packages/ai-router
         run: node --test "test/**/*.test.ts"
-      # stitch-render, pattern-render, follow y glossary importan pattern-core (y yarn-catalog) por nombre de
-      # paquete: hace falta enlazar el workspace. El filtro instala solo ese paquete y sus dependencias
+      # stitch-render, pattern-render, follow, glossary y viewer-3d importan pattern-core (y yarn-catalog) por
+      # nombre de paquete: hace falta enlazar el workspace. El filtro instala solo ese paquete y sus dependencias
       # dentro del monorepo (sin dependencias de terceros, ADR 0002).
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
-      - name: Enlaces del workspace para stitch-render, pattern-render, follow y glossary
-        run: pnpm install --frozen-lockfile --filter "@loopitalab/stitch-render..." --filter "@loopitalab/pattern-render..." --filter "@loopitalab/follow..." --filter "@loopitalab/glossary..."
+      - name: Enlaces del workspace para stitch-render, pattern-render, follow, glossary y viewer-3d
+        run: pnpm install --frozen-lockfile --filter "@loopitalab/stitch-render..." --filter "@loopitalab/pattern-render..." --filter "@loopitalab/follow..." --filter "@loopitalab/glossary..." --filter "@loopitalab/viewer-3d..."
       - name: Pruebas de stitch-render (incluye la guardia de rendimiento CA-P5)
         working-directory: packages/stitch-render
         run: node --test "test/**/*.test.ts"
@@ -54,11 +54,12 @@ jobs:
       - name: Pruebas de glossary
         working-directory: packages/glossary
         run: node --test "test/**/*.test.ts"
+      # viewer-3d, parte pura (ADR 0010): malla, escena y silueta, con las propiedades G4 a G13 y la guardia de
+      # rendimiento CA4-P6 (factor 6 en CI). El backend three/r3f (T11) se prueba en el job "web" y en el job e2e.
+      - name: Pruebas de viewer-3d (incluye la guardia de rendimiento CA4-P6)
+        working-directory: packages/viewer-3d
+        run: node --test "test/**/*.test.ts"
 
-  # Cuando existan, agregar aquí (mismo patrón que arriba; hoy no hay `pnpm -r test`, cada paquete corre `node --test`):
-  #   - packages/viewer-3d: `node --test "test/**/*.test.ts"` para perfil y malla puros (ADR 0010); si importa pattern-core
-  #     por nombre de paquete, agregar `--filter "@loopitalab/viewer-3d..."` al `pnpm install` de los enlaces del workspace.
-  #     El backend three/r3f se prueba en el job "web" (Vitest) y en el job e2e.
   base-de-datos:
     name: Migraciones y RLS
     runs-on: ubuntu-26.04

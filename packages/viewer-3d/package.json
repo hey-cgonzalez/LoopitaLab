@@ -1,0 +1,14 @@
+{
+  "name": "@loopitalab/viewer-3d",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Vista 3D del amigurumi, parte pura (ADR 0010, secciones 3, 4 y 9): malla por punto, escena con copias y anclas, silueta SVG. Sin dependencias de terceros; el backend three llega en ./three (T11).",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@loopitalab/pattern-core": "workspace:*"
+  }
+}
