@@ -530,7 +530,7 @@ Registradas por `arquitecto` a partir de la revisión T1 de `experto-tejido` ([c
 
 ## Enmiendas por la implementación del grupo B (2026-11-13)
 
-Registradas por `arquitecto` a partir de T4 (commit `e4db73e`), T6 (commit `29b1cde`) y T8 (commit `18a0f02`) de la fase 4. Cada punto se verificó contra `packages/pattern-core/src/` (`validate.ts`, `limits.ts`, `text.ts`, `stitches.ts`, `edit-written.ts`), `packages/pattern-core/test/support/validate-v1.ts` y `supabase/migrations/20261113180000_perfil_dialecto.sql`. Las enmiendas de T5 (forma) están en el [ADR 0010](0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t5-2026-11-13).
+Registradas por `arquitecto` a partir de T4 (commit `e4db73e`), T6 (commit `29b1cde`) y T8 (commit `18a0f02`) de la fase 4. Cada punto se verificó contra `packages/pattern-core/src/` (`validate.ts`, `limits.ts`, `text.ts`, `stitches.ts`, `edit-written.ts`), `packages/pattern-core/test/support/validate-v1.ts` y `supabase/migrations/20261114015632_perfil_dialecto.sql`. Las enmiendas de T5 (forma) están en el [ADR 0010](0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t5-2026-11-13).
 
 ### T4: esquema v2 y validador
 
@@ -566,7 +566,7 @@ Registradas por `arquitecto` a partir de T4 (commit `e4db73e`), T6 (commit `29b1
 
 | ID | Clase | Sección | Enmienda |
 |---|---|---|---|
-| T8-1 | Confirmación | 8 | `profiles.pattern_dialect text not null default 'es'` con `check (pattern_dialect in ('es', 'us', 'uk'))` (`20261113180000_perfil_dialecto.sql`), permiso de UPDATE por columna para la propia fila y Server Action. Coincide con la sección 8. Guarda el dialecto de escritura; **T14 lo traduce con `readingModeFor`** para leer. **Falta aplicar la migración y repetir `10_rls_check.sql` en el proyecto real** |
+| T8-1 | Confirmación | 8 | `profiles.pattern_dialect text not null default 'es'` con `check (pattern_dialect in ('es', 'us', 'uk'))` (`20261114015632_perfil_dialecto.sql`), permiso de UPDATE por columna para la propia fila y Server Action. Coincide con la sección 8. Guarda el dialecto de escritura; **T14 lo traduce con `readingModeFor`** para leer. **Falta aplicar la migración y repetir `10_rls_check.sql` en el proyecto real** |
 
 ### Lo que no coincide con el código
 
