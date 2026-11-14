@@ -1,5 +1,6 @@
 "use server";
 
+import { isPatternDialect, type PatternDialect } from "@/lib/profile/dialect";
 import { isMissingColumn } from "@/lib/session";
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
@@ -49,18 +50,10 @@ export async function updateProfile(_prev: ProfileFormState, form: FormData): Pr
   return { ok: "Preferencias guardadas." };
 }
 
-/** Dialecto de terminología de patrones (ADR 0011, sección 8). Igual que el CHECK de `profiles.pattern_dialect`. */
-export const PATTERN_DIALECTS = ["es", "us", "uk"] as const;
-export type PatternDialect = (typeof PATTERN_DIALECTS)[number];
-
 export interface DialectResult {
   error?: string;
   ok?: string;
   dialect?: PatternDialect;
-}
-
-function isDialect(v: unknown): v is PatternDialect {
-  return typeof v === "string" && (PATTERN_DIALECTS as readonly string[]).includes(v);
 }
 
 /** Lee el dialecto de la usuaria con sesión. Los detalles de Postgres no salen al cliente. */
@@ -77,12 +70,12 @@ export async function getPatternDialect(): Promise<DialectResult> {
     return { error: "No pudimos leer tu preferencia de terminología. Intenta de nuevo." };
   }
   const value = (data as { pattern_dialect?: unknown } | null)?.pattern_dialect;
-  return { dialect: isDialect(value) ? value : "es" };
+  return { dialect: isPatternDialect(value) ? value : "es" };
 }
 
 /** Guarda el dialecto de la usuaria. Valida en el servidor; la base lo vuelve a validar con su CHECK. */
 export async function updatePatternDialect(value: unknown): Promise<DialectResult> {
-  if (!isDialect(value)) return { error: "No reconocemos esa terminología. Recarga la página e intenta de nuevo." };
+  if (!isPatternDialect(value)) return { error: "No reconocemos esa terminología. Recarga la página e intenta de nuevo." };
 
   const supabase = await createClient();
   const {
