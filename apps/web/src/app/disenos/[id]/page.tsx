@@ -1,12 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { migratePattern, validatePattern, type ChartPattern } from "@loopitalab/pattern-core";
+import { migratePattern, validatePattern, type ChartPattern, type WrittenPattern } from "@loopitalab/pattern-core";
 import { AppHeader } from "@/components/AppHeader";
+import { WrittenStudioPlaceholder } from "@/components/amigurumi/WrittenStudioPlaceholder";
 import { StudioShell } from "@/components/studio/StudioShell";
 import { requireUser } from "@/lib/session";
 
-export const metadata: Metadata = { title: "Estudio de colorwork", robots: { index: false, follow: false } };
+export const metadata: Metadata = { title: "Diseño", robots: { index: false, follow: false } };
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -63,7 +64,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </Notice>
     );
   }
-  const doc = migrated.document as ChartPattern;
+  const doc = migrated.document as ChartPattern | WrittenPattern;
   const result = validatePattern(doc);
   const errors = result.issues.filter((i) => i.severity === "error");
 
@@ -79,10 +80,19 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </Notice>
     );
   }
+  // Despacho por `kind`: el estudio amigurumi real es T14; mientras tanto, un marcador de lugar de solo lectura.
+  if (doc.kind === "written") {
+    return (
+      <>
+        <AppHeader name={name} />
+        <WrittenStudioPlaceholder document={doc} issues={result.issues} />
+      </>
+    );
+  }
   if (doc.kind !== "chart") {
     return (
-      <Notice name={name} title="Este diseño es un patrón escrito">
-        <p className="text-tinta-suave">El estudio de amigurumi todavía no está disponible. Este estudio abre solo gráficos de colorwork.</p>
+      <Notice name={name} title="No podemos abrir este tipo de diseño">
+        <p className="text-tinta-suave">Este diseño es de un tipo que esta versión no conoce.</p>
       </Notice>
     );
   }

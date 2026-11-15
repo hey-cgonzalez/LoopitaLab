@@ -1,7 +1,7 @@
 "use server";
 
 import { randomUUID } from "node:crypto";
-import { migratePattern, newChartPattern, LIMITS, type NewChartInput, type Pattern } from "@loopitalab/pattern-core";
+import { migratePattern, newChartPattern, newWrittenPattern, LIMITS, type NewChartInput, type NewWrittenInput, type Pattern } from "@loopitalab/pattern-core";
 import { dbErrorCode } from "@/lib/designs/messages";
 import {
   documentColumns,
@@ -73,6 +73,36 @@ export async function createChartPattern(input: Omit<NewChartInput, "id">): Prom
     .single<{ id: string; updated_at: string }>();
   if (error || !data) {
     logDb("crear", error);
+    return failure(error ? dbErrorCode(error, "create") : "DATABASE");
+  }
+  return { ok: true, id: data.id, updatedAt: data.updated_at, draft: !prepared.valid };
+}
+
+/**
+ * Crea un diseño escrito de crochet (kind written, crochet, manual, privado) con una parte inicial (V1 de 6 pb en
+ * anillo mágico). `id` y origen los fija el servidor. Guarda por `savable`, validando sin opciones (ADR 0006, E12).
+ */
+export async function createWrittenPattern(input: Pick<NewWrittenInput, "title" | "yarns" | "gauge">): Promise<CreateDesignResult> {
+  const { supabase, user } = await session();
+  if (!user) return failure("UNAUTHENTICATED");
+
+  const inputBytes = jsonBytes(input);
+  if (inputBytes === null || typeof input !== "object" || input === null) return failure("INVALID_REQUEST");
+  if (inputBytes > MAX_DOCUMENT_BYTES) return failure("TOO_LARGE");
+  if (Array.isArray(input.yarns) && input.yarns.length > LIMITS.maxYarns) return failure("TOO_LARGE");
+
+  const id = randomUUID();
+  // Solo se toman los campos permitidos: el cliente no impone partes, origen ni id.
+  const prepared = prepareDocument(newWrittenPattern({ id, title: input.title, yarns: input.yarns, ...(input.gauge !== undefined ? { gauge: input.gauge } : {}) }));
+  if (!prepared.ok) return prepared;
+
+  const { data, error } = await supabase
+    .from("patterns")
+    .insert({ id, ...documentColumns(prepared.document), technique: "crochet", kind: "written", origin: "manual" })
+    .select("id, updated_at")
+    .single<{ id: string; updated_at: string }>();
+  if (error || !data) {
+    logDb("crear (escrito)", error);
     return failure(error ? dbErrorCode(error, "create") : "DATABASE");
   }
   return { ok: true, id: data.id, updatedAt: data.updated_at, draft: !prepared.valid };

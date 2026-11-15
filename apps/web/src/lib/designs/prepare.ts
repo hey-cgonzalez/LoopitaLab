@@ -1,5 +1,5 @@
 import "server-only";
-import { migratePattern, validatePattern, type ChartPattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
+import { migratePattern, SCHEMA_VERSION, validatePattern, type ChartPattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
 import { designMessage, type DesignErrorCode } from "./messages.ts";
 import type { DesignFailure } from "./types.ts";
 
@@ -58,7 +58,7 @@ export function prepareDocument(raw: unknown): Prepared {
 
 /** Columnas que acompañan al documento. kind/technique/origin los fija la base por consistencia: no se envían. */
 export function documentColumns(document: Pattern) {
-  return { title: document.title, schema_version: document.schemaVersion, document };
+  return { title: document.title, schema_version: SCHEMA_VERSION, document };
 }
 
 export type { ChartPattern };
