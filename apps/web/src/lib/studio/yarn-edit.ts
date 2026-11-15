@@ -1,4 +1,4 @@
-import { LIMITS, validateYarn, yarnLetter, type ChartPattern, type FiberShare, type Issue, type Yarn } from "@loopitalab/pattern-core";
+import { LIMITS, validateYarn, yarnLetter, type FiberShare, type Issue, type Yarn } from "@loopitalab/pattern-core";
 import { FIBER_IDS, FIBERS, PALETTE, PALETTE_IDS, weightInfo, type PaletteColor } from "@loopitalab/yarn-catalog";
 
 /*
@@ -51,7 +51,7 @@ export function paletteByFamily(): { family: string; colors: PaletteColor[] }[] 
 }
 
 /** Lana nueva: grosor y composición de la primera lana, y el primer color de la paleta que el diseño aún no usa. */
-export function newYarnFor(doc: ChartPattern): Yarn {
+export function newYarnFor(doc: { readonly yarns: readonly Yarn[] }): Yarn {
   const used = new Set(doc.yarns.map((y) => y.color.hex.toUpperCase()));
   const pick = PALETTE.find((c) => !used.has(c.hex.toUpperCase())) ?? PALETTE[0];
   const base = doc.yarns[0];

@@ -20,6 +20,11 @@ export interface LocalBackup {
   /** Cuándo se escribió (ms). Pasado `BACKUP_TTL_MS` caduca: no se ofrece y se borra. */
   savedAt: number;
   document: unknown;
+  /**
+   * Estudio amigurumi (T14 de la fase 4; ADR 0011, sección 7): texto de las partes que no se pudo leer, por `Part.id`.
+   * Nunca entra al documento: vive solo en el editor y en este respaldo (CA4-E9). Ausente si no hay.
+   */
+  pendingText?: Record<string, string>;
 }
 
 /*
@@ -95,6 +100,25 @@ export function clearBrowserBackups(): number {
   }
 }
 
+/** Tope de partes con texto sin leer en un respaldo (el núcleo admite 50 partes, `LIMITS.maxParts`). */
+export const MAX_PENDING_PARTS = 50;
+/** Tope de cada texto sin leer (`PARSE_LIMITS.maxTextLength` del lector: 100.000 unidades UTF-16). */
+export const MAX_PENDING_TEXT = 100_000;
+
+/** `pendingText` bien formado (objeto plano de textos acotados) o null. No valida contra el documento. */
+export function pendingTextOf(v: unknown): Record<string, string> | null {
+  if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
+  const entries = Object.entries(v as Record<string, unknown>);
+  if (entries.length === 0 || entries.length > MAX_PENDING_PARTS) return null;
+  const out: Record<string, string> = {};
+  for (const [k, t] of entries) {
+    // "__proto__" cambiaría el prototipo del objeto de salida en vez de agregar una clave.
+    if (k.length === 0 || k.length > 64 || k === "__proto__" || typeof t !== "string" || t.length > MAX_PENDING_TEXT) return null;
+    out[k] = t;
+  }
+  return out;
+}
+
 /** Interpreta el texto de un respaldo de `ownerId`; null si no sirve (grande, dañado, de otra cuenta, caducado). */
 function parseBackup(raw: string | null, ownerId: string, now: number): LocalBackup | null {
   if (!raw || raw.length > MAX_BACKUP_CHARS) return null; // antes de JSON.parse
@@ -104,7 +128,12 @@ function parseBackup(raw: string | null, ownerId: string, now: number): LocalBac
     if (typeof b.baseUpdatedAt !== "string" || typeof b.savedAt !== "number" || !Number.isFinite(b.savedAt)) return null;
     if (now - b.savedAt > BACKUP_TTL_MS || b.savedAt - now > BACKUP_TTL_MS) return null; // caducado o con fecha absurda
     if (typeof b.document !== "object" || b.document === null || Array.isArray(b.document)) return null;
-    return b as LocalBackup;
+    // Un texto sin leer dañado no invalida el documento del respaldo: solo se descarta ese campo.
+    const pending = pendingTextOf(b.pendingText);
+    const out = { ...b } as LocalBackup;
+    if (pending) out.pendingText = pending;
+    else delete out.pendingText;
+    return out;
   } catch {
     return null;
   }

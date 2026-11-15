@@ -42,6 +42,13 @@ export interface AmigurumiViewerProps {
   perf?: boolean;
   onHandle?: (handle: ViewerHandle | null) => void;
   heightPx?: number;
+  /**
+   * Id de una descripción más completa que pone quien monta el visor (`describeWritten` en el estudio, T14; enmienda
+   * T11-9): se suma a la corta del visor en `aria-describedby` del lienzo.
+   */
+  describedBy?: string;
+  /** Punto tocado: vuelta concreta 0-based (`roundIndex`) y su número visible (de `concreteRounds`). */
+  onPick?: (pick: { partId: string; copy: number; roundIndex: number; roundNumber: number | null } | null) => void;
 }
 
 const FOV = 40;
@@ -51,7 +58,7 @@ const FOV = 40;
  * entran en el JS inicial de ninguna ruta. `frameloop="demand"`: dibuja solo cuando algo cambia. El renderer es
  * imperativo (`@loopitalab/viewer-3d/three`) y el documento llega por `source`, sin pasar por el árbol de React.
  */
-export default function AmigurumiViewer({ source, controls, perf = false, onHandle, heightPx = 520 }: AmigurumiViewerProps) {
+export default function AmigurumiViewer({ source, controls, perf = false, onHandle, heightPx = 520, describedBy, onPick }: AmigurumiViewerProps) {
   const descId = useId();
   const [status, setStatus] = useState<ViewerStatus | null>(null);
   const [lost, setLost] = useState(false);
@@ -256,12 +263,14 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
     if (!hit) {
       setPicked(null);
       r.setHighlight(null);
+      onPick?.(null);
       return;
     }
     const part = source.getSnapshot().parts.find((p) => p.id === hit.partId);
     const roundNumber = part ? roundNumberOf(part, hit.roundIndex) : null;
     setPicked({ ...hit, name: part?.name ?? hit.partId, roundNumber });
     r.setHighlight({ partId: hit.partId, copy: hit.copy, roundIndex: hit.roundIndex });
+    onPick?.({ partId: hit.partId, copy: hit.copy, roundIndex: hit.roundIndex, roundNumber });
   };
 
   const changeLod = (next: Lod) => {
@@ -315,7 +324,7 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
           tabIndex={0}
           role="img"
           aria-label={T.etiquetaLienzo}
-          aria-describedby={descId}
+          aria-describedby={describedBy ? `${descId} ${describedBy}` : descId}
           onKeyDown={onKeyDown}
           onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
           onPointerUp={onPointerUp}
@@ -367,12 +376,18 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         </div>
       ) : null}
 
+      {/* Avisos de la escena (`notes`: forma, anclas, muestra supuesta), con los textos provisionales de T18. */}
       {status && status.notes.length > 0 ? (
-        <ul className="grid gap-0.5 text-sm text-tinta-suave" data-testid="visor-3d-avisos">
-          {status.notes.map((n, i) => (
-            <li key={`${n.code}-${i}`}>{n.message}</li>
-          ))}
-        </ul>
+        <section className="grid gap-1 rounded-md border-2 border-mostaza px-3 py-2 text-sm" aria-label={T.avisosTitulo} data-testid="visor-3d-avisos-zona">
+          <h3 className="font-semibold">{T.avisosTitulo}</h3>
+          <ul className="grid list-disc gap-0.5 pl-5" data-testid="visor-3d-avisos">
+            {status.notes.map((n, i) => (
+              <li key={`${n.code}-${i}`} data-code={n.code}>
+                {n.message}
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {perf ? (

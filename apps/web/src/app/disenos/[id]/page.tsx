@@ -3,7 +3,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { migratePattern, validatePattern, type ChartPattern, type WrittenPattern } from "@loopitalab/pattern-core";
 import { AppHeader } from "@/components/AppHeader";
-import { WrittenStudioPlaceholder } from "@/components/amigurumi/WrittenStudioPlaceholder";
+import { getPatternDialect } from "@/app/cuenta/actions";
+import { WrittenStudio } from "@/components/amigurumi/WrittenStudio";
 import { StudioShell } from "@/components/studio/StudioShell";
 import { requireUser } from "@/lib/session";
 
@@ -80,12 +81,14 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
       </Notice>
     );
   }
-  // Despacho por `kind`: el estudio amigurumi real es T14; mientras tanto, un marcador de lugar de solo lectura.
+  // Despacho por `kind`. El amigurumi escribe con el dialecto del perfil y lee con `readingModeFor` (ADR 0011, T8-1):
+  // si no se puede leer la preferencia, español (el valor por omisión de la columna).
   if (doc.kind === "written") {
+    const pref = await getPatternDialect();
     return (
       <>
-        <AppHeader name={name} />
-        <WrittenStudioPlaceholder document={doc} issues={result.issues} />
+        <AppHeader name={name} wide />
+        <WrittenStudio document={doc} updatedAt={data.updated_at} ownerId={user.id} draftIssues={errors} dialect={pref.dialect ?? "es"} />
       </>
     );
   }

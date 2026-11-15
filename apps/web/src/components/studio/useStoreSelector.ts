@@ -17,7 +17,7 @@ export function useStoreSelector<T>(store: DocumentStore, select: (s: StoreState
  * Documento que se actualiza solo cuando la edición se detiene `ms` milisegundos (descripción para lectores de
  * pantalla, limitaciones de la vista): nada de eso corre entre la edición y el dibujo (CA-P7).
  */
-export function useSettledDoc(store: DocumentStore, ms: number) {
+export function useSettledDoc<D = DocumentStore["doc"]>(store: { readonly doc: D; subscribe(l: () => void): () => void }, ms: number): D {
   const get = useMemo(() => {
     let settled = store.doc;
     let timer: ReturnType<typeof setTimeout> | null = null;

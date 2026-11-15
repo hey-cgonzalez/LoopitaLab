@@ -15,20 +15,20 @@ test.describe("Diseños escritos con sesión", () => {
     await page.getByRole("button", { name: "Crear amigurumi" }).click();
     await page.waitForURL(/\/disenos\/[0-9a-f-]{36}$/, { timeout: 20_000 });
     const id = /\/disenos\/([0-9a-f-]{36})$/.exec(new URL(page.url()).pathname)?.[1] ?? "";
-    await expect(page.getByTestId("written-title")).toHaveText(title);
+    await expect(page.getByTestId("written-title")).toHaveValue(title);
 
     const { data: row } = await admin.from("patterns").select("kind, technique, schema_version, origin, document").eq("id", id).single();
     expect(row).toMatchObject({ kind: "written", technique: "crochet", schema_version: 2, origin: "manual" });
     await expect(page.getByTestId("written-draft")).toHaveCount(0);
 
-    // Sin el editor (T14), la vuelta que no cuadra se escribe en la base: V2 de 12 pb sobre 6 puntos.
+    // La vuelta que no cuadra se escribe directo en la base (el editor tiene su propia E2E): V2 de 12 pb sobre 6 puntos.
     const document = row!.document as { parts: { rounds: unknown[] }[] };
     document.parts[0]!.rounds.push({ number: 2, items: [{ type: "stitch", stitch: "sc", count: 12 }], expected: 12 });
     const { error } = await admin.from("patterns").update({ document }).eq("id", id);
     expect(error).toBeNull();
 
     await page.reload();
-    await expect(page.getByTestId("written-title")).toHaveText(title);
+    await expect(page.getByTestId("written-title")).toHaveValue(title);
     await expect(page.getByTestId("written-draft")).toBeVisible();
     await expect(page.getByTestId("knit-written-notice")).toContainText("llega en una próxima versión");
     await expect(page.getByRole("button", { name: /Tejer/ })).toHaveCount(0);

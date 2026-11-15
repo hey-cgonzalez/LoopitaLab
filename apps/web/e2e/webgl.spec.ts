@@ -243,3 +243,71 @@ test("calibración: capturas 3D y 2D de las mismas lanas (T11c, CA4-V8)", async 
   }
   console.log(`[calibracion]\n${rows.join("\n")}`);
 });
+
+/*
+ * Estudio amigurumi con WebGL por software (T14 de la fase 4): el visor se monta con el almacén como fuente
+ * (`subscribe` y `getSnapshot`) y deja el modo y la reconstrucción a `ViewerController`. Editar el texto de una parte
+ * rearma solo esa malla; la vista previa de una lana y "Colores planos" no arman escena. Fuera del límite
+ * recomendado, el editor responde aunque el 3D vaya diferido.
+ */
+type StudioHook = {
+  store: { doc: { parts: Array<{ id: string }> } };
+  viewer(): { controller: { counters: { buildScene: number; partsBuilt: number; looksOnly: number } } } | null;
+};
+const studioCounters = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => (window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.viewer()!.controller.counters);
+
+test("estudio amigurumi: editar una parte rearma solo su malla; la vista previa y Colores planos no arman escena", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=muneco");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  const before = await studioCounters(page);
+  await page.getByTestId("part-text").evaluate((el: HTMLTextAreaElement) => {
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
+  // Un cierre no cambia la forma: se agrega una nota a la última vuelta, que sí cambia la parte pero no su perfil.
+  await page.keyboard.type("\n> nota de prueba");
+  await expect.poll(async () => (await studioCounters(page)).buildScene).toBeGreaterThan(before.buildScene);
+  const after = await studioCounters(page);
+  expect(after.partsBuilt - before.partsBuilt).toBeLessThanOrEqual(1);
+
+  // "Colores planos": solo aspectos (sin escena).
+  await page.getByTestId("visor-3d-colores-planos").check();
+  await page.getByTestId("visor-3d-colores-planos").uncheck();
+  const flat = await studioCounters(page);
+  expect(flat.buildScene).toBe(after.buildScene);
+  expect(flat.looksOnly).toBeGreaterThan(after.looksOnly);
+
+  // Vista previa de un color al pasar el cursor por la paleta: no arma escena ni cambia el documento.
+  const doc = await page.evaluate(() => JSON.stringify((window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.store.doc));
+  await page.locator("[data-zone=yarns]").getByRole("button", { name: "Editar lana A" }).click();
+  await page.locator("[data-testid=color-picker] [data-swatch]").nth(3).hover();
+  await page.locator("[data-testid=color-picker] [data-swatch]").nth(5).hover();
+  expect((await studioCounters(page)).buildScene).toBe(after.buildScene);
+  expect(await page.evaluate(() => JSON.stringify((window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.store.doc))).toBe(doc);
+});
+
+test("estudio amigurumi: sobre el límite recomendado, el editor responde y el 3D se actualiza diferido", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=grande");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("limits-meter")).toHaveAttribute("data-tone", "over");
+  await expect(page.getByTestId("scene-stitches-tone")).toContainText("Supera el límite recomendado");
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "degraded");
+  await page.getByTestId("part-text").evaluate((el: HTMLTextAreaElement) => {
+    el.focus();
+    const at = el.value.indexOf("V11-30");
+    el.setSelectionRange(at + "V11-30: 60 pb (60)".length, at + "V11-30: 60 pb (60)".length);
+  });
+  // Una flecha ida y vuelta: el editor sigue el cursor con el teclado y el puntero (no con una selección programática).
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("caret-count")).toContainText("V11–30: 60 puntos cada una");
+  const before = await studioCounters(page);
+  // Una nota en la meseta cambia la parte: el texto se lee al instante y el 3D se rearma en un turno aparte.
+  await page.keyboard.type("\n> nota");
+  await expect(page.getByTestId("part-text")).toHaveValue(/V11-30: 60 pb \(60\)\n> nota/);
+  await expect(page.getByTestId("part-text-editor")).toHaveAttribute("data-status", "synced");
+  await expect.poll(async () => (await studioCounters(page)).buildScene, { timeout: 15_000 }).toBeGreaterThan(before.buildScene);
+  await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
+});
