@@ -331,3 +331,83 @@ test("estudio amigurumi: editar en bloques rearma solo la malla de su parte", as
   await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
   await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
 });
+
+/*
+ * Posicionado (T16 de la fase 4; decisión 3; ADR 0010, T10-2 y T11-1): en "Posicionar", tocar la cabeza fija el ancla
+ * de la oreja en la vuelta visible (`concreteRounds(cabeza)[roundIndex].number`) y el punto (`stitchInRound`) que da
+ * `pick`, y la vista previa del ancla (marco de `surfaceFrame` con la malla del anfitrión) cae sobre el punto tocado.
+ * El guardado y la recarga, con sesión, están en `sesion/posicionar.spec.ts`.
+ */
+type PickHit = { partId: string; copy: number; roundIndex: number; stitchInRound: number; point: [number, number, number] };
+type PlaceHook = {
+  store: { doc: { parts: Array<{ id: string; rounds: Array<{ number: number; through?: number }> }>; layout?: { placements: Array<{ target: { part: string; copy: number }; at: { type: string; round?: number; stitch?: number; rotationDeg?: number[] } }> } } };
+  viewer(): {
+    renderer: { pick(x: number, y: number): PickHit | null };
+    controller: { anchorFrame(t: { part: string; copy: number }): { position: [number, number, number]; anchor: [number, number, number]; round: number; stitch: number; clamped: boolean } | null };
+  } | null;
+};
+
+test("estudio amigurumi: Posicionar una oreja tocando la cabeza y girarla (T16)", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=armar");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: PlaceHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  const canvas = page.getByTestId("visor-3d-lienzo");
+  await expect(canvas).toHaveAttribute("data-mode", "full");
+  await page.getByTestId("position-mode").click();
+  const panel = page.getByTestId("position-panel");
+  await panel.getByTestId("position-target").selectOption({ label: "Oreja (1 de 2)" });
+  await panel.getByTestId("position-mode-surface").check();
+  // El panel va debajo del visor: se lleva el lienzo a la vista antes de medir dónde tocar.
+  await canvas.scrollIntoViewIfNeeded();
+  const box = (await canvas.boundingBox())!;
+  // Lo que se ve: la columna del visor se desplaza sola (overflow), y la página tiene su alto.
+  const column = (await page.locator("[data-column=view]").boundingBox())!;
+  const viewport = page.viewportSize()!;
+  // Un punto de la pantalla sobre la cabeza, buscado con el mismo `pick` del visor (antes de cambiar la escena).
+  const found = await page.evaluate(() => {
+    const v = (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.viewer()!;
+    const out: Array<{ ndc: [number, number]; hit: PickHit }> = [];
+    for (let y = 0.6; y >= -0.6; y -= 0.05) {
+      for (let x = -0.9; x <= 0.9; x += 0.05) {
+        const hit = v.renderer.pick(x, y);
+        if (hit && hit.partId === "cabeza" && hit.roundIndex >= 3 && hit.roundIndex <= 9) out.push({ ndc: [x, y], hit });
+      }
+    }
+    return out;
+  });
+  const toScreen = (ndc: [number, number]) => ({ x: box.x + ((ndc[0] + 1) / 2) * box.width, y: box.y + ((1 - ndc[1]) / 2) * box.height });
+  const target = found.find((f) => {
+    const p = toScreen(f.ndc);
+    return p.y > Math.max(0, column.y) + 2 && p.y < Math.min(viewport.height, column.y + column.height) - 2 && p.x > 0 && p.x < viewport.width;
+  });
+  expect(target, "la cabeza se ve en el lienzo").toBeDefined();
+  const { x: px, y: py } = toScreen(target!.ndc);
+  await page.mouse.click(px, py);
+  const hit = target!.hit;
+
+  // Vuelta visible con rango (V5–9): roundIndex 4 es la V5. La cabeza no tiene vueltas antes de la V1.
+  const number = hit.roundIndex + 1;
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.store.doc.layout?.placements[0] ?? null))
+    .toEqual({ target: { part: "oreja", copy: 0 }, at: { type: "surface", host: { part: "cabeza", copy: 0 }, round: number, stitch: hit.stitchInRound, attach: "end", rotationDeg: [0, 0, 0] } });
+  await expect(canvas).toHaveAttribute("data-anchor", `${number}:${hit.stitchInRound}`);
+
+  // El marco del ancla cae sobre el punto tocado: a menos de un punto del lugar del toque (pick da el punto del mundo,
+  // con la raíz girada −90° sobre x: (x, y, z) de la escena se ve como (x, z, −y)).
+  const frame = await page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.viewer()!.controller.anchorFrame({ part: "oreja", copy: 0 }));
+  expect(frame).not.toBeNull();
+  expect(frame!.clamped).toBe(false);
+  const [wx, wy, wz] = hit.point;
+  const scenePoint = [wx, -wz, wy];
+  const d = Math.hypot(frame!.position[0] - scenePoint[0]!, frame!.position[1] - scenePoint[1]!, frame!.position[2] - scenePoint[2]!);
+  expect(d, `distancia entre el ancla y el toque: ${d.toFixed(2)} cm`).toBeLessThan(1);
+
+  // Girarla: "Girar" escribe rotationDeg[0] (sobre la normal).
+  await panel.getByTestId("position-rot-normal").fill("45");
+  await panel.getByTestId("position-rot-normal").press("Enter");
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.store.doc.layout?.placements[0]?.at.rotationDeg))
+    .toEqual([45, 0, 0]);
+  await expect(page.locator('[data-testid=where-list] li[data-part="oreja"][data-copy="0"]')).toContainText(`entre la V${number} y la V${number + 1}, contando desde el anillo mágico`);
+  // Sin avisos de "no se pudo".
+  await expect(page.getByTestId("position-notice")).toHaveCount(0);
+});

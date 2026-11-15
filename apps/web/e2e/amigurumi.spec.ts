@@ -183,7 +183,7 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     await expect(partText(page)).not.toHaveValue(/@B/);
   });
 
-  test("el 3D sigue al documento; Bloques está activo (T15) y Posicionar queda preparado y desactivado (T16)", async ({ page }) => {
+  test("el 3D sigue al documento; Bloques (T15) y Posicionar (T16) están activos", async ({ page }) => {
     await open(page);
     const before = await viewerMeasures(page);
     await caretToEnd(page);
@@ -191,9 +191,112 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     await expect.poll(() => viewerMeasures(page)).not.toBe(before);
     await expect(page.getByTestId("tab-blocks")).toBeEnabled();
     await expect(page.getByTestId("tab-text")).toHaveAttribute("aria-selected", "true");
-    await expect(page.getByTestId("position-mode")).toBeDisabled();
+    await expect(page.getByTestId("position-mode")).toBeEnabled();
+    await expect(page.getByTestId("position-mode")).toHaveAttribute("aria-pressed", "false");
     await expect(page.getByTestId("written-description")).toContainText("Descripción del patrón");
     await expect(page.locator("#" + (await page.getByTestId("visor-3d-lienzo").getAttribute("aria-describedby"))!.split(" ")[1]!)).toContainText("Cuerpo");
+  });
+
+  test("Posicionar sin puntero: vuelta y punto con campos, giro, extremo, separar, Quitar posición, deshacer y pieza principal libre (T16)", async ({ page }) => {
+    await open(page, "?demo=armar");
+    const where = (part: string, copy: number) => page.locator(`[data-testid=where-list] li[data-part="${part}"][data-copy="${copy}"]`);
+    const placement = async (part: string, copy: number) => (await docOf(page)).layout?.placements.find((p) => p.target.part === part && p.target.copy === copy) ?? null;
+    await expect(page.getByTestId("unplaced-warning")).toContainText("Cabeza, Oreja (1 de 2), Oreja (2 de 2)");
+    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): sin ubicar; se ubica de forma automática.");
+
+    await page.getByTestId("position-mode").click();
+    await expect(page.getByTestId("position-mode")).toHaveAttribute("aria-pressed", "true");
+    const panel = page.getByTestId("position-panel");
+    await panel.getByTestId("position-target").selectOption({ label: "Oreja (2 de 2)" });
+    await panel.getByTestId("position-mode-surface").check();
+    await panel.getByTestId("position-host").selectOption({ label: "Cabeza" });
+    // V7 está dentro del rango V5–9 (24 puntos): el punto 30 no existe.
+    await panel.getByTestId("position-round").fill("7");
+    await panel.getByTestId("position-stitch").fill("30");
+    await panel.getByTestId("position-apply").click();
+    await expect(panel.getByTestId("position-error")).toHaveText("Ese punto no existe: la vuelta tiene 24 puntos.");
+    await panel.getByTestId("position-round").fill("13");
+    await panel.getByTestId("position-apply").click();
+    await expect(panel.getByTestId("position-error")).toHaveText("Esa vuelta no existe: la pieza tiene de la 1 a la 12.");
+    expect(await placement("oreja", 1)).toBeNull();
+
+    await panel.getByTestId("position-round").fill("7");
+    await panel.getByTestId("position-stitch").fill("3");
+    await panel.getByTestId("position-stitch").press("Enter");
+    await expect.poll(() => placement("oreja", 1)).toEqual({
+      target: { part: "oreja", copy: 1 },
+      at: { type: "surface", host: { part: "cabeza", copy: 0 }, round: 7, stitch: 2, attach: "end", rotationDeg: [0, 0, 0] },
+    });
+    const text = "Oreja (2 de 2): se cose a «Cabeza», entre la V7 y la V8, contando desde el anillo mágico.";
+    await expect(where("oreja", 1)).toHaveText(text);
+    await expect(panel.getByTestId("position-where")).toContainText(text);
+    await expect(page.getByTestId("unplaced-warning")).not.toContainText("Oreja (2 de 2)");
+
+    // Girar, inclinar y separar dentro de los topes; el extremo cosido.
+    await panel.getByTestId("position-rot-normal").fill("200");
+    await panel.getByTestId("position-rot-normal").press("Enter");
+    await panel.getByTestId("position-rot-tangent").fill("-30");
+    await panel.getByTestId("position-rot-tangent").press("Enter");
+    await panel.getByTestId("position-offset").fill("-0.2");
+    await panel.getByTestId("position-offset").press("Enter");
+    await panel.getByTestId("position-attach-start").check();
+    // 200 está fuera del campo (−180 a 180): se acota a 180.
+    await expect.poll(async () => (await placement("oreja", 1))?.at).toMatchObject({ rotationDeg: [180, -30, 0], offsetCm: -0.2, attach: "start" });
+    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): se cose a «Cabeza» por el centro de su inicio, entre la V7 y la V8, contando desde el anillo mágico.");
+
+    // Quitar posición y deshacer (un paso).
+    await panel.getByTestId("position-clear").click();
+    await expect.poll(() => placement("oreja", 1)).toBeNull();
+    await expect(page.getByTestId("unplaced-warning")).toContainText("Oreja (2 de 2)");
+    await expect(panel.getByTestId("position-notice")).toContainText("quedó sin ubicar");
+    await page.getByTestId("undo").click();
+    await expect.poll(async () => (await placement("oreja", 1))?.at).toMatchObject({ attach: "start", round: 7 });
+
+    // La pieza principal, libre: posición en cm y giro (Euler XYZ).
+    await panel.getByTestId("position-target").selectOption({ label: "Cabeza" });
+    await panel.getByTestId("position-mode-free").check();
+    await expect.poll(() => placement("cabeza", 0)).toEqual({ target: { part: "cabeza", copy: 0 }, at: { type: "free", positionCm: [0, 0, 0], rotationDeg: [0, 0, 0] } });
+    await panel.getByTestId("position-free-z").fill("4.5");
+    await panel.getByTestId("position-free-z").press("Enter");
+    await panel.getByTestId("position-free-rx").fill("15");
+    await panel.getByTestId("position-free-rx").press("Enter");
+    await expect.poll(async () => (await placement("cabeza", 0))?.at).toEqual({ type: "free", positionCm: [0, 0, 4.5], rotationDeg: [15, 0, 0] });
+    await expect(where("cabeza", 0)).toHaveText("Cabeza: pieza principal, ubicada libremente en el espacio.");
+    // Coserla a la oreja que está cosida a ella formaría un ciclo: no entra y se avisa.
+    await panel.getByTestId("position-mode-surface").check();
+    await panel.getByTestId("position-host").selectOption({ label: "Oreja (2 de 2)" });
+    await panel.getByTestId("position-round").fill("2");
+    await panel.getByTestId("position-stitch").fill("1");
+    await panel.getByTestId("position-apply").click();
+    await expect(panel.getByTestId("position-notice")).toContainText("ciclo");
+    expect((await placement("cabeza", 0))?.at.type).toBe("free");
+  });
+
+  test("pasos de armado: agregar, escribir, mover y borrar; cada gesto se deshace solo (T16)", async ({ page }) => {
+    await open(page, "?demo=armar");
+    const steps = page.getByTestId("assembly-step");
+    const assembly = async () => (await docOf(page)).assembly ?? null;
+    await page.getByTestId("assembly-add").click();
+    await expect(steps).toHaveCount(1);
+    await expect(steps.first()).toBeFocused();
+    await page.keyboard.type("Cose las orejas a la cabeza.");
+    await page.getByTestId("assembly-add").click();
+    await expect.poll(assembly).toEqual(["Cose las orejas a la cabeza."]);
+    await page.keyboard.type("Rellena la cabeza.");
+    await page.getByTestId("written-title").focus();
+    await expect.poll(assembly).toEqual(["Cose las orejas a la cabeza.", "Rellena la cabeza."]);
+    await page.getByRole("button", { name: "Subir el paso 2" }).click();
+    await expect.poll(assembly).toEqual(["Rellena la cabeza.", "Cose las orejas a la cabeza."]);
+    await page.getByRole("button", { name: "Borrar el paso 1" }).click();
+    await expect.poll(assembly).toEqual(["Cose las orejas a la cabeza."]);
+    await page.getByTestId("undo").click();
+    await expect.poll(assembly).toEqual(["Rellena la cabeza.", "Cose las orejas a la cabeza."]);
+    await expect(steps).toHaveCount(2);
+    // Un paso nuevo que queda vacío no entra al documento.
+    await page.getByTestId("assembly-add").click();
+    await page.getByTestId("written-title").focus();
+    await expect(steps).toHaveCount(2);
+    expect(JSON.stringify(await docOf(page))).not.toContain("Dónde va");
   });
 
   test("sin WebGL: siluetas, y el estudio sigue editable", async ({ page }) => {

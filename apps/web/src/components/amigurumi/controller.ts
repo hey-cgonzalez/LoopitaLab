@@ -1,7 +1,9 @@
-import { recommendedLimitUsage, type WrittenPattern } from "@loopitalab/pattern-core";
-import { buildScene, type SceneCache, type SceneNote, type SurfaceLook } from "@loopitalab/viewer-3d";
+import { recommendedLimitUsage, type Part, type PartRef, type ShapeMetrics, type WrittenPattern } from "@loopitalab/pattern-core";
+import { buildScene, type SceneCache, type SceneInstance, type SceneNote, type SurfaceLook } from "@loopitalab/viewer-3d";
 import { viewerMode, type AmigurumiRenderer, type ViewerMode, type ViewerPolicy } from "@loopitalab/viewer-3d/three";
 import type { PreviewTarget, YarnCandidate } from "@/components/studio/preview-controls.ts";
+import { targetAnchorFrame, type WorldFrame } from "@/lib/amigurumi/anchor.ts";
+import { unplacedFromScene } from "@/lib/amigurumi/placement.ts";
 import { LookCache, surfaceLookOf } from "./looks.ts";
 import { metricsResolver, partSummaries, type PartSummary } from "./metrics.ts";
 
@@ -50,6 +52,11 @@ export interface ViewerStatus {
   stitches: number;
   notes: SceneNote[];
   parts: PartSummary[];
+  /**
+   * Piezas que la escena ubicó de forma automática (`placed: false`; T16). `null` si no hay escena armada (sin
+   * renderer o en siluetas): quien lo muestra usa entonces el `layout` del documento.
+   */
+  unplaced: PartRef[] | null;
   policy: ViewerPolicy | null;
   flatColors: boolean;
 }
@@ -84,7 +91,9 @@ export class ViewerController implements PreviewTarget {
   #looks = new LookCache();
   #flat = false;
   #preview: { index: number; candidate: YarnCandidate } | null = null;
-  #status: ViewerStatus = { mode: "full", updating: false, stitches: 0, notes: [], parts: [], policy: null, flatColors: false };
+  /** Lo dibujado por última vez: instancias (malla y matriz) y la muestra con que se armaron, para el ancla. */
+  #scene: { pattern: WrittenPattern; instances: readonly SceneInstance[]; metrics: (part: Part) => ShapeMetrics } | null = null;
+  #status: ViewerStatus = { mode: "full", updating: false, stitches: 0, notes: [], parts: [], unplaced: null, policy: null, flatColors: false };
   readonly counters: ControllerCounters = { buildScene: 0, partsBuilt: 0, partsRecolored: 0, partsKept: 0, looksOnly: 0, deferred: 0, superseded: 0 };
 
   constructor(opts: { schedule?: Schedule; onStatus?: (s: ViewerStatus) => void; flatColors?: boolean } = {}) {
@@ -130,6 +139,15 @@ export class ViewerController implements PreviewTarget {
     this.#syncPreview();
   }
 
+  /**
+   * Marco del ancla de `target` en la escena dibujada (coordenadas de `SceneInstance.matrix`), con la malla del
+   * anfitrión (T10-2): el mismo punto donde `buildScene` puso la pieza. null si no está cosida o no hay escena.
+   */
+  anchorFrame(target: PartRef): WorldFrame | null {
+    const s = this.#scene;
+    return s ? targetAnchorFrame(s.pattern, s.metrics, s.instances, target) : null;
+  }
+
   dispose(): void {
     this.#cancel?.();
     this.#cancel = null;
@@ -163,6 +181,7 @@ export class ViewerController implements PreviewTarget {
     if (drawn && drawn.parts === pattern.parts && drawn.layout === pattern.layout && drawn.gauge === pattern.gauge && sameIds(drawn, pattern) && !this.#pending) {
       const { looks, changed } = this.#looks.update(pattern.yarns, this.#flat);
       this.#drawn = pattern;
+      if (this.#scene) this.#scene = { ...this.#scene, pattern };
       if (changed) {
         this.counters.looksOnly++;
         renderer.setLooks(looks);
@@ -174,9 +193,10 @@ export class ViewerController implements PreviewTarget {
       this.#cancelPending();
       this.#cache = undefined;
       this.#drawn = null;
+      this.#scene = null;
       const { looks } = this.#looks.update(pattern.yarns, this.#flat);
       const policy = renderer.setScene({ instances: [], stitchCount: stitches }, looks);
-      this.#emit({ mode, stitches, updating: false, notes: [], parts: partSummaries(pattern), policy });
+      this.#emit({ mode, stitches, updating: false, notes: [], parts: partSummaries(pattern), unplaced: null, policy });
       return;
     }
     if (mode === "degraded") {
@@ -216,6 +236,7 @@ export class ViewerController implements PreviewTarget {
     }
     this.#cache = scene.cache;
     this.#drawn = pattern;
+    this.#scene = { pattern, instances: scene.instances, metrics };
     const { looks } = this.#looks.update(pattern.yarns, this.#flat);
     const policy = renderer.setScene(scene, looks);
     this.#syncPreview();
@@ -225,6 +246,7 @@ export class ViewerController implements PreviewTarget {
       updating: this.#pending !== null,
       notes: scene.notes,
       parts: partSummaries(pattern, metrics),
+      unplaced: unplacedFromScene(scene.instances),
       policy,
     });
   }

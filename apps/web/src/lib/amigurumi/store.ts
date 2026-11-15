@@ -11,6 +11,9 @@ import {
   removeYarn,
   renamePart,
   reorderYarns,
+  clearPlacement,
+  setAssembly,
+  setPlacement,
   replacePartRounds,
   replaceRound,
   setCopies,
@@ -27,6 +30,7 @@ import {
   type ItemPath,
   type Part,
   type PartRef,
+  type Placement,
   type Round,
   type WrittenPattern,
   type Yarn,
@@ -70,6 +74,14 @@ export type WrittenAction =
   | { type: "moveItem"; partId: string; roundIndex: number; from: ItemPath; to: ItemPath }
   | { type: "wrapInGroup"; partId: string; roundIndex: number; from: ItemPath; to: ItemPath; times: number }
   | { type: "unwrapGroup"; partId: string; roundIndex: number; path: ItemPath }
+  // Posicionado y armado (T16; ADR 0011, secciones 2 y 9). Un gesto = un paso de deshacer: arrastrar un control de
+  // giro va dentro de una ráfaga (`beginStroke`/`endStroke`).
+  /** Ubica una copia (reemplaza su ubicación anterior). Sin cambios si dejaría un error estructural (ciclo, topes). */
+  | { type: "setPlacement"; placement: Placement }
+  /** "Quitar posición": la copia pasa a ubicarse sola. */
+  | { type: "clearPlacement"; ref: PartRef }
+  /** Pasos de armado que escribe la diseñadora (`assembly`); los vacíos se quitan. */
+  | { type: "setAssembly"; steps: readonly string[] }
   /** `null` quita la muestra (las medidas pasan a "supuesto"). */
   | { type: "setGauge"; gauge: Gauge | null };
 
@@ -302,6 +314,14 @@ export class WrittenStore implements YarnEditStore {
         return same(reorderYarns(doc, a.order));
       case "updateYarn":
         return same(updateYarn(doc, a.index, a.yarn));
+      case "setPlacement":
+        return same(setPlacement(doc, a.placement));
+      case "clearPlacement": {
+        const next = clearPlacement(doc, a.ref);
+        return same(next, next !== doc ? [{ part: a.ref.part, copy: a.ref.copy }] : []);
+      }
+      case "setAssembly":
+        return same(setAssembly(doc, a.steps));
       case "setGauge":
         return same(withGauge(doc, a.gauge));
     }

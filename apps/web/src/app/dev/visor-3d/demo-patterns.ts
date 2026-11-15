@@ -131,6 +131,19 @@ function doll(): WrittenPattern {
   return pattern("Muñeco armado", [body, headPart, ear, arm], [YARN_A, YARN_B, YARN_C, YARN_D], { layout, assembly: ["Cose la cabeza sobre el cuerpo.", "Cose las orejas a la cabeza.", "Cose los brazos al cuerpo."] });
 }
 
+/** Cabeza y dos orejas sin posiciones (T16): para posicionar desde cero. La cabeza tiene un rango (V4–9). */
+export function headAndEarsText(): { head: string; ear: string } {
+  return {
+    head: ["Parte: Cabeza", "Inicio: AM", "Construcción: espiral", "Lana: A", "V1: 6 pb en AM (6)", "V2: aum x6 (12)", "V3: [pb, aum] x6 (18)", "V4: [pb 2, aum] x6 (24)", "V5-9: 24 pb (24)", "V10: [pb 2, dism] x6 (18)", "V11: [pb, dism] x6 (12)", "V12: dism x6 (6)"].join("\n"),
+    ear: ["Parte: Oreja", "Cantidad: 2", "Inicio: AM", "Construcción: espiral", "Lana: D", "V1: 6 pb en AM (6)", "V2: aum x6 (12)", "V3-4: 12 pb (12)"].join("\n"),
+  };
+}
+
+function headAndEars(): WrittenPattern {
+  const t = headAndEarsText();
+  return pattern("Cabeza y orejas", [readDemoPart(t.head, "cabeza"), readDemoPart(t.ear, "oreja")], [YARN_A, YARN_D]);
+}
+
 export interface DemoEntry {
   key: string;
   label: string;
@@ -145,6 +158,7 @@ export const DEMOS: DemoEntry[] = [
   { key: "colores", label: "Pieza con cambios de color", build: () => pattern("Colores", [readDemoPart(fixtureAText(30, { stripes: true }), "cuerpo")], [YARN_A, YARN_B, YARN_C]) },
   { key: "ondula", label: "Pieza que ondula (aumentos de más)", build: () => pattern("Ondula", [readDemoPart(ruffleText(), "volado")], [YARN_D]) },
   { key: "muneco", label: "Muñeco armado (partes, copias y anclas)", build: doll },
+  { key: "armar", label: "Cabeza y orejas sin ubicar (para posicionar)", build: headAndEars },
   {
     key: "grande",
     label: "Escena sobre el límite recomendado (61.200 puntos)",

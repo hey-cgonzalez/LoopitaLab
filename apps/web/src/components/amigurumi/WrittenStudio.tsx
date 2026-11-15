@@ -1,6 +1,6 @@
 "use client";
 
-import type { Dialect, Issue, LimitUsage, RecommendedLimit, WrittenPattern } from "@loopitalab/pattern-core";
+import type { Dialect, Issue, LimitUsage, PartRef, RecommendedLimit, WrittenPattern } from "@loopitalab/pattern-core";
 import { describeWritten } from "@loopitalab/pattern-render";
 import { suggestedGauge } from "@loopitalab/yarn-catalog";
 import Link from "next/link";
@@ -15,18 +15,22 @@ import { YarnPanel } from "@/components/studio/YarnPanel";
 import { BLOCK_EDIT_POLICY_V1, BlockActions, type BlockEditPolicy } from "@/lib/amigurumi/blocks.ts";
 import { crossedLimit, limitSummaryCache } from "@/lib/amigurumi/limits.ts";
 import { reviewWritten } from "@/lib/amigurumi/review.ts";
+import { modeOf, pieceRefs, placementOf, sameRef, surfaceFromPick, unplacedFromLayout, type PlacementMode } from "@/lib/amigurumi/placement.ts";
 import { concreteIndexOf, sourceIndexOfNumber, sourceOfConcrete } from "@/lib/amigurumi/rounds.ts";
 import { WrittenStore, type ActionResult, type WrittenAction } from "@/lib/amigurumi/store.ts";
 import { TextBuffers } from "@/lib/amigurumi/text-buffers.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 import { nextTabId } from "@/lib/studio/a11y.ts";
 import type { Recovery } from "@/lib/studio/backup-recovery.ts";
-import type { ViewerHandle } from "./AmigurumiViewer.tsx";
+import type { ViewerHandle, ViewerPick } from "./AmigurumiViewer.tsx";
+import { AssemblyPanel } from "./AssemblyPanel.tsx";
+import type { ViewerStatus } from "./controller.ts";
 import { BlockEditor } from "./BlockEditor.tsx";
 import { AmigurumiViewerLoader } from "./AmigurumiViewerLoader.tsx";
 import { LimitDialog, LimitsMeter } from "./LimitsMeter.tsx";
-import { PartsPanel } from "./PartsPanel.tsx";
+import { PartsPanel, unplacedLabels } from "./PartsPanel.tsx";
 import { PartTextEditor, type LineRequest } from "./PartTextEditor.tsx";
+import { PositionPanel, roundWord } from "./PositionPanel.tsx";
 import { UnreadTextDialog } from "./UnreadTextDialog.tsx";
 import { WrittenGauge } from "./WrittenGauge.tsx";
 
@@ -179,7 +183,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     const weight = described.yarns[0]?.weight;
     const s = typeof weight === "number" ? suggestedGauge(weight, "crochet") : undefined;
     const assumedGauge = s ? { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm, gaugeStitch: s.assumption === "crochet-pa" ? ("dc" as const) : ("sc" as const) } : undefined;
-    return describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) }).text;
+    return describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) });
   }, [described, dialect]);
 
   // ---------------------------------------------------------------- 3D: resaltado y selección
@@ -210,8 +214,81 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     [selected, applyHighlight],
   );
 
+  // ---------------------------------------------------------------- posicionado (T16)
+
+  const [positioning, setPositioning] = useState(false);
+  const [posTarget, setPosTarget] = useState<PartRef>(() => ({ part: initial.parts[0]?.id ?? "", copy: 0 }));
+  /** "Cosida" elegido para una pieza que todavía no tiene ancla (estado de la interfaz, nunca del documento). */
+  const [surfaceChoice, setSurfaceChoice] = useState<PartRef | null>(null);
+  const [posNotice, setPosNotice] = useState<string | null>(null);
+  /** Piezas sin ubicar según la escena (`placed: false`); null sin escena (se usa el `layout`). */
+  const [sceneUnplaced, setSceneUnplaced] = useState<{ key: string; refs: PartRef[] } | null>(null);
+  const [viewerReady, setViewerReady] = useState(false);
+
+  // La pieza elegida tiene que existir (borrar una parte o bajar sus copias).
+  const refs = pieceRefs(doc);
+  const target = refs.find((r) => sameRef(r, posTarget)) ?? refs[0] ?? posTarget;
+  const docMode = modeOf(doc, target);
+  const posMode: PlacementMode = surfaceChoice && sameRef(surfaceChoice, target) ? "surface" : docMode;
+  const onPosMode = useCallback(
+    (m: PlacementMode) => {
+      setSurfaceChoice(m === "surface" ? target : null);
+    },
+    [target],
+  );
+  const onPosTarget = useCallback((r: PartRef) => {
+    setPosTarget(r);
+    setSurfaceChoice(null);
+    setPosNotice(null);
+  }, []);
+
+  const onViewerStatus = useCallback((s: ViewerStatus) => {
+    setViewerReady(s.unplaced !== null);
+    const list = s.unplaced;
+    const key = list ? JSON.stringify(list) : "";
+    setSceneUnplaced((prev) => (list === null ? null : prev && prev.key === key ? prev : { key, refs: list }));
+  }, []);
+
+  /** Modo "Posicionar": tocar la superficie del anfitrión fija el ancla (vuelta visible y punto de `pick`). */
+  const placeFromPick = useCallback(
+    (p: ViewerPick) => {
+      const hit: PartRef = { part: p.partId, copy: p.copy };
+      if (posMode !== "surface") {
+        // Fuera de "cosida", tocar una pieza la elige.
+        onPosTarget(hit);
+        return;
+      }
+      if (sameRef(hit, target)) {
+        setPosNotice(T.posicion.noASiMisma);
+        return;
+      }
+      const cur = store.doc;
+      const placement = surfaceFromPick(cur, target, p, placementOf(cur, target));
+      if (!placement) {
+        setPosNotice(T.posicion.noSePudo);
+        return;
+      }
+      const r = store.run({ type: "setPlacement", placement });
+      if (!r.changed && JSON.stringify(placementOf(cur, target)) !== JSON.stringify(placement)) {
+        setPosNotice(T.posicion.noSePudo);
+        return;
+      }
+      setPosNotice(null);
+      if (placement.at.type === "surface") {
+        const host = cur.parts.find((x) => x.id === hit.part);
+        const msg = T.posicion.cosidaEn(unplacedLabels(cur, [target])[0] ?? target.part, unplacedLabels(cur, [hit])[0] ?? hit.part, roundWord(host), placement.at.round, placement.at.stitch + 1);
+        setAnnounce(msg);
+      }
+    },
+    [posMode, target, store, onPosTarget],
+  );
+
   const onPick = useCallback(
-    (p: { partId: string; roundIndex: number; roundNumber: number | null } | null) => {
+    (p: ViewerPick | null) => {
+      if (positioning) {
+        if (p) placeFromPick(p);
+        return;
+      }
       if (!p) {
         picked.current = null;
         return;
@@ -225,7 +302,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       const line = j !== null ? view?.roundLines[j] : undefined;
       if (line !== undefined) setLineRequest({ partId: part.id, line, nonce: Date.now() });
     },
-    [store, buffers],
+    [store, buffers, positioning, placeFromPick],
   );
 
   // E2E de la página de desarrollo: acceso al almacén y al visor.
@@ -351,6 +428,10 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const pendingRecovered = recovery?.pendingText ? Object.keys(recovery.pendingText).length : 0;
 
   if (!selected) return null;
+
+  const whereOf = (r: PartRef) => (description.ok ? (description.placements.find((x) => x.part === r.part && x.copy === r.copy)?.text ?? null) : null);
+  const unplacedRefs = sceneUnplaced ? sceneUnplaced.refs : unplacedFromLayout(deferredDoc);
+  const manyPieces = refs.length > 1;
 
   return (
     <div data-studio className="flex min-h-[30rem] min-w-0 flex-1 flex-col" data-testid="written-studio">
@@ -536,12 +617,22 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         <div id="wpanel-view" {...panelA11y("view")} className={`${show("view")} relative min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain`} data-column="view">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-base font-bold">{T.vista.titulo}</h2>
-            {/* "Posicionar" es T16: el lugar queda listo y desactivado. */}
-            <button type="button" disabled aria-describedby={`${descId}-pos`} className={BTN} data-testid="position-mode">
+            <button
+              type="button"
+              aria-pressed={positioning}
+              aria-describedby={`${descId}-pos`}
+              onClick={() => {
+                setPositioning((v) => !v);
+                setPosNotice(null);
+                if (!positioning) onPosTarget({ part: selected.id, copy: 0 });
+              }}
+              className={`${BTN} ${positioning ? "bg-marino text-white" : ""}`}
+              data-testid="position-mode"
+            >
               {T.vista.posicionar}
             </button>
             <p id={`${descId}-pos`} className="basis-full text-sm text-tinta-suave">
-              {T.vista.posicionarPronto}
+              {positioning ? (posMode === "surface" ? T.posicion.tocarAyuda : T.posicion.tocarElegir) : T.vista.posicionarAyuda}
             </p>
           </div>
           <LimitsMeter limits={limits} />
@@ -553,16 +644,43 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
             heightPx={compact ? 360 : 460}
             describedBy={descId}
             onPick={onPick}
+            onStatus={onViewerStatus}
+            anchorTarget={positioning ? target : null}
+            positioning={positioning}
             onHandle={(h) => {
               viewerRef.current = h;
               if (h) applyHighlight();
             }}
           />
+          {/* Debajo del visor: activar "Posicionar" no mueve el 3D. */}
+          {positioning ? (
+            <PositionPanel
+              store={store}
+              doc={doc}
+              target={target}
+              onTarget={onPosTarget}
+              mode={posMode}
+              onMode={onPosMode}
+              whereText={whereOf(target)}
+              notice={posNotice}
+              onNotice={setPosNotice}
+              announce={setAnnounce}
+              viewerReady={viewerReady}
+            />
+          ) : null}
+          <AssemblyPanel
+            store={store}
+            assembly={doc.assembly}
+            placements={description.ok ? description.placements : null}
+            showWhere={manyPieces || deferredDoc.layout !== undefined}
+            unplaced={manyPieces ? unplacedLabels(deferredDoc, unplacedRefs) : []}
+            announce={setAnnounce}
+          />
           <details className="rounded-xl border-2 border-linea bg-superficie px-3 py-2 text-sm" data-testid="written-description">
             <summary className="cursor-pointer font-bold">{T.vista.descripcionTitulo}</summary>
             <p className="mt-1 text-tinta-suave">{T.vista.descripcionAyuda}</p>
             <p id={descId} className="mt-2 whitespace-pre-line">
-              {description}
+              {description.text}
             </p>
           </details>
         </div>
