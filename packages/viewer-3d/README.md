@@ -1,8 +1,8 @@
 # @loopitalab/viewer-3d
 
-Vista 3D del amigurumi, **parte pura**: malla por punto, escena con copias y anclas, y silueta SVG. Especificación: [ADR 0010](../../docs/adr/0010-geometria-3d-amigurumi.md), secciones 3, 4, 6c y 9, y [ADR 0011](../../docs/adr/0011-posicion-de-partes-y-editor-escrito.md), sección 2 (`layout`, `copies`, `SurfaceAt`). El backend `three` (`@loopitalab/viewer-3d/three`) y el componente r3f llegan en T11.
+Vista 3D del amigurumi, **parte pura**: malla por punto, escena con copias y anclas, y silueta SVG. Especificación: [ADR 0010](../../docs/adr/0010-geometria-3d-amigurumi.md), secciones 3, 4, 6c y 9, y [ADR 0011](../../docs/adr/0011-posicion-de-partes-y-editor-escrito.md), sección 2 (`layout`, `copies`, `SurfaceAt`). El backend `three` está en la subruta `@loopitalab/viewer-3d/three` (T11, más abajo); el componente r3f vive en `apps/web/src/components/amigurumi/`.
 
-- Depende solo de `@loopitalab/pattern-core`. Sin dependencias de terceros (ADR 0002). TypeScript sin compilar; `exports` apunta a `src/index.ts`.
+- La parte pura depende solo de `@loopitalab/pattern-core`, sin dependencias de terceros (ADR 0002). La subruta `./three` usa `three` como dependencia par (`>=0.186.1 <0.187.0`; de desarrollo, 0.186.1 y `@types/three` 0.186.0, para probarla en Node sin GPU). TypeScript sin compilar; `exports` apunta a `src/index.ts`.
 - **No cuenta nada propio** (regla de oro 2): la forma sale de `partProfile`, los puntos de `concreteRounds` y `expandRound`, y cuánto ocupa cada punto abajo y arriba, de `STITCHES`.
 - No importa `stitch-render` ni `yarn-catalog`. `SurfaceLook` tiene la forma de `YarnLook`; lo vigila `apps/web/test/viewer-3d-surface-look.test.ts`.
 - Funciones puras que nunca lanzan con documentos `savable` (G10). Sin red, sin reloj, sin almacenamiento.
@@ -68,6 +68,39 @@ Se recorre `expandRound` de cada vuelta concreta con un cursor sobre lo consumid
 - **Avisos** (`notes`, nunca errores): `ANCHOR_CLAMPED`, `ANCHOR_UNRESOLVED`, `GAUGE_ASSUMED`, `SHAPE_RUFFLES` y `SHAPE_GATHERS` (anillos con `strain` distinto de 1). Mensajes provisionales; la redacción final es de `documentador`.
 - `copies` se lee como en `recommendedLimitUsage` (omitido o inválido = 1), acotado a `LIMITS.maxCopies`.
 
+## Backend `three` (`@loopitalab/viewer-3d/three`)
+
+ADR 0010, secciones 5, 6, 6b y 6c, con las enmiendas V-1 a V-5. Sin React: recibe el `WebGLRenderer`, la escena y la cámara del lienzo (en la aplicación, los de r3f) y dibuja bajo demanda.
+
+```ts
+import { createThreeRenderer } from "@loopitalab/viewer-3d/three";
+
+const r = createThreeRenderer({ gl, scene, camera, invalidate, setPixelRatio: (max) => setDpr(max ?? 2) });
+const policy = r.setScene(buildScene({ pattern, metrics, previous }), looks); // SceneResult cumple RendererScene
+r.setLooks(looks);                                   // solo la tabla por lana (uniformes)
+r.setPreviewOverride({ yarn: 0, look });             // vista previa al pasar el cursor
+r.setLod("smooth");                                  // pedido; la política puede forzar "smooth"
+r.pick(ndcX, ndcY);                                  // { partId, copy, stitch, roundIndex, stitchInRound, point }
+r.setHighlight({ partId, copy, roundIndex });        // resaltado por gl_VertexID, sin otro programa
+await r.snapshot({ width: 640, height: 480, footer: "Vista aproximada…" });
+r.dispose();
+```
+
+| Exporta | Qué hace |
+|---|---|
+| `createThreeRenderer(opts)` | `AmigurumiRenderer`: `setScene`, `setLooks`, `setPreviewOverride`, `setLod`, `policy`, `pick`, `setHighlight`, `bounds`, `snapshot`, `setMaterialVariant` (A/B), `stats`/`resetStats` (contadores del modo de medición), `renderNow`, `dispose` |
+| `PartBuffers` | Atributos reservados de una parte (capacidad × `RESERVE_GROWTH`), copia en el lugar con `addUpdateRange`, `setDrawRange`; `writeYarnRange` sube solo el rango de `yarn` |
+| `createFiberMaterial`, `createYarnTable`, `writeLooks` | Material extendido (`onBeforeCompile`) con la tabla por lana en uniformes leída en el sombreador de vértices, *varyings* `flat`, `customProgramCacheKey` explícito (`loopita-fiber-relief` y `-smooth`) |
+| `createBaseMaterial` | `MeshStandardMaterial` sin extender, solo para el A/B (R4-19) y la prueba "neutro = base" |
+| `createStitchNormalMap`, `stitchHeightField` | Relieve procedural del punto (sin archivos de imagen) |
+| `viewerMode`, `viewerPolicy`, `grownCapacity`, `stitchLocation`, `vertexRangeOfStitches` | Decisiones puras (sin GPU) |
+| Constantes | `LOD_STITCH_BUDGET = 20_000`, `SCENE_HARD_STITCH_CAP = 200_000`, `RECOMMENDED_SCENE_STITCHES` (de `pattern-core`), `DEGRADED_PIXEL_RATIO = 1`, `RESERVE_GROWTH = 1.5`; aspecto: `ROUGHNESS_BASE`, `FIBER_SHEEN_ROUGHNESS`, `FIBER_SHEEN_SPECULAR`, `FIBER_HALO_RIM`, `FIBER_HALO_SOFTEN`, `FIBER_DEFINITION_RELIEF`, `FIBER_HALO_FRESNEL_POWER`; relieve: `RELIEF_NORMAL_SCALE`, `LOOP_EDGE_SHADE`, `LOOP_EDGE_WIDTH`, `HIGHLIGHT_EMISSIVE`. **Valores iniciales**: T12 calibra los de rendimiento y T11c los del aspecto |
+
+- **Dos programas** compilados al montar (`gl.compile` con una malla de sonda y las luces reales). El resaltado usa materiales con la misma clave y los mismos parámetros: comparten el programa. El A/B con `"base"` agrega sus programas (solo en la página de medición).
+- **Neutro = base**: con halo, brillo y definición en 0, sin hebra suelta y sin resaltado, cada término suma 0 o multiplica por 1. El E2E compara los píxeles con `MeshStandardMaterial` (0 píxeles distintos en SwiftShader).
+- **Política** (sección 6c): `full` (≤ 40.000 puntos; `"relief"` si se pide y hay ≤ `LOD_STITCH_BUDGET`), `degraded` (`"smooth"` y razón de píxeles 1) y `silhouettes` (sobre `SCENE_HARD_STITCH_CAP`: no sube nada). La reconstrucción única en curso y "Actualizando 3D…" son del controlador de la aplicación.
+- `setScene` usa `updates` de `buildScene`: `kept` no sube nada; `recolored` sube solo el rango de `yarn`; `built` copia la malla en los búferes reservados.
+
 ## Pruebas
 
 ```sh
@@ -80,6 +113,7 @@ SEED=99999 node --test "test/**/*.test.ts"
 - `property.test.ts`: G4 a G13 con los documentos v2 al azar del generador de `pattern-core` y muestras al azar. G12 exige que la copia del prefijo se aplique en al menos un cuarto de los casos.
 - `scene.test.ts`: F4-58, anclas, ubicación automática, caché (CA4-P6) y avisos.
 - `svg.test.ts`: siluetas.
+- `three.test.ts`: backend `three` sin GPU (política, capacidad, atributos en el lugar, tabla por lana, parche del material, relieve procedural, límites entre paquetes).
 - `perf.test.ts`: guardia CA4-P6. Falla si `partProfile`, `buildPartMesh` (fixture A) o `buildScene` (escenario de referencia, completa y con una parte editada) superan 3 veces la referencia (6 en CI; `VIEWER_3D_PERF_FACTOR` la cambia).
 
 ### Referencia de rendimiento (R4-19)
@@ -99,4 +133,5 @@ Medida el 2026-11-14 en un Apple M1 (8 núcleos, 8 GB) con Node 24.16. Son media
 - Vueltas con puntos de distinto alto no deforman el anillo (sección 1 del ADR).
 - `surfaceFrame` sin `{ mesh }` no conoce `ringPhase`: queda sobre la superficie, pero no necesariamente sobre el punto pedido. `buildScene` siempre pasa la malla del anfitrión.
 - Con un desajuste grande de consumo o con aumentos muy concentrados en vueltas empinadas, puede quedar alguna astilla de triángulo casi degenerada con la cara invertida (fixture B: 5·10⁻⁶ del área).
+- **Backend `three`**: `pick` devuelve la vuelta concreta (0-based), no el número visible; la aplicación lo traduce con `concreteRounds`. La captura (`snapshot`) dibuja el lienzo actual escalado (no un render a otra resolución). El resaltado cubre el rango de vértices de la vuelta. El costo con GPU real lo confirma T12 en el equipo de referencia.
 - `limit` es por parte. Armar una escena parcial (piezas terminadas, la actual a medias y las siguientes ocultas) queda para la fase 6.

@@ -1,4 +1,7 @@
+import { mkdirSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { expect, test } from "@playwright/test";
+import type { Visor3dDevApi } from "../src/app/dev/visor-3d/VisorDemo.tsx";
 
 /*
  * WebGL por software en la CI (T3, fase 4): comprueba que Chromium (con los flags de SwiftShader del proyecto
@@ -17,4 +20,139 @@ test("Chromium entrega un contexto WebGL y dibuja un triángulo", async ({ page 
   // En la CI no hay GPU: si el renderer no es SwiftShader, los flags no se aplicaron y las mediciones del visor mentirían.
   if (process.env.CI) expect(renderer ?? "").toMatch(/swiftshader/i);
   await expect(probe).toHaveAttribute("data-drawn", "true");
+});
+
+/*
+ * Visor 3D real (T11 de la fase 4; ADR 0010, secciones 5 a 8): `/dev/visor-3d` con `viewer-3d/three` y r3f, en
+ * WebGL por software. Comprueba que dibuja, que cambiar aspectos, "Colores planos", la vista previa y el nivel de
+ * detalle no recompilan (2 programas), la guardia de rendimiento (0 escenas y 0 atributos al cambiar aspectos),
+ * que con aspectos neutros el píxel es el del material base (CA4-V8), el aviso de prototipo (CA4-V1), las siluetas
+ * sin WebGL2 y con el contexto perdido (CA4-V5) y la degradación de la sección 6c. Adjunta capturas (CA4-V2, CA4-V8).
+ */
+type Api = Visor3dDevApi;
+type Stats = { visor: { programs: number; programNames: string[]; calls: number; triangles: number; attributesMarked: number; stitches: number; mode: string; lod: string }; controlador: { buildScene: number; partsBuilt: number; partsRecolored: number } };
+
+async function openViewer(page: import("@playwright/test").Page, query = "") {
+  await page.goto(`/dev/visor-3d${query}`);
+  await page.waitForFunction(() => window.__loopitaVisor3d?.ready === true, null, { timeout: 60_000 });
+  await page.evaluate(() => window.__loopitaVisor3d!.flatToPaint(false));
+}
+const stats = (page: import("@playwright/test").Page) => page.evaluate(() => window.__loopitaVisor3d!.stats()) as Promise<Stats>;
+/** Corre `fn(api, arg)` en la página. `fn` no puede usar variables de la prueba: lo que necesite va en `arg`. */
+const call = <T, A = undefined>(page: import("@playwright/test").Page, fn: (api: Api, arg: A) => T | Promise<T>, arg?: A) =>
+  page.evaluate(({ src, arg: x }) => (0, eval)(`(${src})`)(window.__loopitaVisor3d, x), { src: fn.toString(), arg: arg as A }) as Promise<T>;
+
+test("visor 3D: dibuja, el aviso de prototipo está visible y cambiar el aspecto no recompila", async ({ page }) => {
+  await openViewer(page);
+  const notice = page.getByTestId("visor-3d-aviso");
+  await expect(notice).toBeVisible();
+  await expect(notice).toContainText("redondea la pieza y puede cambiar sus medidas");
+  await expect(notice).toContainText("teje una muestra con tu aguja");
+  await expect(notice.getByRole("button")).toHaveCount(0); // no se puede cerrar
+  await expect(page.getByTestId("visor-3d-medidas")).toContainText("estimación");
+
+  const s0 = await stats(page);
+  console.log(`[visor-3d] programas al montar: ${s0.visor.programs} ${JSON.stringify(s0.visor.programNames)}`);
+  expect(s0.visor.programs).toBe(2);
+  expect(s0.visor.stitches).toBe(1_800);
+  expect(s0.visor.triangles).toBeGreaterThan(3_000);
+
+  // Dibuja de verdad: con aspectos neutros, píxeles distintos del fondo, iguales a los del material base (CA4-V8).
+  await call(page, (a) => a.select("fixture-b"));
+  await call(page, (a) => a.flatToPaint(true));
+  const px = await call(page, (a) => a.neutralVsBase());
+  console.log(`[visor-3d] neutro frente a base: ${JSON.stringify(px)}`);
+  expect(px.lit).toBeGreaterThan(px.pixels * 0.05);
+  expect(px.differing).toBe(0);
+  await call(page, (a) => a.flatToPaint(false));
+  // El A/B creó los programas del material base: se cuentan desde aquí.
+  const base = (await stats(page)).visor.programs;
+
+  const before = await stats(page);
+  for (const fiber of ["acrilico", "lana-mohair", "seda", "mohair", "algodon"]) await call(page, (a, f) => a.looksToPaint(f), fiber);
+  await call(page, (a) => a.looksToPaint("algodon", "#BA222C"));
+  await call(page, (a) => a.flatToPaint(true));
+  await call(page, (a) => a.flatToPaint(false));
+  await call(page, (a) => a.hoverToPaint("#25A8A6"));
+  await call(page, (a) => a.hoverToPaint(null));
+  const after = await stats(page);
+  expect(after.visor.programs).toBe(base);
+  // Guardia de rendimiento (sección 6b): 0 escenas, 0 mallas y 0 atributos al cambiar aspectos.
+  expect(after.controlador.buildScene).toBe(before.controlador.buildScene);
+  expect(after.visor.attributesMarked).toBe(before.visor.attributesMarked);
+
+  // El nivel de detalle usa los dos programas compilados al montar.
+  await call(page, (a) => a.setLod("smooth"));
+  await call(page, (a) => a.setLod("relief"));
+  expect((await stats(page)).visor.programs).toBe(base);
+
+  // Cambiar la lana de una vuelta: recolorea, sin reconstruir la malla.
+  await call(page, (a) => a.select("fixture-a"));
+  const r0 = await stats(page);
+  await call(page, (a) => a.recolorToPaint());
+  const r1 = await stats(page);
+  expect(r1.controlador.partsBuilt).toBe(r0.controlador.partsBuilt);
+  expect(r1.controlador.partsRecolored).toBe(r0.controlador.partsRecolored + 1);
+});
+
+test("visor 3D: degradación fuera de los límites y siluetas (secciones 6c y 8; CA4-V5)", async ({ page }) => {
+  await openViewer(page);
+  await call(page, (a) => a.select("grande"));
+  await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 30_000 });
+  const st = (await call(page, (a) => a.status())) as { mode: string; policy: { lod: string; maxPixelRatio: number } };
+  expect(st.mode).toBe("degraded");
+  expect(st.policy).toMatchObject({ lod: "smooth", maxPixelRatio: 1 });
+  await expect(page.getByText("supera los puntos recomendados")).toBeVisible();
+
+  const builds = (await stats(page)).controlador.buildScene;
+  await call(page, (a) => a.select("tope"));
+  await expect(page.getByTestId("visor-3d-siluetas")).toBeVisible();
+  const top = await stats(page);
+  expect(top.controlador.buildScene).toBe(builds); // sobre el tope no se arma ninguna malla
+  expect(top.visor.mode).toBe("silhouettes");
+  await expect(page.getByTestId("visor-3d-aviso")).toBeVisible();
+
+  await call(page, (a) => a.select("fixture-b"));
+  await expect(page.getByTestId("visor-3d-siluetas")).toHaveCount(0);
+  expect(await call(page, (a) => a.loseContext())).toBe(true);
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-lost", "true");
+  await expect(page.getByTestId("visor-3d-siluetas")).toBeVisible();
+  await expect(page.getByTestId("visor-3d-siluetas")).toContainText("el halo y el brillo solo se ven en la vista 3D");
+  await call(page, (a) => a.restoreContext());
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-lost", "false");
+});
+
+test("visor 3D: sin WebGL2 muestra las siluetas con el aviso", async ({ page }) => {
+  await page.goto("/dev/visor-3d?sinwebgl=1");
+  await expect(page.getByTestId("visor-3d-siluetas")).toBeVisible();
+  await expect(page.getByTestId("visor-3d-siluetas").locator("svg")).toHaveCount(1);
+  await expect(page.getByTestId("visor-3d-aviso")).toBeVisible();
+  await expect(page.getByText("no tiene WebGL 2")).toBeVisible();
+});
+
+test("visor 3D: capturas de los patrones de referencia y de las fibras (CA4-V2, CA4-V8)", async ({ page }, info) => {
+  await openViewer(page);
+  const canvas = page.getByTestId("visor-3d-lienzo");
+  // Con E2E_CAPTURAS_DIR, las capturas también se guardan como archivos (para el PR y la revisión de T11c).
+  const dir = process.env.E2E_CAPTURAS_DIR;
+  if (dir) mkdirSync(dir, { recursive: true });
+  const shot = async (name: string) => {
+    const body = await canvas.screenshot();
+    if (dir) writeFileSync(join(dir, name), body);
+    await info.attach(name, { body, contentType: "image/png" });
+  };
+  for (const key of ["fixture-b", "fixture-a", "cilindro", "panel", "colores", "ondula", "muneco"]) {
+    await call(page, (a, k) => a.select(k), key);
+    await page.waitForTimeout(150);
+    await shot(`visor-3d-${key}.png`);
+  }
+  await call(page, (a) => a.select("fixture-b"));
+  for (const fiber of ["algodon", "acrilico", "lana-mohair", "seda"]) {
+    await call(page, (a, f) => a.looksToPaint(f), fiber);
+    await page.waitForTimeout(100);
+    await shot(`visor-3d-fibra-${fiber}.png`);
+  }
+  await call(page, (a) => a.flatToPaint(true));
+  await page.waitForTimeout(100);
+  await shot("visor-3d-colores-planos.png");
 });

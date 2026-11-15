@@ -127,6 +127,13 @@ importers:
       '@loopitalab/pattern-core':
         specifier: workspace:*
         version: link:../pattern-core
+    devDependencies:
+      '@types/three':
+        specifier: 0.186.0
+        version: 0.186.0
+      three:
+        specifier: 0.186.1
+        version: 0.186.1
 
   packages/yarn-catalog: {}
 
