@@ -42,15 +42,15 @@ export const MAX_YARNS: number = LIMITS.maxYarns;
 /** Rugosidad del material base (aspecto neutro). */
 export const ROUGHNESS_BASE = 0.85;
 /** Cuánto baja la rugosidad con `sheen = 1`: `roughness = ROUGHNESS_BASE − FIBER_SHEEN_ROUGHNESS × sheen`. */
-export const FIBER_SHEEN_ROUGHNESS = 0.45;
+export const FIBER_SHEEN_ROUGHNESS = 0.4;
 /** Cuánto se aclara la luz especular directa con `sheen = 1` (factor `1 + FIBER_SHEEN_SPECULAR × sheen`). */
 export const FIBER_SHEEN_SPECULAR = 0.6;
 /** Intensidad del borde difuso (Fresnel) con `halo = 1`: `color += FIBER_HALO_RIM × halo × fresnel × (blanco − color)`. */
-export const FIBER_HALO_RIM = 0.55;
+export const FIBER_HALO_RIM = 0.35;
 /** Cuánto suaviza el relieve el halo: `normalScale × (1 − FIBER_HALO_SOFTEN × halo)`. */
 export const FIBER_HALO_SOFTEN = 0.7;
 /** Cuánto marca el relieve la definición: `normalScale × (1 + FIBER_DEFINITION_RELIEF × definition)`. */
-export const FIBER_DEFINITION_RELIEF = 0.8;
+export const FIBER_DEFINITION_RELIEF = 1.0;
 /** Exponente del término de Fresnel del halo. */
 export const FIBER_HALO_FRESNEL_POWER = 3;
 

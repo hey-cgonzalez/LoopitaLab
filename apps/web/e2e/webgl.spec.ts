@@ -156,3 +156,90 @@ test("visor 3D: capturas de los patrones de referencia y de las fibras (CA4-V2, 
   await page.waitForTimeout(100);
   await shot("visor-3d-colores-planos.png");
 });
+
+/*
+ * Calibración del aspecto por fibra (T11c de la fase 4; ADR 0010, sección 6b): las mismas lanas (mismo color, solo
+ * cambia la composición) en el 3D (`/dev/visor-3d`) y en el 2D (`/dev/fibras-2d`). Con `E2E_CAPTURAS_DIR` guarda
+ * `calib-3d-<lana>.png` y `calib-2d-<lana>.png` para compararlas.
+ */
+const CALIBRATION_HEX = "#BA222C";
+const CALIBRATION_FIBERS = ["algodon", "acrilico", "lana-mohair", "seda", "algodon-lurex", "mohair"];
+
+/** Métricas de una captura de una lana roja sobre fondo claro: brillo medio, brillo p98 (destellos), borde y contraste local. */
+async function lookMetrics(page: import("@playwright/test").Page, png: Buffer) {
+  return page.evaluate(async (b64) => {
+    const img = new Image();
+    img.src = `data:image/png;base64,${b64}`;
+    await img.decode();
+    const c = document.createElement("canvas");
+    c.width = img.width;
+    c.height = img.height;
+    const g = c.getContext("2d")!;
+    g.drawImage(img, 0, 0);
+    const { data } = g.getImageData(0, 0, c.width, c.height);
+    const W = c.width;
+    const H = c.height;
+    const lum = (i: number) => 0.2126 * data[i]! + 0.7152 * data[i + 1]! + 0.0722 * data[i + 2]!;
+    const mask = new Uint8Array(W * H);
+    for (let p = 0; p < W * H; p++) mask[p] = data[p * 4]! - data[p * 4 + 1]! > 40 ? 1 : 0;
+    const R = 5;
+    const ls: number[] = [];
+    const edge: number[] = [];
+    const core: number[] = [];
+    let diff = 0;
+    let nd = 0;
+    for (let y = R; y < H - R; y++)
+      for (let x = R; x < W - R; x++) {
+        const p = y * W + x;
+        if (!mask[p]) continue;
+        const l = lum(p * 4);
+        ls.push(l);
+        const inner = mask[p - R] && mask[p + R] && mask[p - R * W] && mask[p + R * W];
+        (inner ? core : edge).push(l);
+        if (inner && mask[p + 1]) {
+          diff += Math.abs(l - lum((p + 1) * 4));
+          nd++;
+        }
+      }
+    const mean = (a: number[]) => (a.length ? a.reduce((x, y) => x + y, 0) / a.length : 0);
+    ls.sort((a, b) => a - b);
+    return { mean: mean(ls), p98: ls[Math.floor(ls.length * 0.98)] ?? 0, edge: mean(edge), core: mean(core), contrast: nd ? diff / nd : 0 };
+  }, png.toString("base64"));
+}
+
+test("calibración: capturas 3D y 2D de las mismas lanas (T11c, CA4-V8)", async ({ page }, info) => {
+  const dir = process.env.E2E_CAPTURAS_DIR;
+  if (dir) mkdirSync(dir, { recursive: true });
+  const rows: string[] = [];
+  const save = async (name: string, body: Buffer) => {
+    if (dir) writeFileSync(join(dir, name), body);
+    await info.attach(name, { body, contentType: "image/png" });
+    const m = await lookMetrics(page, body);
+    rows.push(`${name}: ${JSON.stringify(Object.fromEntries(Object.entries(m).map(([k, v]) => [k, Math.round(v * 10) / 10])))}`);
+  };
+  await openViewer(page);
+  await call(page, (a) => a.select("fixture-b"));
+  const canvas = page.getByTestId("visor-3d-lienzo");
+  // La esfera ocupa el centro del lienzo: se recorta para que el detalle del punto se vea.
+  const shot3d = async () => {
+    const box = (await canvas.boundingBox())!;
+    return page.screenshot({ clip: { x: box.x + box.width / 2 - 165, y: box.y + box.height / 2 - 150, width: 330, height: 300 } });
+  };
+  for (const fiber of CALIBRATION_FIBERS) {
+    await call(page, (a, a2) => a.looksToPaint(a2.f, a2.hex), { f: fiber, hex: CALIBRATION_HEX });
+    await page.waitForTimeout(150);
+    await save(`calib-3d-${fiber}.png`, await shot3d());
+  }
+  await call(page, (a) => a.flatToPaint(true));
+  await page.waitForTimeout(150);
+  await save("calib-3d-colores-planos.png", await shot3d());
+
+  await page.goto(`/dev/fibras-2d?hex=${encodeURIComponent(CALIBRATION_HEX)}`);
+  for (const id of [...CALIBRATION_FIBERS, "colores-planos"]) {
+    const c = page.getByTestId(`fibra-2d-${id}`);
+    await expect(c).toHaveAttribute("data-ready", "true");
+    await page.waitForTimeout(100);
+    await save(`calib-2d-${id}.png`, await c.screenshot());
+  }
+  console.log(`[calibracion]\n${rows.join("\n")}`);
+});

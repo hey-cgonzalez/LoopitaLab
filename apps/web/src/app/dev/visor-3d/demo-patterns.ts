@@ -22,6 +22,7 @@ export const FIBER_SAMPLES: Record<string, { label: string; composition: Yarn["c
   acrilico: { label: "100 % acrílico", composition: [{ fiber: "acrilico", percent: 100 }] },
   "lana-mohair": { label: "70/30 lana y mohair", composition: [{ fiber: "lana", percent: 70 }, { fiber: "mohair", percent: 30 }] },
   seda: { label: "100 % seda", composition: [{ fiber: "seda", percent: 100 }] },
+  "algodon-lurex": { label: "85/15 algodón y lurex", composition: [{ fiber: "algodon", percent: 85 }, { fiber: "lurex", percent: 15 }] },
   mohair: { label: "100 % mohair", composition: [{ fiber: "mohair", percent: 100 }] },
 };
 
