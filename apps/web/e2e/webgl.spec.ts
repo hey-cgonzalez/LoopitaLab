@@ -311,3 +311,23 @@ test("estudio amigurumi: sobre el límite recomendado, el editor responde y el 3
   await expect.poll(async () => (await studioCounters(page)).buildScene, { timeout: 15_000 }).toBeGreaterThan(before.buildScene);
   await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
 });
+
+/*
+ * Editor de bloques (T15 de la fase 4) con WebGL por software: una acción de bloques (cantidad, insertar vuelta)
+ * rearma el 3D igual que el texto, y solo la parte editada.
+ */
+test("estudio amigurumi: editar en bloques rearma solo la malla de su parte", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=muneco");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  await page.getByTestId("tab-blocks").click();
+  await expect(page.getByTestId("block-editor")).toBeVisible();
+  const before = await studioCounters(page);
+  const first = page.locator('[data-round="0"]').getByTestId("block-insert-after");
+  await first.click();
+  await expect.poll(async () => (await studioCounters(page)).buildScene, { timeout: 15_000 }).toBeGreaterThan(before.buildScene);
+  const after = await studioCounters(page);
+  expect(after.partsBuilt - before.partsBuilt).toBeLessThanOrEqual(1);
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
+});

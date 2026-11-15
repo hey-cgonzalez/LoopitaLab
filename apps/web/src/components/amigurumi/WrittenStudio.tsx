@@ -12,6 +12,7 @@ import { SessionBanners } from "@/components/studio/SessionBanners";
 import { useSettledDoc } from "@/components/studio/useStoreSelector";
 import { useDesignSession } from "@/components/studio/useStudioSession";
 import { YarnPanel } from "@/components/studio/YarnPanel";
+import { BLOCK_EDIT_POLICY_V1, BlockActions, type BlockEditPolicy } from "@/lib/amigurumi/blocks.ts";
 import { crossedLimit, limitSummaryCache } from "@/lib/amigurumi/limits.ts";
 import { reviewWritten } from "@/lib/amigurumi/review.ts";
 import { concreteIndexOf, sourceIndexOfNumber, sourceOfConcrete } from "@/lib/amigurumi/rounds.ts";
@@ -21,10 +22,12 @@ import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 import { nextTabId } from "@/lib/studio/a11y.ts";
 import type { Recovery } from "@/lib/studio/backup-recovery.ts";
 import type { ViewerHandle } from "./AmigurumiViewer.tsx";
+import { BlockEditor } from "./BlockEditor.tsx";
 import { AmigurumiViewerLoader } from "./AmigurumiViewerLoader.tsx";
 import { LimitDialog, LimitsMeter } from "./LimitsMeter.tsx";
 import { PartsPanel } from "./PartsPanel.tsx";
 import { PartTextEditor, type LineRequest } from "./PartTextEditor.tsx";
+import { UnreadTextDialog } from "./UnreadTextDialog.tsx";
 import { WrittenGauge } from "./WrittenGauge.tsx";
 
 const T = AMIGURUMI_TEXTS;
@@ -33,6 +36,9 @@ const BTN = "rounded-full border-2 border-marino px-3 py-1 text-sm font-bold ena
 /** Pausas antes de la revisión del validador y de la descripción completa: nunca entre la edición y el dibujo (CA4-P5). */
 const REVIEW_SETTLE_MS = 250;
 const DESCRIBE_SETTLE_MS = 500;
+
+type EditMode = "text" | "blocks";
+const EDIT_MODES: readonly EditMode[] = ["text", "blocks"];
 
 type Tab = "parts" | "editor" | "view";
 const TABS: { id: Tab; label: string }[] = [
@@ -73,6 +79,8 @@ export interface WrittenStudioProps {
   exposeForTests?: boolean;
   /** Siluetas sin WebGL a propósito (página de desarrollo, `?sinwebgl=1`). */
   forceNoWebGL?: boolean;
+  /** Política del editor de bloques. Por omisión, la de la v1 (`BLOCK_EDIT_POLICY_V1`). */
+  blockPolicy?: BlockEditPolicy;
 }
 
 declare global {
@@ -87,7 +95,7 @@ declare global {
  * Escritorio con tres columnas (partes y lanas, patrón, 3D); tableta y móvil con pestañas.
  * El guardado es el del colorwork: `savable`, conflictos y respaldo local (más el texto sin leer).
  */
-export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssues, dialect, detached = false, perf = false, exposeForTests = false, forceNoWebGL = false }: WrittenStudioProps) {
+export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssues, dialect, detached = false, perf = false, exposeForTests = false, forceNoWebGL = false, blockPolicy = BLOCK_EDIT_POLICY_V1 }: WrittenStudioProps) {
   const buffersRef = useRef<TextBuffers | null>(null);
   const onRecovered = useCallback((r: Recovery<WrittenPattern>) => {
     if (r.pendingText) buffersRef.current?.restore(r.pendingText);
@@ -119,6 +127,10 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const [selectedId, setSelectedId] = useState(initial.parts[0]?.id ?? "");
   const [activeYarn, setActiveYarn] = useState(initial.yarns[0]?.id ?? "A");
   const [tab, setTab] = useState<Tab>("editor");
+  const [editMode, setEditMode] = useState<EditMode>("text");
+  /** Cambio a bloques (o a otra parte desde bloques) con líneas sin leer: pregunta antes de seguir. */
+  const [unreadPrompt, setUnreadPrompt] = useState<{ partId: string; proceed: () => void } | null>(null);
+  const buffersVersion = useSyncExternalStore(buffers.subscribe, buffers.getVersion, buffers.getVersion);
   const [announce, setAnnounce] = useState("");
   const [lineRequest, setLineRequest] = useState<LineRequest | null>(null);
   const [textNotice, setTextNotice] = useState<string | null>(null);
@@ -259,10 +271,65 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     [store],
   );
 
-  function selectPart(id: string) {
-    setSelectedId(id);
-    if (compact) setTab("editor");
+  const blockActions = useMemo(() => new BlockActions({ store, policy: blockPolicy, guard }), [store, blockPolicy, guard]);
+
+  const hasUnread = useCallback(
+    (partId: string) => {
+      const v = buffers.view(partId);
+      return v !== null && v.status !== "synced";
+    },
+    [buffers],
+  );
+
+  function requestMode(next: EditMode) {
+    if (next === editMode) return;
+    if (next === "text") {
+      setLineRequest(null);
+      setEditMode("text");
+      return;
+    }
+    if (selected && hasUnread(selected.id)) {
+      setUnreadPrompt({ partId: selected.id, proceed: () => setEditMode("blocks") });
+      return;
+    }
+    setEditMode("blocks");
   }
+
+  // Si la parte abierta en bloques pasa a tener líneas sin leer (se tocó en el 3D, se recuperó un respaldo): al texto.
+  useEffect(() => {
+    if (editMode === "blocks" && selected && hasUnread(selected.id)) {
+      setEditMode("text");
+      setTextNotice(T.bloques.sinLeerForzado);
+    }
+  }, [editMode, selected, hasUnread, buffersVersion]);
+
+  function selectPart(id: string) {
+    const go = () => {
+      setSelectedId(id);
+      if (compact) setTab("editor");
+    };
+    if (editMode === "blocks" && hasUnread(id)) {
+      setUnreadPrompt({ partId: id, proceed: go });
+      return;
+    }
+    go();
+  }
+
+  /** "Editar en el texto" desde un bloque de solo lectura: al texto, en la línea de esa vuelta. */
+  function editInText(roundIndex: number) {
+    if (!selected) return;
+    setEditMode("text");
+    const line = buffers.view(selected.id)?.roundLines[roundIndex];
+    setLineRequest(line !== undefined ? { partId: selected.id, line, nonce: Date.now() } : null);
+  }
+
+  const onEditTabKey = (e: React.KeyboardEvent<HTMLButtonElement>, id: EditMode) => {
+    const to = nextTabId(EDIT_MODES, id, e.key);
+    if (!to) return;
+    e.preventDefault();
+    requestMode(to);
+    window.document.getElementById(`wedit-tab-${to}`)?.focus();
+  };
 
   function onTitle(raw: string) {
     setTitleText(raw);
@@ -391,14 +458,24 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
                 </button>
               </div>
             </div>
-            {/* Pestañas Texto / Bloques: el editor de bloques es T15 (el lugar queda listo). */}
             <div role="tablist" aria-label="Forma de editar" className="flex gap-2" data-testid="editor-tabs">
-              <button type="button" role="tab" aria-selected="true" className={`${BTN} bg-marino text-white`} id="wedit-tab-text" aria-controls="wedit-panel-text">
-                {T.editor.pestanaTexto}
-              </button>
-              <button type="button" role="tab" aria-selected="false" aria-disabled="true" tabIndex={-1} title={T.editor.bloquesPronto} className={`${BTN} cursor-not-allowed opacity-60`} data-testid="tab-blocks">
-                {T.editor.pestanaBloques}
-              </button>
+              {EDIT_MODES.map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  id={`wedit-tab-${m}`}
+                  aria-selected={editMode === m}
+                  aria-controls={`wedit-panel-${m}`}
+                  tabIndex={editMode === m ? 0 : -1}
+                  onClick={() => requestMode(m)}
+                  onKeyDown={(e) => onEditTabKey(e, m)}
+                  className={`${BTN} ${editMode === m ? "bg-marino text-white" : ""}`}
+                  data-testid={m === "text" ? "tab-text" : "tab-blocks"}
+                >
+                  {m === "text" ? T.editor.pestanaTexto : T.editor.pestanaBloques}
+                </button>
+              ))}
             </div>
             <p className="text-sm text-tinta-suave" data-testid="dialect-line" data-dialect={dialect}>
               {T.editor.dialecto(dialect)}{" "}
@@ -408,19 +485,37 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
                 </Link>
               )}
             </p>
-            <div id="wedit-panel-text" role="tabpanel" aria-labelledby="wedit-tab-text">
-              <PartTextEditor
-                key={selected.id}
-                store={store}
-                buffers={buffers}
-                part={selected}
-                review={review.byPart.get(selected.id) ?? { byRound: new Map(), general: [] }}
-                limits={limits}
-                onCaretRound={onCaretRound}
-                lineRequest={lineRequest}
-                onUnplaced={(labels) => setTextNotice(T.partes.sinUbicar(labels.join(", ")))}
-              />
-            </div>
+            {editMode === "text" ? (
+              <div id="wedit-panel-text" role="tabpanel" aria-labelledby="wedit-tab-text">
+                <PartTextEditor
+                  key={selected.id}
+                  store={store}
+                  buffers={buffers}
+                  part={selected}
+                  review={review.byPart.get(selected.id) ?? { byRound: new Map(), general: [] }}
+                  limits={limits}
+                  onCaretRound={onCaretRound}
+                  lineRequest={lineRequest}
+                  onUnplaced={(labels) => setTextNotice(T.partes.sinUbicar(labels.join(", ")))}
+                />
+              </div>
+            ) : (
+              <div id="wedit-panel-blocks" role="tabpanel" aria-labelledby="wedit-tab-blocks">
+                <BlockEditor
+                  key={selected.id}
+                  store={store}
+                  part={selected}
+                  yarns={doc.yarns}
+                  dialect={dialect}
+                  policy={blockPolicy}
+                  actions={blockActions}
+                  review={review.byPart.get(selected.id)}
+                  onEditInText={editInText}
+                  announce={setAnnounce}
+                  onRoundFocus={onCaretRound}
+                />
+              </div>
+            )}
             {textNotice ? (
               <p role="status" className="rounded-lg border-l-4 border-mostaza pl-2 text-sm">
                 {textNotice}
@@ -476,6 +571,26 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       <div role="status" aria-live="polite" className="sr-only" data-testid="studio-announcement">
         {announce}
       </div>
+
+      <UnreadTextDialog
+        open={unreadPrompt !== null}
+        onBack={() => {
+          const p = unreadPrompt;
+          setUnreadPrompt(null);
+          if (!p) return;
+          // Vuelve al texto de la parte que tiene las líneas sin leer.
+          setSelectedId(p.partId);
+          setLineRequest(null);
+          setEditMode("text");
+        }}
+        onDiscard={() => {
+          const p = unreadPrompt;
+          setUnreadPrompt(null);
+          if (!p) return;
+          buffers.discard(p.partId);
+          p.proceed();
+        }}
+      />
 
       <LimitDialog
         usage={dialog?.usage ?? null}

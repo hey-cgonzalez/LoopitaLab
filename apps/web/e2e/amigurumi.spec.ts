@@ -183,13 +183,14 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     await expect(partText(page)).not.toHaveValue(/@B/);
   });
 
-  test("el 3D sigue al documento, y Bloques y Posicionar quedan preparados y desactivados", async ({ page }) => {
+  test("el 3D sigue al documento; Bloques está activo (T15) y Posicionar queda preparado y desactivado (T16)", async ({ page }) => {
     await open(page);
     const before = await viewerMeasures(page);
     await caretToEnd(page);
     await page.keyboard.type("\nV2: aum x6 (12)\nV3: [pb, aum] x6 (18)\nV4-8: 18 pb (18)");
     await expect.poll(() => viewerMeasures(page)).not.toBe(before);
-    await expect(page.getByTestId("tab-blocks")).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByTestId("tab-blocks")).toBeEnabled();
+    await expect(page.getByTestId("tab-text")).toHaveAttribute("aria-selected", "true");
     await expect(page.getByTestId("position-mode")).toBeDisabled();
     await expect(page.getByTestId("written-description")).toContainText("Descripción del patrón");
     await expect(page.locator("#" + (await page.getByTestId("visor-3d-lienzo").getAttribute("aria-describedby"))!.split(" ")[1]!)).toContainText("Cuerpo");

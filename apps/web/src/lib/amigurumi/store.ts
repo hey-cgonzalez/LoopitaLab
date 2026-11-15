@@ -1,21 +1,33 @@
 import {
   addPart,
   addYarn,
+  insertItem,
+  insertRound,
+  moveItem,
   movePart,
+  removeItem,
   removePart,
+  removeRound,
   removeYarn,
   renamePart,
   reorderYarns,
   replacePartRounds,
+  replaceRound,
   setCopies,
   setPartConstruction,
   setPartFinish,
   setPartStart,
   setPartStartYarn,
+  unwrapGroup,
+  updateItem,
   validateYarn,
+  wrapInGroup,
   type Gauge,
+  type Item,
+  type ItemPath,
   type Part,
   type PartRef,
+  type Round,
   type WrittenPattern,
   type Yarn,
 } from "@loopitalab/pattern-core";
@@ -47,6 +59,17 @@ export type WrittenAction =
   | { type: "movePart"; partId: string; toIndex: number }
   | { type: "removePart"; partId: string }
   | { type: "setCopies"; partId: string; copies: number }
+  // Editor de bloques (T15): una acción = un paso de deshacer. Las rutas son `ItemPath` (ADR 0011, T6-4: `to` es la
+  // ruta después de mover). Ninguna sabe de la política de la interfaz: eso es de `canEditBlock`.
+  | { type: "insertRound"; partId: string; index: number; round: Round }
+  | { type: "removeRound"; partId: string; index: number }
+  | { type: "replaceRound"; partId: string; index: number; round: Round }
+  | { type: "insertItem"; partId: string; roundIndex: number; path: ItemPath; item: Item }
+  | { type: "updateItem"; partId: string; roundIndex: number; path: ItemPath; item: Item }
+  | { type: "removeItem"; partId: string; roundIndex: number; path: ItemPath }
+  | { type: "moveItem"; partId: string; roundIndex: number; from: ItemPath; to: ItemPath }
+  | { type: "wrapInGroup"; partId: string; roundIndex: number; from: ItemPath; to: ItemPath; times: number }
+  | { type: "unwrapGroup"; partId: string; roundIndex: number; path: ItemPath }
   /** `null` quita la muestra (las medidas pasan a "supuesto"). */
   | { type: "setGauge"; gauge: Gauge | null };
 
@@ -253,6 +276,24 @@ export class WrittenStore implements YarnEditStore {
         const r = setCopies(doc, a.partId, a.copies);
         return same(r.pattern, r.unplaced);
       }
+      case "insertRound":
+        return same(insertRound(doc, a.partId, a.index, a.round));
+      case "removeRound":
+        return same(removeRound(doc, a.partId, a.index));
+      case "replaceRound":
+        return same(replaceRound(doc, a.partId, a.index, a.round));
+      case "insertItem":
+        return same(insertItem(doc, a.partId, a.roundIndex, a.path, a.item));
+      case "updateItem":
+        return same(updateItem(doc, a.partId, a.roundIndex, a.path, a.item));
+      case "removeItem":
+        return same(removeItem(doc, a.partId, a.roundIndex, a.path));
+      case "moveItem":
+        return same(moveItem(doc, a.partId, a.roundIndex, a.from, a.to));
+      case "wrapInGroup":
+        return same(wrapInGroup(doc, a.partId, a.roundIndex, a.from, a.to, a.times));
+      case "unwrapGroup":
+        return same(unwrapGroup(doc, a.partId, a.roundIndex, a.path));
       case "addYarn":
         return same(addYarn(doc, a.yarn));
       case "removeYarn":
