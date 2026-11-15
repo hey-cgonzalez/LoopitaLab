@@ -26,8 +26,9 @@ const nextConfig: NextConfig = {
   ...(process.env.LOOPITA_NEXT_DIST_DIR ? { distDir: process.env.LOOPITA_NEXT_DIST_DIR } : {}),
   reactStrictMode: true,
   poweredByHeader: false,
-  // Los paquetes del monorepo se publican como TypeScript sin compilar.
-  transpilePackages: ["@loopitalab/follow", "@loopitalab/pattern-core", "@loopitalab/yarn-catalog", "@loopitalab/stitch-render", "@loopitalab/pattern-render"],
+  // Los paquetes del monorepo se publican como TypeScript sin compilar. `three` y `@react-three/fiber` no van aquí:
+  // compilan y cargan sin eso (ADR 0010, enmienda V-5).
+  transpilePackages: ["@loopitalab/follow", "@loopitalab/pattern-core", "@loopitalab/yarn-catalog", "@loopitalab/stitch-render", "@loopitalab/pattern-render", "@loopitalab/viewer-3d"],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },
