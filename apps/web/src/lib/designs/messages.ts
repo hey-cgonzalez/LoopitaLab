@@ -79,18 +79,18 @@ export function dbErrorCode(error: { code?: string; details?: string | null; det
  * errores estructurales: no se guarda. Los avisos del motor traen su propio mensaje; estos son el respaldo corto.
  */
 export const WRITTEN_ISSUE_MESSAGES: Record<string, string> = {
-  PART_COPIES: "La cantidad de veces que se teje una parte debe ser un número entero, de 1 hasta el máximo permitido.",
-  LAYOUT_COPY_RANGE: "Una ubicación se refiere a una pieza que no existe: revisa cuántas veces se teje esa parte.",
-  LAYOUT_TARGET_UNKNOWN: "Una ubicación se refiere a una parte que no existe.",
+  PART_COPIES: "Las veces que se teje una parte deben ser un número entero, de 1 hasta el máximo permitido.",
+  LAYOUT_COPY_RANGE: "Una posición se refiere a una pieza que no existe. Revisa cuántas veces se teje la parte.",
+  LAYOUT_TARGET_UNKNOWN: "Una posición se refiere a una parte que no existe.",
   LAYOUT_HOST_UNKNOWN: "Una pieza está cosida a una parte que no existe.",
-  LAYOUT_DUPLICATE: "Una pieza tiene dos ubicaciones; deja solo una.",
-  LAYOUT_ANCHOR_RANGE: "Una pieza está cosida a una vuelta o a un punto que ya no existe; el 3D la acerca al más cercano.",
-  LIMIT: "El diseño supera un límite del editor (partes, vueltas, puntos, lanas o largo de los textos). Reduce su tamaño.",
+  LAYOUT_DUPLICATE: "Una pieza tiene dos posiciones. Deja solo una.",
+  LAYOUT_ANCHOR_RANGE: "Una pieza está cosida a una vuelta o a un punto que ya no existe. El 3D la pone en el más cercano; revisa dónde va.",
+  LIMIT: "El diseño supera un límite del editor (partes, vueltas, puntos, lanas o largo de los textos). Hazlo más pequeño para guardarlo.",
   ROUND_CONSUMPTION_MISMATCH: "Una vuelta no trabaja sobre todos los puntos de la anterior. Se guarda como borrador; corrígela antes de tejer.",
-  ROUND_COUNT_MISMATCH: "El conteo que escribiste al final de una vuelta no coincide con los puntos que resultan. Se guarda como borrador.",
-  ROUND_ZERO: "Una vuelta se queda sin puntos y no deja nada para la siguiente. Se guarda como borrador.",
-  ROUND_RANGE_CHANGES: "Una vuelta repetida cambia el número de puntos en cada repetición. Se guarda como borrador.",
-  ROUND_NUMBERING: "Las vueltas no están numeradas en orden. Se guarda como borrador.",
+  ROUND_COUNT_MISMATCH: "El conteo que escribiste al final de una vuelta no coincide con los puntos que resultan. Se guarda como borrador; corrígelo antes de tejer.",
+  ROUND_ZERO: "Una vuelta se queda sin puntos y no deja nada para la siguiente. Se guarda como borrador; corrígela antes de tejer.",
+  ROUND_RANGE_CHANGES: "Un rango de vueltas iguales cambia el número de puntos en cada vuelta. Se guarda como borrador; escribe cada vuelta por separado.",
+  ROUND_NUMBERING: "Las vueltas no están numeradas en orden. Se guarda como borrador; corrígelas antes de tejer.",
 };
 
 /** Texto en español de un problema del patrón escrito: el provisional de su código o, si no hay, el mensaje del motor. */

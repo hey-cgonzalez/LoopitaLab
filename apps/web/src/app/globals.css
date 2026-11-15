@@ -37,6 +37,13 @@ body {
   box-shadow: 0 0 0 2px var(--color-marino);
 }
 
+/* Elementos que llenan un marco con `overflow: hidden` (cuadro de texto del patrón, lienzo 3D): el anillo hacia afuera
+   quedaría recortado, así que se dibuja hacia adentro (WCAG 2.4.7). */
+[data-focus-inset]:focus-visible {
+  outline-offset: -5px;
+  box-shadow: inset 0 0 0 2px var(--color-marino);
+}
+
 /* WCAG 2.4.11: al desplazarse hacia un elemento enfocado, el navegador deja libre el alto de un aviso fijo inferior.
    `--aviso-alto` lo escribe el aviso de prototipo del estudio con su alto real; en el resto de páginas vale 0. */
 html {
@@ -81,5 +88,7 @@ body:has([data-studio]) > [data-site-footer] {
   *::after {
     animation-duration: 0.01ms !important;
     transition-duration: 0.01ms !important;
+    /* Sin desplazamientos suaves (por ejemplo, al llevar el cursor a una línea del patrón). */
+    scroll-behavior: auto !important;
   }
 }

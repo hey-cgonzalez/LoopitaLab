@@ -31,6 +31,49 @@ test.describe("Cuenta", () => {
     await save();
     expect(await stored()).toBe(false);
   });
+
+  test("«Abreviaturas de los patrones de amigurumi»: avisa que «dc» cambia, se guarda con teclado, sobrevive a recargar y se anuncia (T17)", async ({ page, admin, accounts }) => {
+    const stored = async () => (await admin.from("profiles").select("pattern_dialect").eq("id", accounts.bea.id).single()).data?.pattern_dialect;
+    const group = () => page.getByRole("group", { name: "Abreviaturas de los patrones de amigurumi" });
+    await page.goto("/cuenta");
+    try {
+      await expect(group()).toBeVisible();
+      await expect(group().getByRole("radio")).toHaveCount(3);
+      await expect(group().getByRole("radio", { name: /^Español/ })).toBeChecked();
+      // La advertencia de «dc» está enlazada al grupo (la oye quien lo enfoca).
+      await expect(group()).toHaveAccessibleDescription(/«dc» es el punto bajo.+«dc» es el punto alto/);
+      const save = page.getByRole("button", { name: "Guardar abreviaturas" });
+      await expect(save).toBeDisabled(); // sin cambios
+
+      // Con el teclado: el radio elegido se mueve con las flechas y se guarda con Enter en el botón.
+      await group().getByRole("radio", { name: /^Español/ }).focus();
+      await page.keyboard.press("ArrowDown"); // EE. UU.
+      await page.keyboard.press("ArrowDown"); // Reino Unido
+      await expect(group().getByRole("radio", { name: /^Inglés británico/ })).toBeChecked();
+      await save.focus();
+      await page.keyboard.press("Enter");
+      const status = page.getByRole("status").filter({ hasText: "Abreviaturas guardadas" });
+      await expect(status).toBeVisible();
+      expect(await stored()).toBe("uk");
+
+      await page.reload();
+      await expect(group().getByRole("radio", { name: /^Inglés británico/ })).toBeChecked();
+      await expect(page.getByRole("button", { name: "Guardar abreviaturas" })).toBeDisabled();
+    } finally {
+      // Deja la cuenta como estaba (otras pruebas usan a bea).
+      await admin.from("profiles").update({ pattern_dialect: "es" }).eq("id", accounts.bea.id);
+    }
+    expect(await stored()).toBe("es");
+  });
+
+  test("/cuenta a 320 y 390 px no desplaza en horizontal y el grupo de abreviaturas cabe", async ({ page }) => {
+    for (const width of [320, 390]) {
+      await page.setViewportSize({ width, height: 800 });
+      await page.goto("/cuenta");
+      await expect(page.getByRole("group", { name: "Abreviaturas de los patrones de amigurumi" })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `/cuenta a ${width} px`).toBe(true);
+    }
+  });
 });
 
 test.describe("Cerrar sesión", () => {

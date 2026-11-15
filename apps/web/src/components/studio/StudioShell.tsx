@@ -318,7 +318,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
           <Link href="/disenos" className="py-1 text-sm underline underline-offset-4">
             ← Mis diseños
           </Link>
-          <div className="min-w-[12rem] flex-1">
+          <div className="min-w-[min(12rem,100%)] flex-1">
             <label htmlFor={titleId} className="sr-only">
               Nombre del diseño
             </label>

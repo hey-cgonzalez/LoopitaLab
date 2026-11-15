@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { useModalDialog } from "./useModalDialog.ts";
 
 const T = AMIGURUMI_TEXTS.bloques;
 
@@ -11,14 +12,8 @@ const T = AMIGURUMI_TEXTS.bloques;
  * `<dialog>` modal, como el de los límites recomendados: lleva el foco adentro y lo devuelve al cerrar.
  */
 export function UnreadTextDialog({ open, onBack, onDiscard }: { open: boolean; onBack(): void; onDiscard(): void }) {
-  const ref = useRef<HTMLDialogElement>(null);
+  const ref = useModalDialog(open);
   const uid = useId();
-  useEffect(() => {
-    const d = ref.current;
-    if (!d) return;
-    if (open && !d.open) d.showModal();
-    else if (!open && d.open) d.close();
-  }, [open]);
   return (
     <dialog
       ref={ref}
@@ -38,7 +33,7 @@ export function UnreadTextDialog({ open, onBack, onDiscard }: { open: boolean; o
           </h2>
           <p id={`${uid}-d`}>{T.sinLeerTexto}</p>
           <div className="flex flex-wrap justify-end gap-2">
-            <button type="button" onClick={onBack} className="rounded-full bg-marino px-4 py-1.5 font-bold text-white hover:bg-indigo" autoFocus data-testid="unread-back">
+            <button type="button" onClick={onBack} className="rounded-full bg-marino px-4 py-1.5 font-bold text-white hover:bg-indigo" data-dialog-initial data-testid="unread-back">
               {T.volverAlTexto}
             </button>
             <button type="button" onClick={onDiscard} className="rounded-full border-2 border-marino px-4 py-1.5 font-bold hover:bg-marino hover:text-white" data-testid="unread-discard">

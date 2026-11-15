@@ -87,7 +87,7 @@ describe("describeWritten: fixtures", () => {
     const d = describeWritten(withEars(10));
     assert.deepEqual(d.parts[1]?.copyLabels, ["Oreja (1 de 2)", "Oreja (2 de 2)"]);
     assert.match(d.text, /Se teje 2 veces/);
-    assert.equal(d.placements.find((x) => x.part === "oreja" && x.copy === 0)?.text, "Oreja (1 de 2): se cose a «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
+    assert.equal(d.placements.find((x) => x.part === "oreja" && x.copy === 0)?.text, "Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
     assert.equal(d.placements.find((x) => x.part === "oreja" && x.copy === 1)?.kind, "automatic");
     // Sin distancia en puntos desde el inicio de la vuelta.
     assert.doesNotMatch(d.text, /a \d+ puntos del inicio|stitch/);

@@ -18,6 +18,7 @@ import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 import { unplacedLabels } from "./PartsPanel.tsx";
 
 const T = AMIGURUMI_TEXTS.posicion;
+const A11Y = AMIGURUMI_TEXTS.a11y;
 const BTN = "rounded-full border-2 border-marino px-3 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 const FIELD = "rounded-xl border-2 border-borde bg-superficie px-2 py-1";
 
@@ -127,7 +128,7 @@ export function PositionPanel({ store, doc, target, onTarget, mode, onMode, wher
           ] as const
         ).map(([m, label]) => (
           <label key={m} className="inline-flex items-center gap-2">
-            <input type="radio" name={`${uid}-mode`} checked={mode === m} onChange={() => chooseMode(m)} data-testid={`position-mode-${m}`} />
+            <input type="radio" className="size-5 accent-marino" name={`${uid}-mode`} checked={mode === m} onChange={() => chooseMode(m)} data-testid={`position-mode-${m}`} />
             {label}
           </label>
         ))}
@@ -135,6 +136,7 @@ export function PositionPanel({ store, doc, target, onTarget, mode, onMode, wher
         {mode === "surface" && !viewerReady ? <p className="text-tinta-suave">{T.sinVisor}</p> : null}
       </fieldset>
 
+      {mode === "surface" ? <AnchorLegend /> : null}
       {mode === "surface" ? <SurfaceControls key={refKey(target)} doc={doc} store={store} target={target} current={current} run={run} labelOf={labelOf} /> : null}
       {mode === "free" && current?.at.type === "free" ? <FreeControls key={refKey(target)} store={store} target={target} current={current} run={run} /> : null}
 
@@ -155,6 +157,41 @@ export function PositionPanel({ store, doc, target, onTarget, mode, onMode, wher
           {notice}
         </p>
       ) : null}
+    </section>
+  );
+}
+
+// ---------------------------------------------------------------- leyenda del ancla
+
+/**
+ * Qué muestran el punto y las flechas de la vista previa del ancla (T17; WCAG 1.4.1): cada flecha tiene su largo (largo,
+ * mediano, corto) además de su color, y la leyenda las nombra por largo y por el control de giro que las usa. Los
+ * trazos son decorativos: el texto dice lo mismo.
+ */
+function AnchorLegend() {
+  const uid = useId();
+  const items = [
+    { len: 44, color: "#1a2540", text: A11Y.anclaNormal },
+    { len: 30, color: "#ba222c", text: A11Y.anclaVuelta },
+    { len: 20, color: "#2f7d32", text: A11Y.anclaMeridiano },
+  ] as const;
+  return (
+    <section aria-labelledby={`${uid}-t`} className="grid gap-1.5 rounded-xl border-2 border-linea p-2" data-testid="anchor-legend">
+      <h4 id={`${uid}-t`} className="font-bold">
+        {A11Y.anclaTitulo}
+      </h4>
+      <p className="text-tinta-suave">{A11Y.anclaIntro}</p>
+      <ul className="grid gap-1.5">
+        {items.map((it) => (
+          <li key={it.text} className="flex items-center gap-2">
+            <svg aria-hidden="true" width="52" height="14" viewBox="0 0 52 14" className="shrink-0">
+              <line x1="2" y1="7" x2={2 + it.len} y2="7" stroke={it.color} strokeWidth="3" strokeLinecap="round" />
+              <path d={`M${2 + it.len} 2 L${8 + it.len} 7 L${2 + it.len} 12 Z`} fill={it.color} />
+            </svg>
+            <span>{it.text}</span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }
@@ -313,7 +350,7 @@ function SurfaceControls({
               ] as const
             ).map(([a, label]) => (
               <label key={a} className="inline-flex items-center gap-2">
-                <input type="radio" name={`${uid}-attach`} checked={at.attach === a} onChange={() => run(withSurface(current, { attach: a }))} data-testid={`position-attach-${a}`} />
+                <input type="radio" className="size-5 accent-marino" name={`${uid}-attach`} checked={at.attach === a} onChange={() => run(withSurface(current, { attach: a }))} data-testid={`position-attach-${a}`} />
                 {label}
               </label>
             ))}

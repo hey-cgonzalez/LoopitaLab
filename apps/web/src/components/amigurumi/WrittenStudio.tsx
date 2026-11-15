@@ -31,10 +31,12 @@ import { LimitDialog, LimitsMeter } from "./LimitsMeter.tsx";
 import { PartsPanel, unplacedLabels } from "./PartsPanel.tsx";
 import { PartTextEditor, type LineRequest } from "./PartTextEditor.tsx";
 import { PositionPanel, roundWord } from "./PositionPanel.tsx";
+import { Shortcuts } from "./Shortcuts.tsx";
 import { UnreadTextDialog } from "./UnreadTextDialog.tsx";
 import { WrittenGauge } from "./WrittenGauge.tsx";
 
 const T = AMIGURUMI_TEXTS;
+const A11Y = AMIGURUMI_TEXTS.a11y;
 const BTN = "rounded-full border-2 border-marino px-3 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 
 /** Pausas antes de la revisión del validador y de la descripción completa: nunca entre la edición y el dibujo (CA4-P5). */
@@ -135,7 +137,12 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   /** Cambio a bloques (o a otra parte desde bloques) con líneas sin leer: pregunta antes de seguir. */
   const [unreadPrompt, setUnreadPrompt] = useState<{ partId: string; proceed: () => void } | null>(null);
   const buffersVersion = useSyncExternalStore(buffers.subscribe, buffers.getVersion, buffers.getVersion);
-  const [announce, setAnnounce] = useState("");
+  const [announcement, setAnnouncement] = useState("");
+  /**
+   * Anuncio `polite`. Un mismo mensaje dos veces seguidas (por ejemplo, borrar dos bloques) no cambia el texto de la
+   * región y el lector lo callaría: se alterna un espacio fino al final para que se anuncie otra vez.
+   */
+  const setAnnounce = useCallback((message: string) => setAnnouncement((prev) => (prev === message ? message + String.fromCharCode(0x200b) : message)), []);
   const [lineRequest, setLineRequest] = useState<LineRequest | null>(null);
   const [textNotice, setTextNotice] = useState<string | null>(null);
   const [dialog, setDialog] = useState<{ usage: LimitUsage; crossed: RecommendedLimit[]; run: () => void } | null>(null);
@@ -224,6 +231,34 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   /** Piezas sin ubicar según la escena (`placed: false`); null sin escena (se usa el `layout`). */
   const [sceneUnplaced, setSceneUnplaced] = useState<{ key: string; refs: PartRef[] } | null>(null);
   const [viewerReady, setViewerReady] = useState(false);
+  /**
+   * En pantallas angostas, elegir una parte cambia a la pestaña «Patrón»: el botón que tenía el foco queda oculto y el
+   * foco se perdería (WCAG 2.4.3). El foco pasa al nombre de la parte abierta (el lector lo dice).
+   */
+  const focusEditorNext = useRef(false);
+  useEffect(() => {
+    if (!focusEditorNext.current || tab !== "editor") return;
+    focusEditorNext.current = false;
+    window.document.querySelector<HTMLElement>('[data-testid="editor-part-name"]')?.focus();
+  }, [tab, selectedId]);
+  const positionToggle = useRef<HTMLButtonElement>(null);
+  const positionPanel = useRef<HTMLDivElement>(null);
+  /** Posicionar se activó con el teclado (clic sin ratón): el foco pasa al panel; con puntero se queda donde está. */
+  const focusPanelNext = useRef(false);
+
+  // Foco de "Posicionar": al activarlo con teclado va a la primera opción del panel; al cerrarlo (botón o Escape) vuelve
+  // al botón si el foco estaba dentro del panel.
+  const wasPositioning = useRef(false);
+  useEffect(() => {
+    if (positioning && !wasPositioning.current) {
+      if (focusPanelNext.current) positionPanel.current?.querySelector<HTMLElement>('[data-testid="position-target"]')?.focus();
+      setAnnounce(A11Y.posicionarActivo);
+    } else if (!positioning && wasPositioning.current) {
+      setAnnounce(A11Y.posicionarCerrado);
+    }
+    focusPanelNext.current = false;
+    wasPositioning.current = positioning;
+  }, [positioning, setAnnounce]);
 
   // La pieza elegida tiene que existir (borrar una parte o bajar sus copias).
   const refs = pieceRefs(doc);
@@ -256,6 +291,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       if (posMode !== "surface") {
         // Fuera de "cosida", tocar una pieza la elige.
         onPosTarget(hit);
+        setAnnounce(A11Y.piezaElegida(unplacedLabels(store.doc, [hit])[0] ?? hit.part));
         return;
       }
       if (sameRef(hit, target)) {
@@ -280,7 +316,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         setAnnounce(msg);
       }
     },
-    [posMode, target, store, onPosTarget],
+    [posMode, target, store, onPosTarget, setAnnounce],
   );
 
   const onPick = useCallback(
@@ -297,12 +333,14 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       const part = store.doc.parts.find((x) => x.id === p.partId);
       if (!part) return;
       setSelectedId(part.id);
+      // En pantallas angostas el patrón está en otra pestaña: se muestra antes de pedir la línea (el foco no va a un cuadro oculto).
+      if (compact) setTab("editor");
       const j = p.roundNumber !== null ? sourceIndexOfNumber(part, p.roundNumber) : null;
       const view = buffers.view(part.id);
       const line = j !== null ? view?.roundLines[j] : undefined;
       if (line !== undefined) setLineRequest({ partId: part.id, line, nonce: Date.now() });
     },
-    [store, buffers, positioning, placeFromPick],
+    [store, buffers, positioning, placeFromPick, compact],
   );
 
   // E2E de la página de desarrollo: acceso al almacén y al visor.
@@ -383,7 +421,10 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   function selectPart(id: string) {
     const go = () => {
       setSelectedId(id);
-      if (compact) setTab("editor");
+      if (compact) {
+        focusEditorNext.current = tab !== "editor";
+        setTab("editor");
+      }
     };
     if (editMode === "blocks" && hasUnread(id)) {
       setUnreadPrompt({ partId: id, proceed: go });
@@ -440,7 +481,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
           <Link href="/disenos" className="py-1 text-sm underline underline-offset-4">
             {T.volver}
           </Link>
-          <div className="min-w-[12rem] flex-1">
+          <div className="min-w-[min(12rem,100%)] flex-1">
             <label htmlFor={titleId} className="sr-only">
               {T.nombreDiseno}
             </label>
@@ -478,7 +519,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         recoveryExtra={pendingRecovered > 0 ? `Incluye líneas sin leer en ${pendingRecovered === 1 ? "1 parte" : `${pendingRecovered} partes`}.` : undefined}
       />
 
-      <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
+      <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 flex-wrap gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
         {TABS.map((t) => (
           <button
             key={t.id}
@@ -525,12 +566,12 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         </div>
 
         <div id="wpanel-editor" {...panelA11y("editor")} className={`${show("editor")} relative min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain`} data-column="editor">
-          <section aria-label={T.editor.titulo} className="grid gap-3 rounded-2xl border-2 border-linea bg-superficie p-3">
+          <section aria-label={T.editor.titulo} className="grid grid-cols-[minmax(0,1fr)] gap-3 rounded-2xl border-2 border-linea bg-superficie p-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <h2 className="font-display text-base font-bold" data-testid="editor-part-name">
+              <h2 tabIndex={-1} className="font-display text-base font-bold" data-testid="editor-part-name">
                 {selected.name}
               </h2>
-              <div className="flex gap-2">
+              <div className="flex flex-wrap gap-2">
                 <button type="button" className={BTN} onClick={() => store.undo()} disabled={!state.canUndo} data-testid="undo">
                   {T.editor.deshacer}
                 </button>
@@ -539,7 +580,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
                 </button>
               </div>
             </div>
-            <div role="tablist" aria-label="Forma de editar" className="flex gap-2" data-testid="editor-tabs">
+            <div role="tablist" aria-label="Forma de editar" className="flex flex-wrap gap-2" data-testid="editor-tabs">
               {EDIT_MODES.map((m) => (
                 <button
                   key={m}
@@ -612,16 +653,19 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
               </ul>
             ) : null}
           </section>
+          <Shortcuts />
         </div>
 
         <div id="wpanel-view" {...panelA11y("view")} className={`${show("view")} relative min-h-0 flex-col gap-3 overflow-y-auto overscroll-contain`} data-column="view">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <h2 className="font-display text-base font-bold">{T.vista.titulo}</h2>
             <button
+              ref={positionToggle}
               type="button"
               aria-pressed={positioning}
               aria-describedby={`${descId}-pos`}
-              onClick={() => {
+              onClick={(e) => {
+                focusPanelNext.current = e.detail === 0; // `detail` 0: se activó con el teclado
                 setPositioning((v) => !v);
                 setPosNotice(null);
                 if (!positioning) onPosTarget({ part: selected.id, copy: 0 });
@@ -654,19 +698,32 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
           />
           {/* Debajo del visor: activar "Posicionar" no mueve el 3D. */}
           {positioning ? (
-            <PositionPanel
-              store={store}
-              doc={doc}
-              target={target}
-              onTarget={onPosTarget}
-              mode={posMode}
-              onMode={onPosMode}
-              whereText={whereOf(target)}
-              notice={posNotice}
-              onNotice={setPosNotice}
-              announce={setAnnounce}
-              viewerReady={viewerReady}
-            />
+            <div
+              ref={positionPanel}
+              onKeyDown={(e) => {
+                // Escape cierra "Posicionar" y devuelve el foco al botón (salvo que un control abierto ya haya usado la tecla).
+                if (e.key !== "Escape" || e.defaultPrevented) return;
+                e.preventDefault();
+                setPositioning(false);
+                setPosNotice(null);
+                positionToggle.current?.focus();
+              }}
+            >
+              <PositionPanel
+                store={store}
+                doc={doc}
+                target={target}
+                onTarget={onPosTarget}
+                mode={posMode}
+                onMode={onPosMode}
+                whereText={whereOf(target)}
+                notice={posNotice}
+                onNotice={setPosNotice}
+                announce={setAnnounce}
+                viewerReady={viewerReady}
+              />
+              <p className="mt-1 text-sm text-tinta-suave">{A11Y.posicionarCerrar}</p>
+            </div>
           ) : null}
           <AssemblyPanel
             store={store}
@@ -679,15 +736,20 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
           <details className="rounded-xl border-2 border-linea bg-superficie px-3 py-2 text-sm" data-testid="written-description">
             <summary className="cursor-pointer font-bold">{T.vista.descripcionTitulo}</summary>
             <p className="mt-1 text-tinta-suave">{T.vista.descripcionAyuda}</p>
-            <p id={descId} className="mt-2 whitespace-pre-line">
-              {description.text}
-            </p>
+            <p className="mt-2 whitespace-pre-line">{description.text}</p>
           </details>
+          {/*
+           * Texto que lee el visor con `aria-describedby`: va fuera del `<details>` porque su contenido, cerrado, puede no
+           * entrar al árbol de accesibilidad. `hidden`: un lector lo usa como descripción, pero no se lee dos veces.
+           */}
+          <p id={descId} hidden data-testid="written-description-text">
+            {description.text}
+          </p>
         </div>
       </div>
 
       <div role="status" aria-live="polite" className="sr-only" data-testid="studio-announcement">
-        {announce}
+        {announcement}
       </div>
 
       <UnreadTextDialog

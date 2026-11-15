@@ -96,7 +96,7 @@ async function touchHead(page: Page): Promise<{ round: number; stitch: number }>
 
 const whereItem = (page: Page, part: string, copy: number) => page.locator(`[data-testid=where-list] li[data-part="${part}"][data-copy="${copy}"]`);
 const whereText = (round: number, last: number) =>
-  round >= last ? `Oreja (1 de 2): se cose a «Cabeza», sobre la V${round}, la última, contando desde el anillo mágico.` : `Oreja (1 de 2): se cose a «Cabeza», entre la V${round} y la V${round + 1}, contando desde el anillo mágico.`;
+  round >= last ? `Oreja (1 de 2): se cose a la pieza «Cabeza», sobre la V${round}, la última, contando desde el anillo mágico.` : `Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V${round} y la V${round + 1}, contando desde el anillo mágico.`;
 
 test.describe("Posicionar con sesión (WebGL)", () => {
   test("posicionar una oreja tocando la cabeza, girarla, guardar y recargar; la base y «Dónde va cada pieza» coinciden", async ({ page, admin }) => {

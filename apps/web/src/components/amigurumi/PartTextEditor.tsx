@@ -10,6 +10,7 @@ import type { PartText, TextBuffers } from "@/lib/amigurumi/text-buffers.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 
 const T = AMIGURUMI_TEXTS.editor;
+const A = AMIGURUMI_TEXTS.a11y;
 const BTN = "rounded-full border-2 border-marino px-3 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 /** Mientras se escribe, el anuncio del conteo espera esta pausa (no se repite en cada tecla). */
 const ANNOUNCE_MS = 700;
@@ -190,11 +191,6 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
     return { text: T.conteo(label, c.produced, c.consumed, range) };
   }, [caretLine, lines, buffers.mode, part.startYarn, part.construction]);
 
-  useEffect(() => {
-    const t = setTimeout(() => setSpoken(caretInfo?.text ?? ""), ANNOUNCE_MS);
-    return () => clearTimeout(t);
-  }, [caretInfo?.text]);
-
   // Resaltado en el 3D de la vuelta del cursor (la del documento: solo con el texto leído).
   const caretSource = caretLine !== null && view.status === "synced" ? (roundAtLine.get(caretLine + 1) ?? null) : null;
   useEffect(() => onCaretRound(caretSource), [caretSource, part]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -233,6 +229,41 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
   const roundItems = useMemo(() => [...(review?.byRound ?? new Map<number, ReviewItem[]>())].sort((a, b) => a[0] - b[0]), [review]);
   const reviewCount = roundItems.reduce((s, [, l]) => s + l.length, 0) + (review?.general.length ?? 0);
 
+  // Qué se dice, en cadenas estables: la región viva solo cambia cuando cambia el texto (con una pausa), no en cada tecla.
+  // La columna del error no entra en el anuncio: cambia con cada tecla de la misma línea.
+  const firstError = view.errors[0];
+  const errorSummary =
+    view.status === "synced"
+      ? ""
+      : firstError
+        ? A.lineasSinLeer(view.errors.length, Number((firstError.data as { line?: number } | undefined)?.line ?? 1), firstError.message)
+        : T.sinAplicar;
+  const firstReview = roundItems[0];
+  const firstReviewItem = firstReview?.[1][0];
+  const reviewSummary = view.status === "synced" && firstReview && firstReviewItem ? A.revisionAviso(reviewCount, `${roundLabel(part, firstReview[0])}: ${firstReviewItem.message}`) : "";
+  const hadProblem = useRef(false);
+  const caretText = caretInfo?.text ?? "";
+  const editing = caretLine !== null;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      // Sin el cursor en el cuadro (al cargar, al salir) no se anuncia nada.
+      if (!editing) {
+        setSpoken("");
+        return;
+      }
+      const said = [caretText];
+      if (errorSummary) {
+        hadProblem.current = true;
+        said.push(errorSummary);
+      } else if (hadProblem.current) {
+        hadProblem.current = false;
+        said.push(T.leido);
+      } else if (reviewSummary) said.push(reviewSummary);
+      setSpoken(said.filter(Boolean).join(" "));
+    }, ANNOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [editing, caretText, errorSummary, reviewSummary]);
+
   return (
     <div className="grid gap-3" data-testid="part-text-editor" data-part={part.id} data-status={view.status}>
       <p id={`${uid}-help`} className="text-sm text-tinta-suave">
@@ -244,7 +275,7 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
             const mk = markers.get(i + 1);
             return (
               <div key={i} className="flex items-center justify-end gap-1 px-1.5" style={{ height: LINE_PX }} data-line={i + 1} data-marker={mk ?? undefined}>
-                {mk ? <span className={mk === "error" ? "font-bold text-error" : mk === "warning" ? "font-bold text-marino" : "font-bold text-indigo"}>{mk === "error" ? "×" : "!"}</span> : null}
+                {mk ? <span className={mk === "error" ? "font-bold text-error" : mk === "warning" ? "font-bold text-marino" : "font-bold text-indigo"}>{mk === "error" ? "×" : mk === "warning" ? "!" : "▲"}</span> : null}
                 <span className="min-w-6">{i + 1}</span>
               </div>
             );
@@ -277,7 +308,8 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
           onScroll={(e) => {
             if (gutterRef.current) gutterRef.current.scrollTop = e.currentTarget.scrollTop;
           }}
-          className="min-w-0 flex-1 resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-sm whitespace-pre outline-none"
+          data-focus-inset
+          className="min-w-0 flex-1 resize-none overflow-auto bg-transparent px-3 py-2 font-mono text-sm whitespace-pre"
           style={{ lineHeight: `${LINE_PX}px` }}
           data-testid="part-text"
         />
@@ -291,7 +323,8 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
         {spoken}
       </p>
 
-      <div id={`${uid}-status`} role="status" className="grid gap-2" data-testid="read-status">
+      {/* Sin `role="status"`: la columna del error cambia con cada tecla y se repetiría. Lo que se dice va en la región de arriba. */}
+      <div id={`${uid}-status`} className="grid gap-2" data-testid="read-status">
         {view.status === "synced" ? (
           <p className="text-sm text-exito">{T.leido}</p>
         ) : (

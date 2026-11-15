@@ -179,7 +179,7 @@ function describePart(part: Part, index: number, pattern: WrittenPattern, opts: 
   const lines = [
     `${name}: ${plural(summary.rounds, word[0] as string, word[1] as string)}, ${plural(summary.totalStitches, "punto", "puntos")} en total; termina con ${plural(summary.finalCount, "punto", "puntos")}.`,
   ];
-  if (copies > 1) lines.push(`Se teje ${copies} veces: ${copyLabels.join(", ")}. Las copias son idénticas, sin espejo.`);
+  if (copies > 1) lines.push(`Se teje ${copies} veces: ${copyLabels.join(", ")}. Todas son iguales, sin espejo.`);
   lines.push(measures.text);
   const startWord = part.start.type === "magic_ring" ? (dialect === "es" ? "anillo mágico (AM)" : "anillo mágico (MR)") : `${formatInt(part.start.count)} cadenetas (${dialect === "es" ? "cad" : "ch"})`;
   lines.push(`Empieza con ${startWord}.`);
@@ -215,7 +215,7 @@ function describePlacement(pl: Placement, pattern: WrittenPattern, dialect: Dial
   const hostIdx = parts.findIndex((p) => p.id === at.host.part);
   const host = hostIdx >= 0 ? (parts[hostIdx] as Part) : undefined;
   if (!host) {
-    return { part: pl.target.part, copy: pl.target.copy, label, kind: "surface", text: `${label}: se cose a una parte que no está en el patrón.` };
+    return { part: pl.target.part, copy: pl.target.copy, label, kind: "surface", text: `${label}: se cose a una pieza que no está en el patrón.` };
   }
   const hostName = copyLabel(partName(host, hostIdx), copiesOf(host), at.host.copy);
   const prefix = roundPrefix(host, dialect);
@@ -232,7 +232,7 @@ function describePlacement(pl: Placement, pattern: WrittenPattern, dialect: Dial
     copy: pl.target.copy,
     label,
     kind: "surface",
-    text: `${label}: se cose a «${hostName}»${start}, ${where}.`,
+    text: `${label}: se cose a la pieza «${hostName}»${start}, ${where}.`,
   };
 }
 
@@ -255,7 +255,7 @@ export function describeWritten(pattern: WrittenPattern, options: DescribeWritte
         if (pl) placements.push(describePlacement(pl, pattern, dialect));
         else {
           const label = copyLabel(partName(part, i), copiesOf(part), c);
-          placements.push({ part: part.id, copy: c, label, kind: "automatic", text: `${label}: sin ubicar; se ubica de forma automática.` });
+          placements.push({ part: part.id, copy: c, label, kind: "automatic", text: `${label}: sin ubicar; el 3D la acomoda sola.` });
         }
       }
     }
@@ -266,7 +266,7 @@ export function describeWritten(pattern: WrittenPattern, options: DescribeWritte
     if (gaugeStatus === "missing") head.push("Falta la muestra: sin ella no hay medidas en cm.");
     const sections = [head.join(" "), ...parts.map((p) => p.text)];
     if (pattern.layout) sections.push(["Dónde va cada pieza:", ...placements.map((p) => p.text)].join("\n"));
-    sections.push("Prototipo digital: las medidas son aproximadas; teje una muestra para comprobar la muestra y las proporciones.");
+    sections.push("Prototipo digital: las medidas son aproximadas; teje una muestra con tu lana y tu aguja para comprobar las medidas y las proporciones.");
     return { ok: true, dialect, parts, placements, gaugeStatus, text: sections.join("\n\n") };
   } catch {
     return empty("No se pudo describir el patrón.");

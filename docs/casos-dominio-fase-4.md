@@ -326,6 +326,19 @@ Estimaciones propias de orden de magnitud, **sin fuente pública, validar con te
 17. **Límites recomendados** (F4-70 a F4-76): ¿los tamaños típicos que arman caben?
 18. **Textos**: avisos F4-77 a F4-80, "Dónde va cada pieza" (¿se entiende "entre la V10 y la V11"?).
 
+### Textos de T18
+
+Textos de la interfaz marcados `// validar con tejedora` en T18 (`documentador`). Son los de `apps/web/src/lib/amigurumi/texts.ts`, `packages/viewer-3d/src/scene.ts` y `packages/pattern-render/src/describe-written.ts`.
+
+19. **"Dónde va cada pieza"**: «Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V10 y la V11, contando desde el anillo mágico». ¿Se entiende? ¿"Se cose a la pieza" o "se une a"? ¿"Contando desde el anillo mágico" basta, o hace falta aclarar que no es desde el cuello ni desde el marcador (ayuda `armado.dondeVaAyuda`)? Con cadeneta inicial dice "contando desde la cadeneta inicial"; en hileras, "la cadeneta base".
+20. **Ayuda de la sintaxis** (`editor.ayuda`): ¿se entiende que una base ovalada se escribe con «Inicio: AM» y todos sus puntos en la V1, y que el 3D la dibuja redonda? ¿Les sirve que «Cantidad» también se lea como «Hacer», «Piezas» y «Tejer»?
+21. **Modo UK** (`editor.dialecto`): «en UK "dc" es el punto bajo (en US, "sc"); "sc" da error». ¿Es claro para quien tiene patrones en inglés del Reino Unido?
+22. **Avisos de forma del 3D** (`SHAPE_RUFFLES`, `SHAPE_GATHERS`): una frase por zona («entre la vuelta 3 y la 9: aumenta más de lo que la tela puede abrir en plano… puede ondularse» / «disminuye más de lo que puede cerrarse en curva… puede fruncirse»). ¿"Ondularse" y "fruncirse" son los verbos que usan?
+23. **Muestra supuesta** (`GAUGE_ASSUMED`, `muestra.supuesta`): ¿"Teje una muestra con tu lana y tu aguja" (en amigurumi, con el ganchillo) es lo que dirían?
+24. **Pieza sin ubicar o con ancla fuera de rango** (`ANCHOR_UNRESOLVED`, `ANCHOR_CLAMPED`, `LAYOUT_ANCHOR_RANGE`): «el 3D la muestra aparte, a la derecha» y «la pone en la vuelta más cercana». ¿Se entiende que es solo la vista y no el tejido?
+25. **Rangos de vueltas** (`ROUND_RANGE_CHANGES`): «un rango de vueltas iguales cambia el número de puntos; escribe cada vuelta por separado». ¿"Rango" se entiende, o prefieren «V5-8»?
+26. **"Se teje N veces"** en vez de "copias": ¿se entiende «Se teje 2 veces: Oreja (1 de 2), Oreja (2 de 2). Todas son iguales, sin espejo»?
+
 ## Fuentes
 
 - Craft Yarn Council, abreviaturas y terminología US/UK (**abierta**): https://www.craftyarncouncil.com/standards/crochet-abbreviations . Fuente de sc, hdc, dc, tr, sl st / ss, dec, inc, ch, sc2tog, BLO y FLO, y de la tabla "U.S. vs. U.K. Terminology". "mr" no aparece en esa página.

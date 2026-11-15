@@ -5,6 +5,8 @@ import { hasPassword as checkHasPassword } from "@/lib/password-status";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { enabledProviders, identityLabel, reauthChoice } from "@/lib/auth-providers";
 import { requireUser } from "@/lib/session";
+import { getPatternDialect } from "./actions";
+import { DialectPreference } from "./DialectPreference";
 import { ProfileForm } from "./ProfileForm";
 import { YourData } from "./YourData";
 
@@ -23,6 +25,8 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
     hasPassword = null;
   }
   const choice = hasPassword === null ? null : reauthChoice(hasPassword, identities, enabledProviders());
+  // Abreviaturas de los patrones de amigurumi (`profiles.pattern_dialect`). Si no se puede leer, se avisa y se muestra "es".
+  const dialectPref = await getPatternDialect();
   return (
     <>
       <AppHeader name={name} />
@@ -47,6 +51,14 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
                 No pudimos cargar tus preferencias. Recarga la página en unos minutos.
               </p>
             )}
+            {profile ? (
+              <section aria-labelledby="abreviaturas-amigurumi" className="mt-10 border-t-2 border-linea pt-6">
+                <h2 id="abreviaturas-amigurumi" className="mb-3 font-display text-xl font-bold">
+                  Patrones de amigurumi
+                </h2>
+                <DialectPreference initial={dialectPref.dialect ?? "es"} loadError={dialectPref.error} />
+              </section>
+            ) : null}
         </div>
         <div className="max-w-xl">
           {methods.length > 0 ? (

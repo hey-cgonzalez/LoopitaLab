@@ -1,9 +1,10 @@
 import { RECOMMENDED_WRITTEN_LIMITS, type Dialect, type RecommendedLimit } from "@loopitalab/pattern-core";
 
 /*
- * Textos del estudio amigurumi (T14 de la fase 4). Redacción provisional de `frontend-editor`: la final la hace
- * `documentador` (T18) y la revisa `ux-accesibilidad` (T17). Los términos de tejido quedan "validar con tejedora"
- * (T1b, regla de oro 5). En la interfaz se evita la palabra "copias" (enmienda C-14): "se teje N veces".
+ * Textos del estudio amigurumi (T14 de la fase 4), revisados en T18 por `documentador`; los revisa `ux-accesibilidad`
+ * (T17). Los términos de tejido llevan `// validar con tejedora` y están en la hoja T1b (sección "Textos de T18" de
+ * docs/casos-dominio-fase-4.md; regla de oro 5). En la interfaz se evita la palabra "copias" (enmienda C-14):
+ * "se teje N veces". Nombres de partes: no se supone su género; se dice "la pieza «X»".
  */
 
 const n = (v: number) => v.toLocaleString("es-CL");
@@ -61,10 +62,10 @@ export const AMIGURUMI_TEXTS = {
     pestanaBloques: "Bloques",
     etiquetaTexto: (name: string) => `Patrón escrito de «${name}»`,
     ayuda:
-      "Una vuelta por línea, por ejemplo «V2: aum x6 (12)». Una línea que empieza con > es una nota de la vuelta de arriba. Al salir de una línea, se escribe en su forma de siempre (por ejemplo, «pb x6» pasa a «6 pb»).",
+      "Una vuelta por línea, por ejemplo «V2: aum x6 (12)»; en una parte por hileras, «H2». Una línea que empieza con > es una nota de la vuelta de arriba. «Cantidad: 2» dice cuántas veces se teje la parte (también se lee «Hacer», «Piezas» y «Tejer»). Una base ovalada se escribe con «Inicio: AM» y todos sus puntos en la V1: el 3D la dibuja redonda. Al salir de una línea, se escribe en su forma de siempre (por ejemplo, «pb x6» pasa a «6 pb»).", // validar con tejedora
     dialecto: (d: Dialect) =>
       d === "uk"
-        ? "Abreviaturas: inglés del Reino Unido (UK). Se leen también las del español."
+        ? "Abreviaturas: inglés del Reino Unido (UK). Ojo: en UK «dc» es el punto bajo (en US, «sc»); «sc» da error. Se leen también las del español." // validar con tejedora
         : d === "us"
           ? "Abreviaturas: inglés de EE. UU. (US). Se leen también las del español."
           : "Abreviaturas: español. Se leen también las de EE. UU. (US).",
@@ -240,11 +241,11 @@ export const AMIGURUMI_TEXTS = {
     giroZ: "Giro Z (grados)",
     grados: "grados",
     quitar: "Quitar posición",
-    quitada: (label: string) => `«${label}» quedó sin ubicar: se acomoda sola en el 3D.`,
-    cosidaEn: (label: string, host: string, word: string, round: number, stitch: number) => `«${label}» quedó cosida a «${host}», ${word} ${n(round)}, punto ${n(stitch)}.`,
-    libreLista: (label: string) => `«${label}» quedó libre.`,
+    quitada: (label: string) => `La pieza «${label}» quedó sin ubicar: el 3D la acomoda sola.`,
+    cosidaEn: (label: string, host: string, word: string, round: number, stitch: number) => `La pieza «${label}» quedó cosida a la pieza «${host}», ${word} ${n(round)}, punto ${n(stitch)}.`,
+    libreLista: (label: string) => `La pieza «${label}» quedó libre.`,
     noASiMisma: "Una pieza no se puede coser a sí misma: toca otra pieza.",
-    noSePudo: "No se pudo ubicar así: se formaría un ciclo (una pieza cosida a otra que está cosida a ella) o se pasa un límite del editor.",
+    noSePudo: "No se pudo ubicar así: dos piezas quedarían cosidas una a la otra (en círculo) o se pasa un límite del editor.",
     actual: "Dónde va",
     sinVisor: "Sin la vista 3D, ubica la pieza con la vuelta y el punto.",
   },
@@ -253,9 +254,9 @@ export const AMIGURUMI_TEXTS = {
   armado: {
     titulo: "Armado",
     dondeVa: "Dónde va cada pieza",
-    dondeVaAyuda: "Sale de la posición de cada pieza; se cuenta desde el anillo mágico o la cadeneta inicial.",
+    dondeVaAyuda: "Sale de la posición de cada pieza. Las vueltas se cuentan desde el anillo mágico (o desde la cadeneta inicial), no desde el cuello ni desde el marcador.", // validar con tejedora
     sinDescripcion: "Corrige los errores del patrón para ver dónde va cada pieza.",
-    sinUbicar: (list: string) => `Sin ubicar (se acomodan solas a la derecha en el 3D): ${list}.`,
+    sinUbicar: (list: string) => `Sin ubicar (el 3D las acomoda solas, a la derecha): ${list}.`,
     pasos: "Pasos de armado",
     pasosAyuda: "Escribe cómo se arma el muñeco, un paso por casilla (por ejemplo, «Cose la cabeza sobre el cuerpo»).",
     paso: (i: number) => `Paso ${i}`,
@@ -276,4 +277,52 @@ export const AMIGURUMI_TEXTS = {
   tejer: "Seguir un amigurumi punto a punto llega en una próxima versión.",
   borradorTitulo: "Borrador con vueltas que no cuadran",
   borradorTexto: "Está guardado, pero no se puede tejer hasta corregirlo.",
+
+  /**
+   * Accesibilidad (T17 de la fase 4): anuncios para lector de pantalla, leyenda del ancla, atajos de teclado y textos
+   * de las siluetas. Sección propia de `ux-accesibilidad`; `documentador` (T18) revisa la redacción.
+   */
+  a11y: {
+    // Anuncios del texto (región `polite`, con pausa: no se repiten en cada tecla)
+    lineasSinLeer: (count: number, line: number, message: string) =>
+      count === 1 ? `Hay 1 línea sin leer: la línea ${line}. ${message}` : `Hay ${n(count)} líneas sin leer. La primera es la línea ${line}. ${message}`,
+    revisionAviso: (count: number, first: string) => (count === 1 ? `Revisión: ${first}` : `Revisión: ${n(count)} avisos. El primero: ${first}`),
+    // Anuncios de los bloques
+    cambioAgregado: "Se agregó un cambio de lana.",
+    conteoDeclarado: (label: string, produced: number) => `${label}: ahora el patrón declara ${n(produced)} ${produced === 1 ? "punto" : "puntos"}.`,
+    vueltaCambio: (label: string, text: string) => `${label}: ${text}.`,
+    // Límites recomendados
+    medidorValor: (value: string, tone: string | null) => (tone ? `${value}. ${tone}` : value),
+    medidorVolvio: "Volviste al rango recomendado de puntos.",
+    // Visor
+    visorTeclas: "Con la vista 3D enfocada: las flechas la giran, + y − acercan o alejan, 0 vuelve a la vista inicial.",
+    coloresPlanosLink: "Colores planos",
+    // Posicionar
+    posicionarActivo: "Posicionar activado. Elige la pieza y cómo va en el panel «Posicionar piezas», debajo de la vista 3D. Escape lo cierra.",
+    posicionarCerrado: "Posicionar cerrado.",
+    piezaElegida: (label: string) => `Elegiste «${label}».`,
+    posicionarCerrar: "Escape cierra el modo Posicionar.",
+    // Leyenda del ancla: se entiende sin distinguir colores (las flechas difieren en largo)
+    anclaTitulo: "Qué muestran el punto y las flechas",
+    anclaIntro: "En la vista 3D, el punto blanco marca dónde se cose la pieza. Las flechas se distinguen por su largo, no solo por su color.",
+    anclaNormal: "Flecha larga (azul marino): sale de la superficie hacia afuera. «Girar» gira la pieza sobre ella.",
+    anclaVuelta: "Flecha mediana (roja): sigue la vuelta, de punto a punto. «Inclinar» gira la pieza sobre ella.",
+    anclaMeridiano: "Flecha corta (verde): sube por la pieza, de una vuelta a la siguiente. «Ladear» gira la pieza sobre ella.",
+    // Siluetas (sin WebGL 2)
+    siluetasEtiqueta: "Piezas del patrón",
+    siluetasAyuda: "Cada silueta es el perfil de la pieza, visto de lado. La descripción completa está en «Descripción del patrón», más abajo.",
+    silueta: (name: string, copies: number, rounds: number, size: string) =>
+      `${name}${copies > 1 ? `, se teje ${n(copies)} veces` : ""}: ${n(rounds)} ${rounds === 1 ? "vuelta" : "vueltas"}, ${size}.`,
+    // Atajos de teclado (documentados dentro del estudio)
+    atajosTitulo: "Atajos de teclado",
+    atajos: [
+      "Pestañas (en pantallas angostas): flechas izquierda y derecha cambian de pestaña; Inicio y Fin van a la primera y a la última.",
+      "Texto: Tab sale del cuadro. Al salir de una línea, se escribe en su forma de siempre.",
+      "Bloques: flechas arriba y abajo recorren los bloques; derecha entra al grupo e izquierda sale; Inicio y Fin van al primero y al último.",
+      "Bloques: Enter pasa a los datos del bloque y Escape vuelve al bloque. Alt con flecha arriba o abajo lo mueve.",
+      "Fuera de un cuadro de texto: Ctrl o Cmd + Z deshace; Ctrl o Cmd + Mayús + Z (o Ctrl + Y) rehace.",
+      "Vista 3D: flechas giran, + y − acercan o alejan, 0 vuelve a la vista inicial.",
+      "Posicionar: Escape cierra el modo y devuelve el foco al botón.",
+    ],
+  },
 } as const;

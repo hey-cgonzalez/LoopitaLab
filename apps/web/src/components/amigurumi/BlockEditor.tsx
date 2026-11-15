@@ -22,6 +22,9 @@ import type { WrittenStore } from "@/lib/amigurumi/store.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 
 const T = AMIGURUMI_TEXTS.bloques;
+const A = AMIGURUMI_TEXTS.a11y;
+/** Pausa antes de anunciar el conteo nuevo mientras se escribe una cantidad. */
+const ANNOUNCE_MS = 700;
 const BTN = "rounded-full border-2 border-marino px-2.5 py-0.5 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
 const FIELD = "rounded-lg border-2 border-borde bg-superficie px-2 py-0.5 text-sm";
 
@@ -139,6 +142,22 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
     onRoundFocus?.(focusedRound !== null && focusedRound < part.rounds.length ? focusedRound : null);
   }, [focusedRound, part.rounds.length]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Cambiar una cantidad o las veces de un grupo cambia los puntos de la vuelta: se anuncia el conteo nuevo con una
+  // pausa (no en cada tecla) y solo si el foco sigue en el editor y la vuelta es la misma.
+  const focusedCount = focusedRound !== null && focusedRound < part.rounds.length ? roundCountOf(part, focusedRound) : null;
+  const countKey = focusedCount ? `${focusedRound}|${focusedCount.produced}|${focusedCount.perRound}` : "";
+  const lastCount = useRef(countKey);
+  useEffect(() => {
+    const prev = lastCount.current;
+    lastCount.current = countKey;
+    if (!focusedCount || focusedRound === null || prev === countKey || prev.split("|")[0] !== String(focusedRound)) return;
+    const t = setTimeout(() => {
+      if (!rootRef.current?.contains(window.document.activeElement)) return;
+      announce(A.vueltaCambio(roundLabel(part, focusedRound), T.conteo(focusedCount.produced, focusedCount.perRound)));
+    }, ANNOUNCE_MS);
+    return () => clearTimeout(t);
+  }, [countKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const insertRound = (index: number) => {
     actions.insertRound(part.id, index, (ok) => {
       if (!ok) {
@@ -208,7 +227,14 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
               {mismatch && count && round.expected !== undefined ? (
                 <p className="flex flex-wrap items-center gap-2 rounded-lg border-l-4 border-error pl-2 text-sm" data-testid="block-mismatch">
                   {T.noCuadra(round.expected, count.produced)}
-                  <button type="button" className={BTN} onClick={() => actions.useEngineCount(part.id, j)}>
+                  <button
+                    type="button"
+                    className={BTN}
+                    onClick={() => {
+                      actions.useEngineCount(part.id, j);
+                      announce(A.conteoDeclarado(label, count.produced));
+                    }}
+                  >
                     {T.usarConteo(count.produced)}
                   </button>
                 </p>
@@ -246,8 +272,10 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
                     className={BTN}
                     onClick={() => {
                       const path = actions.addItem(part.id, j, [], { type: "color", yarn: (yarns.find((y) => y.id !== part.startYarn) ?? (yarns[0] as Yarn)).id });
-                      if (path) ctx.focusLater(j, path);
-                      else announce(T.sinCambio);
+                      if (path) {
+                        ctx.focusLater(j, path);
+                        announce(A.cambioAgregado);
+                      } else announce(T.sinCambio);
                     }}
                     data-testid="block-add-color"
                   >

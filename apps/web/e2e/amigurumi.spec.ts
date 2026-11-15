@@ -202,7 +202,7 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     const where = (part: string, copy: number) => page.locator(`[data-testid=where-list] li[data-part="${part}"][data-copy="${copy}"]`);
     const placement = async (part: string, copy: number) => (await docOf(page)).layout?.placements.find((p) => p.target.part === part && p.target.copy === copy) ?? null;
     await expect(page.getByTestId("unplaced-warning")).toContainText("Cabeza, Oreja (1 de 2), Oreja (2 de 2)");
-    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): sin ubicar; se ubica de forma automática.");
+    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): sin ubicar; el 3D la acomoda sola.");
 
     await page.getByTestId("position-mode").click();
     await expect(page.getByTestId("position-mode")).toHaveAttribute("aria-pressed", "true");
@@ -227,7 +227,7 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
       target: { part: "oreja", copy: 1 },
       at: { type: "surface", host: { part: "cabeza", copy: 0 }, round: 7, stitch: 2, attach: "end", rotationDeg: [0, 0, 0] },
     });
-    const text = "Oreja (2 de 2): se cose a «Cabeza», entre la V7 y la V8, contando desde el anillo mágico.";
+    const text = "Oreja (2 de 2): se cose a la pieza «Cabeza», entre la V7 y la V8, contando desde el anillo mágico.";
     await expect(where("oreja", 1)).toHaveText(text);
     await expect(panel.getByTestId("position-where")).toContainText(text);
     await expect(page.getByTestId("unplaced-warning")).not.toContainText("Oreja (2 de 2)");
@@ -242,7 +242,7 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     await panel.getByTestId("position-attach-start").check();
     // 200 está fuera del campo (−180 a 180): se acota a 180.
     await expect.poll(async () => (await placement("oreja", 1))?.at).toMatchObject({ rotationDeg: [180, -30, 0], offsetCm: -0.2, attach: "start" });
-    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): se cose a «Cabeza» por el centro de su inicio, entre la V7 y la V8, contando desde el anillo mágico.");
+    await expect(where("oreja", 1)).toHaveText("Oreja (2 de 2): se cose a la pieza «Cabeza» por el centro de su inicio, entre la V7 y la V8, contando desde el anillo mágico.");
 
     // Quitar posición y deshacer (un paso).
     await panel.getByTestId("position-clear").click();
@@ -268,7 +268,7 @@ test.describe("Estudio amigurumi (sin sesión)", () => {
     await panel.getByTestId("position-round").fill("2");
     await panel.getByTestId("position-stitch").fill("1");
     await panel.getByTestId("position-apply").click();
-    await expect(panel.getByTestId("position-notice")).toContainText("ciclo");
+    await expect(panel.getByTestId("position-notice")).toContainText("cosidas una a la otra");
     expect((await placement("cabeza", 0))?.at.type).toBe("free");
   });
 

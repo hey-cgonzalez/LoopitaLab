@@ -11,7 +11,10 @@ import type { PreviewControls } from "@/components/studio/preview-controls.ts";
 import { applyCameraAction, cameraKeyAction, framing, type Vec3 } from "./camera-keys.ts";
 import { ViewerController, type ViewerStatus } from "./controller.ts";
 import { Silhouettes } from "./Silhouettes.tsx";
+import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 import { measureText, VIEWER_3D_TEXTS as T } from "./texts.ts";
+
+const A11Y = AMIGURUMI_TEXTS.a11y;
 
 /** Documento fuera de React (ADR 0004): el visor se suscribe y lee la versión actual. */
 export interface PatternSource {
@@ -75,7 +78,12 @@ export interface ViewerPick {
 /** Tamaños de la vista previa del ancla, en cm. */
 const ANCHOR_DOT_CM = 0.3;
 const ANCHOR_NORMAL_CM = 2;
-const ANCHOR_AXIS_CM = 1.2;
+/**
+ * Las tres flechas se distinguen por su largo (normal > tangente > meridiano), no solo por su color: la leyenda de
+ * `PositionPanel` las describe en ese orden (WCAG 1.4.1).
+ */
+const ANCHOR_TANGENT_CM = 1.4;
+const ANCHOR_MERIDIAN_CM = 0.9;
 
 const FOV = 40;
 
@@ -296,6 +304,8 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Ctrl, Cmd y Alt con + − 0 son del navegador (zoom de la página, WCAG 1.4.4): no se toman.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const action = cameraKeyAction(e.key);
     const st = stateRef.current;
     const orbit = orbitRef.current;
@@ -350,16 +360,16 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         {T.avisoPrototipo}
       </p>
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        <label className="inline-flex items-center gap-2" title={T.coloresPlanosAyuda}>
-          <input type="checkbox" checked={flat} onChange={(e) => controls.setFlatColors(e.target.checked)} data-testid="visor-3d-colores-planos" />
+        <label className="inline-flex items-center gap-2">
+          <input type="checkbox" className="size-5 accent-marino" checked={flat} onChange={(e) => controls.setFlatColors(e.target.checked)} aria-describedby={`${descId}-planos`} data-testid="visor-3d-colores-planos" />
           {T.coloresPlanos}
         </label>
-        <fieldset className="inline-flex items-center gap-2">
+        <fieldset className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
           <legend className="sr-only">{T.nivel}</legend>
-          <span>{T.nivel}:</span>
+          <span aria-hidden="true">{T.nivel}:</span>
           {(["relief", "smooth"] as const).map((l) => (
-            <label key={l} className="inline-flex items-center gap-1">
-              <input type="radio" name={`${descId}-lod`} checked={lod === l} onChange={() => changeLod(l)} />
+            <label key={l} className="inline-flex items-center gap-1.5">
+              <input type="radio" className="size-5 accent-marino" name={`${descId}-lod`} checked={lod === l} onChange={() => changeLod(l)} />
               {l === "relief" ? T.nivelRelieve : T.nivelLiso}
             </label>
           ))}
@@ -370,7 +380,10 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
           </span>
         ) : null}
       </div>
-      <p className="sr-only">{T.coloresPlanosAyuda}</p>
+      {/* Visible (un `title` no se ve en el celular ni con teclado) y enlazada a la casilla. */}
+      <p id={`${descId}-planos`} className="text-sm text-tinta-suave">
+        {T.coloresPlanosAyuda}
+      </p>
       {mode === "degraded" ? (
         <p className="text-sm" role="status">
           {T.sobreRecomendado}
@@ -381,7 +394,8 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
 
       <div className="relative w-full overflow-hidden rounded-lg border border-borde" style={{ height: heightPx }}>
         <div
-          className="absolute inset-0 outline-offset-2 focus-visible:outline-2"
+          className="absolute inset-0"
+          data-focus-inset
           tabIndex={0}
           role="img"
           aria-label={T.etiquetaLienzo}
@@ -411,6 +425,9 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         ) : null}
       </div>
 
+      <p className="text-sm text-tinta-suave" data-testid="visor-3d-teclas">
+        {A11Y.visorTeclas}
+      </p>
       <p id={descId} className="sr-only" data-testid="visor-3d-descripcion">
         {description}
       </p>
@@ -485,8 +502,8 @@ class AnchorMarker {
     const origin = new THREE.Vector3();
     const dir = new THREE.Vector3(0, 0, 1);
     this.#normal = new THREE.ArrowHelper(dir, origin, ANCHOR_NORMAL_CM, 0x1a2540, 0.5, 0.3);
-    this.#tangent = new THREE.ArrowHelper(dir, origin, ANCHOR_AXIS_CM, 0xba222c, 0.35, 0.22);
-    this.#meridian = new THREE.ArrowHelper(dir, origin, ANCHOR_AXIS_CM, 0x2f7d32, 0.35, 0.22);
+    this.#tangent = new THREE.ArrowHelper(dir, origin, ANCHOR_TANGENT_CM, 0xba222c, 0.35, 0.22);
+    this.#meridian = new THREE.ArrowHelper(dir, origin, ANCHOR_MERIDIAN_CM, 0x2f7d32, 0.28, 0.2);
     for (const o of [this.#dot, this.#normal, this.#tangent, this.#meridian]) {
       o.renderOrder = 999;
       o.traverse((x) => {

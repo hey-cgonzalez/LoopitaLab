@@ -363,14 +363,14 @@ describe("CA4-V3 en el modelo: la oreja cosida en la V10 sigue en la V10 al agre
   it("el documento y el texto dicen la misma vuelta antes y después", () => {
     const s = new WrittenStore(pattern([HEAD, EAR], { layout: { placements: [surface(EAR0, 10, 4)] } }));
     const text = () => describeWritten(s.doc).placements.find((p) => p.part === "oreja" && p.copy === 0)!.text;
-    expect(text()).toBe("Oreja (1 de 2): se cose a «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
+    expect(text()).toBe("Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
     for (let k = 0; k < 4; k++) {
       const n = concreteRounds(s.doc.parts[0]!).at(-1)!.number + 1;
       s.dispatch({ type: "insertRound", partId: "cabeza", index: s.doc.parts[0]!.rounds.length, round: { number: n, items: [{ type: "stitch", stitch: "sc", count: 6 }], expected: 6 } });
     }
     expect(concreteRounds(s.doc.parts[0]!).length).toBe(16);
     expect(placementOf(s.doc, EAR0)?.at).toMatchObject({ round: 10, stitch: 4 });
-    expect(text()).toBe("Oreja (1 de 2): se cose a «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
+    expect(text()).toBe("Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V10 y la V11, contando desde el anillo mágico.");
     const f = targetAnchorFrame(s.doc, metrics, buildScene({ pattern: s.doc, metrics }).instances, EAR0)!;
     expect([f.round, f.stitch, f.clamped]).toEqual([10, 4, false]);
   });

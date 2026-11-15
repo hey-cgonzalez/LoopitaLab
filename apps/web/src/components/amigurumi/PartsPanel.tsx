@@ -148,7 +148,7 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
   }
 
   return (
-    <section aria-labelledby={`${uid}-title`} className="grid gap-2 rounded-2xl border-2 border-linea bg-superficie p-3" data-testid="parts-panel">
+    <section aria-labelledby={`${uid}-title`} className="grid grid-cols-[minmax(0,1fr)] gap-2 rounded-2xl border-2 border-linea bg-superficie p-3" data-testid="parts-panel">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 id={`${uid}-title`} className="font-display text-base font-bold">
           {T.titulo}
@@ -165,7 +165,7 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
         </p>
       ) : null}
 
-      <ul ref={listRef} className="grid gap-1.5">
+      <ul ref={listRef} className="grid grid-cols-[minmax(0,1fr)] gap-1.5">
         {doc.parts.map((p, i) => {
           const selected = p.id === selectedId;
           const copies = copiesOf(p);
@@ -175,7 +175,7 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
           const placed = new Set((doc.layout?.placements ?? []).filter((pl) => pl.target.part === p.id).map((pl) => pl.target.copy));
           const removeRefs = removing === p.id ? store.simulate({ type: "removePart", partId: p.id }).unplaced : [];
           return (
-            <li key={p.id} data-part-id={p.id} className={`grid gap-1.5 rounded-xl border-2 p-2 ${selected ? "border-marino" : "border-linea"}`} data-testid="part-item">
+            <li key={p.id} data-part-id={p.id} className={`grid grid-cols-[minmax(0,1fr)] gap-1.5 rounded-xl border-2 p-2 ${selected ? "border-marino" : "border-linea"}`} data-testid="part-item">
               <div className="flex flex-wrap items-center gap-1.5">
                 {renaming === p.id ? (
                   <span className="grid min-w-0 flex-1 gap-1">
@@ -250,7 +250,7 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
               ) : null}
 
               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                <span className="inline-flex items-center gap-1.5">
+                <span className="inline-flex flex-wrap items-center gap-1.5">
                   <label htmlFor={`${uid}-copies-${p.id}`}>{T.seTeje}</label>
                   <button type="button" onClick={() => setCopies(p, copies - 1)} disabled={copies <= 1} aria-label={`Una vez menos «${p.name}»`} className={`${BTN} px-2`}>
                     <span aria-hidden="true">−</span>
