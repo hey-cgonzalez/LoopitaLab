@@ -249,3 +249,127 @@ Revisión de `revisor-seguridad`. Sin hallazgos críticos ni altos; `pnpm audit`
 | Aviso de derechos al subir imágenes | Fase 5, con la interfaz de subida | Confirmación obligatoria en el formulario de subida |
 | Ley 21.719 (protección de datos, Chile) | Antes de cualquier beta con personas externas | Ya existen exportar y eliminar la cuenta, y `/privacidad` y `/terminos` en borrador. Falta completar los marcadores ([RAZÓN SOCIAL], [RUT], plazos, bases de licitud) y la revisión legal. Según Diario Constitucional (junio de 2026), entra en vigencia el 1 de diciembre de 2026; no se pudo confirmar una posible postergación a 2027. Mientras tanto rige la Ley 19.628. Si hay usuarias en la UE, también aplica el RGPD |
 | CSP completa | Antes del lanzamiento | Con `object-src 'none'` y `base-uri 'self'` (ver `docs/despliegue-publico.md`, P3.1). Debe permitir `https://challenges.cloudflare.com` en `script-src` y `frame-src` para Turnstile |
+
+### Revisión final de la fase 4 (T20, 2026-11-16)
+
+Revisión de `revisor-seguridad` sobre la rama `fase-4/grupo-e` (grupos A a D). Sin hallazgos críticos; `pnpm audit` limpio. Un hallazgo alto (T20-A1) bloquea la fase 5 (IA) y la 7 (publicar), y conviene corregirlo antes de la beta. El texto pegado lo puede provocar hoy mismo.
+
+**Alcance.** Se revisaron:
+- el validador v2 (`validate.ts`, `limits.ts`, `migrate.ts`, `written.ts`) frente a documentos hostiles medidos en Node 24;
+- el lector de texto (`text.ts`, `PARSE_LIMITS`) con 22 líneas patológicas;
+- los huecos de T4 y T6;
+- `profiles.pattern_dialect` y `profiles.terminology`;
+- `pendingText` en el respaldo local;
+- las dependencias `three` 0.186.1, `@react-three/fiber` 9.8.2, `@types/three` 0.186.0 y sus transitivas;
+- WebGL en el cliente y las páginas `/dev/*`;
+- `createWrittenPattern` y `savePattern`;
+- `get_shared_pattern` y `list_public_patterns`.
+
+**Verificado**
+
+- **Valores extremos.** NaN, ±Infinity, ±1e308, 2^53, −1, 0,5 y −0 en `number`, `through`, `count`, `copies`, `expected`, `gauge`, `positionCm`, `rotationDeg` y `copy` dan `SHAPE`, `LIMIT` o su código propio en menos de 1 ms. Hay una excepción: `start.count` y `expected` (huecos 1).
+- **Profundidad, ciclos y objetos raros.**
+  - Una anidación de 10.000 grupos y una nota con un arreglo de 100.000 niveles se rechazan en 0,1 ms, sin recursión sin tope.
+  - Un ciclo en memoria entre ítems da `LIMIT` por profundidad.
+  - El ciclo y la profundidad de `layout` son lineales.
+  - Un getter que lanza o un `Proxy` dan `SHAPE` (validador) o `ok: false` (migración).
+  - `"__proto__"` en el JSON da `UNKNOWN_KEY` y no contamina `Object.prototype`.
+- **Lector.**
+  - La peor línea hostil de 2.000 caracteres se lee en 0,29 ms (criterio: menos de 5 ms).
+  - Una parte de 100.000 caracteres se lee en 9,9 ms, y 50 partes con `parseWrittenParts` en 7 ms.
+  - No hay retroceso exponencial ni cuadrático en `ROUND_RE`, `EXPECTED_RE`, `HEADER_RE`, `COPIES_RE` ni en las expresiones de ítems.
+  - Más de 100.000 caracteres se rechazan sin leer.
+- **`profiles.pattern_dialect`.**
+  - La columna es `not null default 'es'` con CHECK `es/us/uk`.
+  - El permiso de UPDATE es por columna para `authenticated` y RLS limita a la propia fila.
+  - `revoke update` a nivel de tabla arrastra los permisos de columna anteriores.
+  - `updatePatternDialect` valida en el servidor, exige `getUser()`, filtra por `id` y no devuelve detalles de Postgres.
+  - `10_rls_check.sql` cubre lo propio, lo ajeno, el CHECK, `null` y `anon`.
+- **`createWrittenPattern`.**
+  - Solo toma `title`, `yarns` y `gauge`, con tope de bytes y de lanas antes de construir.
+  - `id`, origen, partes, técnica y tipo los fija el servidor.
+  - Guarda por `savable` sin opciones, y RLS y los permisos de columna de T15 siguen siendo la barrera.
+  - `savePattern` exige que `document.id` sea el `id` del diseño.
+- **`pendingText`.**
+  - Nunca entra al documento: vive en `Autosave` y en el respaldo, y `savePattern` envía `store.doc`.
+  - Va con la clave de la dueña, `ownerId` en el contenido, vencimiento a 14 días desde la última escritura y `pendingTextOf` sin `__proto__`.
+  - Se descarta si el texto es de otra cuenta.
+- **Compartir y publicar.**
+  - Ninguna ruta de la aplicación llama hoy a `getSharedPattern` ni a `listPublicPatterns`, y `visibility` sigue siendo solo de `service_role`: un diseño escrito no se puede compartir ni publicar.
+  - Las dos funciones devuelven `document`, que nunca trae `pendingText`.
+  - El CHECK `patterns_shared_without_private_notes` sigue cubriendo `yarns[*].note`, la única nota privada del modelo v2.
+- **WebGL.**
+  - `dispose` explícito al desmontar (geometrías, materiales, mapa de normales, luces, controles).
+  - `webglcontextlost` con `preventDefault` y paso a siluetas; `webglcontextrestored` vuelve a dibujar.
+  - El SVG de las siluetas, que va por `dangerouslySetInnerHTML`, escapa el título y valida el color.
+- **Páginas `/dev/*`.** Las seis (`amigurumi`, `estudio`, `fibras-2d`, `render-benchmark`, `visor-3d`, `webgl`) llaman a `devPagesEnabled()` → `notFound()` y piden `noindex`. No leen la sesión ni Supabase. `fibras-2d` valida `hex`.
+- **Dependencias.**
+  - Todas vienen de `registry.npmjs.org`, con `integrity` en el lockfile, sin scripts `preinstall`, `install` ni `postinstall`, y con licencias MIT, BSD-3 o Apache-2.0.
+  - `three` 0.186.1 es del 2026-09-24, `@react-three/fiber` 9.8.2 del 2026-10-14 y `@types/three` 0.186.0 del 2026-09-11. Todas se mantienen activamente.
+  - pnpm 10 no ejecuta scripts de dependencias sin `onlyBuiltDependencies`.
+  - El rango par `three >=0.186.1 <0.187.0` está fijado.
+- **Pruebas.** `pattern-core`: 729 de 729. `viewer-3d`: 79 de 79 en tres corridas; una cuarta, la primera, falló una aserción que no se repitió (ver T20-I5).
+
+**Hallazgos**
+
+| Hallazgo | Severidad | Archivo y línea | Cómo reproducirlo | Corrección propuesta |
+|---|---|---|---|---|
+| T20-A1. **Bomba de expansión**: un grupo que solo cambia de lana se repite `times` veces por nivel sin que el validador lo cuente. Un documento `valid` de unos 600 bytes y 6 puntos cuelga el 3D | **Alta** | `packages/pattern-core/src/written.ts:24-36` (`walk`, bucle de la línea 32) y `:85-91` (`expandRound`); lo llaman `packages/viewer-3d/src/mesh.ts:152` y `:449`. `validate.ts:1391-1447` (`checkItems`) no acota el trabajo de expansión | Escribir en el estudio amigurumi `V1: 6 pb en AM (6)` y debajo `V2: [[[[[@A] x500] x500] x500] x500] x500, 6 pb`. El lector lo acepta (5 grupos, `times` ≤ 500) y es `valid`. `walk` visita 500^5 ≈ 3·10¹³ nodos: no termina. Medido en Node: con `x40` en 5 niveles y un rango V2-10, `buildScene` tarda **6,4 s** con 685 bytes; con `x500` en 3 niveles, `expandRound` tarda 0,8 s por vuelta. En el navegador corre el mismo código en el hilo principal. Si el autoguardado alcanzó a guardarlo, el diseño ya no se puede abrir: el visor se monta al cargar. Se puede provocar pegando un "patrón" de internet; con la IA (fase 5) o publicar (fase 7), le pasa a quien lo abra | (1) Agregar al validador un tope estructural del **trabajo de expansión**: Σ sobre los nodos (puntos, colores y grupos) del producto de los `times` que los envuelven. Se calcula de forma aritmética en `checkItems` o `countItems`. `LIMIT` por vuelta si pasa `LIMITS.maxRoundStitches` (50.000), y por documento si Σ sobre las vueltas concretas pasa `LIMITS.maxExpansionWork` (propuesta: 2.000.000, unas 10 veces el máximo que dejan los límites recomendados). (2) Defensa en `walk`: un grupo cuyo subárbol no consume ni produce puntos se recorre una sola vez, porque desde la segunda pasada su lana final ya no cambia. (3) Pedir a `experto-tejido` si un grupo sin puntos debe ser error estructural. Enmienda del ADR 0011 y pruebas de propiedades con grupos solo de color |
+| T20-M1. **Costo del validador y del 3D sin tope**: `countRound` se recalcula por cada vuelta concreta de un rango, y `countItems` recorre cada grupo con `times > 1` dos veces (2^profundidad). Un documento `savable` de 700 KB, bajo los 750 KB del servidor, valida en **3,2 s** (6,4 s con `weightCat`); `partProfile` tarda 3,3 s y `buildScene` 8,1 s. La escena (191.814 puntos) queda bajo `SCENE_HARD_STITCH_CAP`, así que se arma: **CA4-P9 no se cumple con documentos hostiles** (sí con los realistas de T12) | **Media** (sube a alta con IA o publicar, o con un hosting Node en vez de Workers) | `validate.ts:1010-1015` (`countRound` dentro del `for n`), `written.ts:115-121` (`concreteRounds`), `written.ts:65-71` (doble llamada), `profile.ts:178`; en el servidor, `apps/web/src/lib/designs/prepare.ts:46` desde `savePattern` (`app/disenos/actions.ts:122`) | V1 con 6 pb y V2-1000 con 25.000 ítems `@A` y 6 pb, envueltos en 5 grupos `x2`. Cualquier sesión puede llamar a `savePattern` directo. En Workers la petición muere por los 10 ms de CPU (1102); con `next start` o Vercel bloquea el proceso unos 3 s por petición. Con publicar (fase 7), `listPublicPatterns` validaría 24 documentos así por página | (1) En `validate.ts` y `concreteRounds`, contar cada vuelta escrita a lo más dos veces (primera pasada y resto), porque el conteo solo depende de la lana inicial: `O(nodos)` en vez de `O(nodos × largo del rango)`. (2) En `countItems`, si `first.endYarn === startYarn`, reutilizar `first` en vez de recalcular. (3) Con el tope de A1 por documento queda acotado de punta a punta. (4) Agregar a la guardia de Node una prueba de tiempo con este documento (`validatePattern` < 50 ms) |
+| T20-M2. **Cerrar sesión desde el estudio no borra el respaldo local**: `SignOutForm` borra en `onSubmit`, pero la navegación del formulario dispara `beforeunload` y `pagehide`, y `writeBackupNow()` vuelve a escribirlo si hay cambios sin guardar **o `pendingText`**. Con `pendingText` no hay diálogo de "¿salir?" (no cuenta como cambio sin guardar), así que pasa en silencio | **Media** (privacidad en equipos compartidos; contradice ADR 0011 T14-1 y `/privacidad`) | `apps/web/src/components/SignOutForm.tsx:16-20`, `components/studio/useStudioSession.ts:70-79`, `lib/studio/autosave.ts:198-201`. La E2E de `cuenta.spec.ts:79-102` cierra sesión desde `/disenos`, no desde el estudio | Abrir un diseño amigurumi y escribir una línea que no se lee (`V2: zzz`). Esperar a que se escriba `pendingText`. Usar "Cerrar sesión" del encabezado del mismo estudio y revisar `localStorage`: la clave `loopitalab:<uid>:diseno:<id>` sigue ahí con el texto, hasta 14 días o hasta que otra cuenta abra un estudio. Pendiente de confirmar con una E2E: el camino del código es claro | (1) Antes de borrar, `SignOutForm` emite una señal (por ejemplo, el evento `loopitalab:salir` o una bandera del módulo `backup.ts`) que los `Autosave` vivos escuchan: `stop()` y `holdBackup(true)`. Así `writeBackupNow` no escribe nada. (2) Segunda capa: `/auth/salir` redirige a `/?salida=1` y un componente de cliente vuelve a llamar `clearBrowserBackups()` y `clearBrowserProgressQueues()`. Esto cubre otra pestaña con el estudio abierto. (3) E2E: cerrar sesión desde `/disenos/[id]` con `pendingText` y comprobar que no queda la clave |
+| T20-B1. `start.count` sin tope superior. Una cadeneta de `1e300` da un documento **`valid`**, no solo `savable`, porque el desajuste de la V1 sobre cadeneta en aro o en hileras es advertencia. `formatPart` escribe `cad 1e+300`, que `parsePart` no lee (RT1). El perfil queda con un radio de unos 10^299 cm | Baja | `validate.ts:890`, `text.ts:737`, `profile.ts:168-169` | `start: { type: "chain", count: 1e300 }` con V1 `6 pb`: `validatePattern(...).valid === true` | Hueco 1, abajo |
+| T20-B2. `expected` sin tope superior: `1e20` es `savable` (borrador) y no hace la ida y vuelta (`PARSE_NUMBER`) | Baja | `validate.ts:969`, `text.ts:689` | `expected: 1e20` | Hueco 1, abajo |
+| T20-B3. RT1 se rompe por largo, no solo por línea. Una vuelta `savable` de 30.000 ítems se escribe en una línea de 120.002 caracteres. Además, **una parte `savable` puede pasar los 100.000 caracteres del lector**: 1.000 vueltas con nota de 500 caracteres dan 577 KB de JSON y 513.942 caracteres de texto, y se rechazan con `PARSE_TOO_LONG`. El editor de texto de esa parte queda inutilizable | Baja (funcional; solo con API, IA o bloques muy por encima de los límites recomendados) | `text.ts:52-55` (`PARSE_LIMITS`); el validador no tiene tope de ítems por vuelta ni de texto por parte | Ver `rt.ts` en "Reproducción" | Hueco 2, abajo |
+| T20-B4. Los problemas de texto de `target.part` y `host.part` en `layout` no pasan por el tope de 20 por código: 2.500 ubicaciones con identificadores malos dan **5.001 problemas** | Baja | `validate.ts:1212` (`checkText(..., c)` directo) | 2.500 ubicaciones con `part` de 65 caracteres y `host.part` con `\u0001` | Hueco 3, abajo |
+| T20-B5. `checkItems` no tiene tope de problemas, y `prepareDocument` devuelve todos los errores al cliente. 40.000 ítems malos dan 80.000 problemas; dentro de 750 KB, unos 36.000 problemas y una respuesta de varios MB por Server Action | Baja | `validate.ts:1391-1447`; `lib/designs/prepare.ts:54` | `items` con 18.000 `{type:"stitch",stitch:"zz",count:0}` enviado a `savePattern` | Tope de 20 por código y por parte para los códigos estructurales de `checkItems`, con un contador (`data.omitted`). `savable` no cambia porque queda al menos uno de cada código. En `prepareDocument`, devolver a lo más 100 errores |
+| T20-B6. El presupuesto de `pendingText` no cabe en el del respaldo: `MAX_PENDING_PARTS × MAX_PENDING_TEXT` permite 5.000.000 de caracteres, pero el respaldo completo se corta en `MAX_BACKUP_CHARS` (751.024). Si se pasa, `#writeBackup` **borra el respaldo entero, con los cambios sin guardar del documento** | Baja (integridad local) | `lib/studio/backup.ts:49`, `:104-106`; `lib/studio/autosave.ts:367` | Diseño con cambios sin conexión y 8 partes con 100.000 caracteres sin leer: el respaldo desaparece | Tope total propio para `pendingText` (por ejemplo, `MAX_PENDING_TOTAL = 200_000`) y `MAX_BACKUP_CHARS = MAX_DOCUMENT_BYTES + MAX_PENDING_TOTAL + 1024`. Si igual no cabe, quitar primero `pendingText` (con un aviso en el estudio) y conservar el documento |
+| T20-B7. `/privacidad` dice que el respaldo "se borra al guardarse el diseño". Con `pendingText` ya no es así: tras guardar queda el respaldo con el texto sin leer | Baja | `apps/web/src/app/privacidad/page.tsx:29` | Leer el texto frente a `autosave.ts:316-318` | Agregar: "si quedó texto que no se pudo leer, se conserva solo ese texto hasta que lo corrijas o lo borres, y como máximo 14 días". Va a la revisión legal |
+| T20-B8. `profiles.terminology` sigue con permiso de UPDATE y `session.ts` la lee, sin uso en la interfaz | Baja | `supabase/migrations/20261114015632_perfil_dialecto.sql:20`; `apps/web/src/lib/session.ts:31` y `:39` | `PATCH /rest/v1/profiles?id=eq.<uid>` con `{"terminology":"uk"}` y la sesión propia: se acepta | Decisión 5, abajo |
+| T20-I1. El check no afirma la lista exacta de columnas con UPDATE en `profiles` | Informativa | `supabase/checks/10_rls_check.sql` (sección T8, unas líneas 1821-1873) | — | Agregar una aserción sobre `information_schema.column_privileges` (`grantee = 'authenticated'`, `privilege_type = 'UPDATE'`, `table_name = 'profiles'`) igual a la lista esperada, con una prueba en negativo |
+| T20-I2. La migración `20261114015632_perfil_dialecto.sql` ya está aplicada en el proyecto real (2026-11-14); falta repetir `10_rls_check.sql` allí sin dejar datos | Informativa | — | — | Repetirlo junto con la migración de la decisión 5 |
+| T20-I3. `validatePattern` valida lo que lee en ese momento: un objeto con getters puede cambiar después (TOCTOU), y un `kind` heredado del prototipo se acepta. JSON no puede producir ninguno de los dos | Informativa | `validate.ts:261-271` | — | Documentar en `validate.ts` que el resultado vale solo para datos planos (salidos de `JSON.parse` o `structuredClone`). Las Server Actions ya los reciben así |
+| T20-I4. `display_name` solo tiene tope de largo; admite controles y marcas bidireccionales (U+202E). Será el nombre de autora visible en lo público | Informativa (fase 7) | `apps/web/src/app/cuenta/actions.ts:25`; esquema inicial, `profiles.display_name` | — | Antes de publicar, rechazar `\p{Cc}` y los caracteres de formato bidireccionales en la acción y con un CHECK |
+| T20-I5. Una corrida de `viewer-3d` falló una aserción y las tres siguientes pasaron (probablemente una guardia de tiempo) | Informativa | `packages/viewer-3d/test` | `node --test` varias veces seguidas | `qa-tester` (T19): identificar la prueba y darle margen o marcarla como medición |
+| T20-I6. Dependencias: sin edad mínima de publicación ni Dependabot | Informativa | `pnpm-workspace.yaml` | — | `minimumReleaseAge: 10080` (7 días; pnpm 10.28 lo admite) y Dependabot para `npm` y `github-actions` (B6 de T15) |
+
+**Decisiones recomendadas para los huecos de T4 y T6** (para `motor-patrones`, como enmiendas T20-x del ADR 0011; `qa-tester` agrega en T19 las pruebas de RT1 en el borde)
+
+1. **Tope de `expected` y `start.count`.**
+   - `expected` debe ser ≤ `LIMITS.maxRoundStitches` (50.000), y `start.count` ≤ `LIMITS.maxRoundStitches`, como `LIMIT` estructural.
+   - Razón: ninguna vuelta puede dejar ni trabajar más de 50.000 puntos, así que un valor mayor nunca cuadra.
+   - Con el tope, RT1 vale: 5 dígitos.
+   - Se cierra además que una cadeneta de `1e300` sea `valid` (T20-B1).
+   - Rompe M1 a propósito, como T4-4. La base no tiene patrones escritos (auditoría T2), así que ningún documento real cambia.
+   - El lector puede seguir leyendo números mayores: el validador los rechaza con un mensaje claro.
+2. **Tope de ítems por vuelta y de texto por parte.**
+   - **`LIMITS.maxRoundItems = 100` nodos por vuelta**, contando puntos, colores y grupos en todos los niveles. `LIMIT` estructural.
+   - Medido con el formateador: la peor vuelta posible tiene 100 nodos alternando `5000 saltar ht` y `@` más un identificador de 16 caracteres, `V-1000--999:` y `(50000)`. Mide 1.769 caracteres en `es`, 1.619 en `us` y 1.719 en `uk`. Cabe en 2.000 sin tocar `PARSE_LIMITS` y sin que `formatPart` corte líneas (no recomiendo cortar: la sintaxis no tiene continuación).
+   - Validar con `experto-tejido` que 100 alcanzan: un tapestry de 200 puntos con color por punto se escribe con grupos (`[@A, pb, @B, pb] x100` son 5 nodos).
+   - Si no alcanzan, la alternativa es 200 nodos con `maxLineLength: 4_000`: el lector es lineal y una línea de 4.000 cuesta unos 0,6 ms.
+   - **Además, por parte**: un `LIMIT` estructural cuando el texto canónico de la parte, en el dialecto más largo, pase `PARSE_LIMITS.maxTextLength`. Se calcula en tiempo lineal con un `formattedPartLength(part)` en `text.ts`, sin armar el texto. Cubre T20-B3, que hoy deja sin editor de texto una parte `savable`.
+3. **Tope de 20 por código en `layout`.** Pasar la revisión de texto de `target.part` y `host.part` por `emit`: `checkText` recibe un destino `{ error(code, path, message, data) }` y, en `validateLayout`, ese destino es `emit("error", …)`. Así `LIMIT` y `TEXT_CONTROL_CHAR` quedan en 20 cada uno dentro de `layout`. `UNKNOWN_KEY` puede quedar con su tope por documento.
+
+**Decisiones de los pendientes 4 y 5**
+
+4. **`pendingText`.** Se acepta con las condiciones de T20-M2, T20-B6 y T20-B7. Queda como el mismo riesgo aceptado que BAJO-2 (texto libre sin cifrar en el navegador, legible por scripts del mismo origen hasta la CSP completa). Respuestas a lo que se pidió revisar:
+   - *¿Se borra al cerrar sesión?* Sí desde las otras páginas; **no** desde el estudio (T20-M2).
+   - *¿Se borra al eliminar la cuenta?* Sí (`YourData.tsx:105`, después de borrarla).
+   - *¿Cuándo vence?* A los 14 días de la última escritura.
+   - *¿Qué pasa en un equipo compartido?* Si la usuaria no cierra sesión, queda hasta que otra cuenta abre un estudio (`pruneBackups` solo corre en el estudio). Mejora sugerida: llamar `pruneBackups` y `pruneProgressQueues` en cualquier página con sesión (por ejemplo, desde `AppHeader`).
+   - *Tamaño máximo:* 50 × 100.000 caracteres declarados, pero el respaldo se corta en 751.024 (T20-B6).
+5. **`profiles.terminology`** (con `backend-supabase`), en dos pasos para no romper una versión en marcha:
+   - (a) Migración que quita la columna del permiso: `revoke update on public.profiles from anon, authenticated; grant update (display_name, units, dominant_hand, mirror_knitting, pattern_dialect) on public.profiles to authenticated;`. En el mismo cambio, quitar `terminology` de `session.ts`, de su tipo y de las pruebas (`session-fallback.test.ts`, `profile-mirror.test.ts`).
+   - (b) Cuando esa versión esté desplegada, otra migración que borre la columna. La exportación usa `select *` y no se rompe.
+   - Hoy el riesgo es nulo porque el CHECK limita a `es`, `us` o `uk`, pero un permiso sin uso es superficie.
+
+**No aplica en esta rama.** El *worker* de R4-20 no está implementado: no hay nada que revisar. Si se agrega, tiene que recibir datos ya validados y con el tope de T20-A1, o el *worker* hereda la bomba.
+
+**Falta antes de la beta**
+
+- [ ] T20-A1 y T20-M1 corregidos, con pruebas de tiempo en la guardia de Node (`validatePattern`, `partProfile` y `buildScene` con los documentos hostiles de esta revisión, bajo 50 ms), y CA4-P9 repetido con ellos.
+- [ ] T20-M2 corregido, con la E2E de cierre de sesión desde el estudio.
+- [ ] Huecos 1 a 3 y T20-B5 y B6 aplicados como enmiendas del ADR 0011, con las pruebas de RT1 en el borde (T19).
+- [ ] Migración de la decisión 5 aplicada en el proyecto real (la de `pattern_dialect` ya lo está); `10_rls_check.sql` repetido sin dejar datos, con la aserción de T20-I1.
+- [ ] `/privacidad` al día con `pendingText` (T20-B7), en la revisión legal (Ley 19.628, Ley 21.719 desde el 2026-12-01 y RGPD si hay usuarias en la UE). Pendiente de revisión legal: no lo puedo confirmar.
+- [ ] Lo que sigue abierto de las fases 2 y 3 ("Falta antes de la beta" de T17 y ALTO-1 de T15).
+- [ ] Antes de la fase 5 o la 7: T20-A1 y T20-M1 son requisito para aceptar documentos de la IA o publicar. Además, T20-I4.
