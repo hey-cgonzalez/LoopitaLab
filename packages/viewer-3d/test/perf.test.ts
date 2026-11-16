@@ -7,7 +7,7 @@
  * - Falla si supera `FACTOR` veces la referencia registrada.
  * - Referencia (R4-19): medida el 2026-11-14 en el equipo de desarrollo (Apple M1, 8 núcleos,
  *   8 GB, Node 24.16), medianas de 3 corridas de esta prueba: partProfile 0,045 ms,
- *   buildPartMesh 0,72 a 0,90 ms (7.254 vértices, 3.654 triángulos), buildScene completa del
+ *   buildPartMesh 0,72 a 0,94 ms (7.254 vértices, 3.654 triángulos), buildScene completa del
  *   escenario 1,6 a 1,75 ms (14 instancias, 4.036 puntos) y buildScene con una parte editada
  *   0,41 a 0,50 ms. Se registra el doble, como en `stitch-render`, para un equipo de gama media
  *   o un runner de CI. Los presupuestos del ADR (10 ms para la malla, 3 ms para la escena)

@@ -364,12 +364,34 @@ Revisión de `revisor-seguridad` sobre la rama `fase-4/grupo-e` (grupos A a D). 
 
 **No aplica en esta rama.** El *worker* de R4-20 no está implementado: no hay nada que revisar. Si se agrega, tiene que recibir datos ya validados y con el tope de T20-A1, o el *worker* hereda la bomba.
 
-**Falta antes de la beta**
+**Falta antes de la beta** (marcado en el cierre T22, 2026-11-16, contra el código de `fase-4/grupo-e`)
 
-- [ ] T20-A1 y T20-M1 corregidos, con pruebas de tiempo en la guardia de Node (`validatePattern`, `partProfile` y `buildScene` con los documentos hostiles de esta revisión, bajo 50 ms), y CA4-P9 repetido con ellos.
-- [ ] T20-M2 corregido, con la E2E de cierre de sesión desde el estudio.
-- [ ] Huecos 1 a 3 y T20-B5 y B6 aplicados como enmiendas del ADR 0011, con las pruebas de RT1 en el borde (T19).
-- [ ] Migración de la decisión 5 aplicada en el proyecto real (la de `pattern_dialect` ya lo está); `10_rls_check.sql` repetido sin dejar datos, con la aserción de T20-I1.
-- [ ] `/privacidad` al día con `pendingText` (T20-B7), en la revisión legal (Ley 19.628, Ley 21.719 desde el 2026-12-01 y RGPD si hay usuarias en la UE). Pendiente de revisión legal: no lo puedo confirmar.
+- [x] T20-A1 y T20-M1 corregidos en `cd6c02a`.
+  - Topes de trabajo de expansión por vuelta y por documento (`LIMITS.maxExpansionWork = 2.000.000`), defensa en `walk` y conteo por vuelta escrita.
+  - El 3D arma vacía, con `PART_TOO_LARGE`, una parte que pasa los topes.
+  - Guardia de tiempos en `packages/pattern-core/test/t20-topes.test.ts` con los documentos hostiles (`test/support/hostile.ts`): `validatePattern`, con y sin `weightCat`, y `partProfile` bajo 50 ms (100 en la CI).
+  - Enmiendas T20-1 y T20-2 del ADR 0011, y G-E4 del ADR 0010.
+  - `buildScene` con los mismos documentos, en `packages/viewer-3d/test/t20-hostiles.test.ts`.
+  - **Sin verificar en este cierre**: CA4-P9 (E2E en el navegador) repetido con los documentos hostiles.
+- [x] T20-M2 corregido en `f99e397`.
+  - `SignOutForm` emite `loopitalab:salir` y los `Autosave` vivos retienen el respaldo.
+  - Segunda capa: `/auth/salir` redirige a `/?salida=1`, y `SignOutCleanup` vuelve a borrar.
+  - Enmienda T20-6 del ADR 0011.
+  - E2E: `apps/web/e2e/sesion/cuenta.spec.ts`, «cerrar sesión desde el estudio no deja el respaldo local ni el texto sin leer».
+  - Vitest: `apps/web/test/qa-t20-respaldo.test.ts`.
+- [x] Huecos 1 a 3 y T20-B5 aplicados en `cd6c02a`, como enmiendas T20-3, T20-4 y T20-5 del ADR 0011, con las pruebas de RT1 en el borde (`t20-topes.test.ts`). `prepareDocument` devuelve a lo más 100 errores (`f99e397`, T20-8).
+- [x] T20-B6 corregido en `f99e397`: `MAX_PENDING_TOTAL = 200.000` y `MAX_BACKUP_CHARS = MAX_DOCUMENT_BYTES + MAX_PENDING_TOTAL + 1024`; si no cabe, se quita primero `pendingText` (T20-7).
+- [x] T20-B7 en el texto: `/privacidad` dice que el texto que no se pudo leer se conserva hasta 14 días (`f99e397`). **El marcador legal sigue abierto**: el texto entra en la revisión legal del punto de más abajo.
+- [x] T20-B8 y T20-I1 en el repositorio (`295af53`).
+  - `20261116225434_quitar_update_terminology.sql` quita `terminology` del permiso de UPDATE.
+  - `session.ts` ya no la lee.
+  - `10_rls_check.sql` comprueba la lista exacta de columnas y que actualizar `terminology` falla.
+- [x] **Migración `20261116225434_quitar_update_terminology.sql` aplicada en el proyecto real (2026-11-16; verificada la lista de columnas con UPDATE)** (la de `pattern_dialect` ya lo está). Después del despliegue, otra migración borra la columna (decisión 5, paso b).
+- [ ] **`10_rls_check.sql` repetido en el proyecto real**, sin dejar datos y con la aserción de T20-I1.
+- [ ] **Revisión legal** de `/privacidad` y `/terminos`, con `pendingText` (T20-B7): Ley 19.628, Ley 21.719 desde el 2026-12-01 y RGPD si hay usuarias en la UE. Pendiente de revisión legal: no lo puedo confirmar.
 - [ ] Lo que sigue abierto de las fases 2 y 3 ("Falta antes de la beta" de T17 y ALTO-1 de T15).
-- [ ] Antes de la fase 5 o la 7: T20-A1 y T20-M1 son requisito para aceptar documentos de la IA o publicar. Además, T20-I4.
+- [ ] **T20-I4**: rechazar controles y marcas bidireccionales en `display_name` antes de publicar (fase 7).
+- [ ] **T20-I6**: `minimumReleaseAge` y Dependabot.
+- [ ] Antes de la fase 5 o la 7: T20-A1 y T20-M1 ya están corregidos; falta T20-I4.
+
+Los informativos T20-I2 (repetir el check en el proyecto real, ya incluido arriba), T20-I3 (documentar TOCTOU en `validate.ts`) y T20-I5 (prueba inestable de `viewer-3d`, relacionada con BUG-QA4-5, corregido en `ffe3ba3`) no se verificaron uno por uno en este cierre.

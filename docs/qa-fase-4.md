@@ -3,16 +3,62 @@
 - **Autores**: `qa-tester` (T19, 2026-11-16: veredicto, matriz de criterios CA4-*, revisión de T4 a T6, T10 a T12, bugs y pruebas nuevas) y `visor-3d` (T12, con `devops`, 2026-11-15: latencia y calibración, desde [Resumen de T12](#resumen)).
 - **Código revisado en T19**: rama `fase-4/grupo-e` en `295af53`. **Ojo**: durante la sesión, otra sesión de trabajo (arreglos de T20) cambió el mismo árbol (commits `7a3870c` y `295af53`, y cambios sin commit en `apps/web/src` y `packages/pattern-core/src`), corrió sus propias E2E y reinició la Supabase local. Las corridas finales de abajo son sobre ese estado; ver "Ruido de la sesión".
 - **Entorno**: Apple M1 (8 núcleos, 8 GB), macOS 15.6.1, Node 24.16.0, pnpm 10.28.0, Playwright 1.64.1 con Chromium completo, Supabase CLI 2.122.1 (Docker). Load average de 3 a 16 durante la sesión.
+- **Cierre (T22, `arquitecto`, 2026-11-16)**: estado al final de la rama `fase-4/grupo-e` (último commit `8dc6303`). Ver [Estado al cierre (T22)](#estado-al-cierre-t22). Lo de abajo sigue siendo el informe de T19, con las marcas de lo que se corrigió después.
+
+## Estado al cierre (T22)
+
+**Bugs: todos corregidos.**
+
+| Bug | Commit | Cómo se corrigió |
+|---|---|---|
+| BUG-QA4-1 | `92f7268` (núcleo) y `8dc6303` (web) | Una sola fuente de la muestra supuesta por parte: `assumedGaugeOfPart`, con la lana inicial de la parte. Revisión T21, C1; ADR 0011, T21-1, T21-2 y T21-8 |
+| BUG-QA4-2 | `ffe3ba3` | El diálogo nombra todos los límites que cruza la acción (`WrittenStudio.tsx`, bucle de `crossedLimit`) |
+| BUG-QA4-3 | `ffe3ba3` | `BlockEditor` recibe `limits` y muestra la advertencia junto a la vuelta |
+| BUG-QA4-4 | `ffe3ba3` | `confirmRemove` fija el foco en la parte vecina (`PartsPanel.tsx`) |
+| BUG-QA4-5 | `ffe3ba3` | `pnpm test` corre los paquetes en serie (`pnpm -r --workspace-concurrency=1 --if-present test`, `package.json` de la raíz; README) |
+| F4-82 (O-QA4-2) | `ffe3ba3` | La ayuda aclara que una parte que se teje varias veces cuenta como una sola parte. Ya no hay `it.fails` ni `test.fail` en `apps/web/test` ni en `apps/web/e2e` |
+
+**Observaciones de T19**
+
+- O-QA4-1 está corregida en `92f7268`: "hilera" en las partes `flat` (ADR 0011, T21-4).
+- O-QA4-3 sigue abierta: los flags de WebGL siguen copiados a mano en `posicionar.spec.ts` y `amigurumi-a11y.spec.ts`.
+
+**Cifras finales** (corrida de cierre que informó el orquestador; `arquitecto` no las repitió):
+
+| Suite | Resultado |
+|---|---|
+| Vitest (web) | **1.075** pasan |
+| E2E sin sesión | **116 de 116**: escritorio, móvil, latencia y `webgl` |
+| E2E con sesión | **63 de 63** |
+
+**CA4-V2: cerrado en lo automático.** Las siete capturas que pidió T21 están en [`docs/capturas/fase-4/visor-3d/`](capturas/fase-4/visor-3d/README.md), con la espiral continua de `c4ab055` (ADR 0010, G-E1):
+
+- fixture A;
+- fixture B, con el detalle;
+- cilindro;
+- panel;
+- cambios de color;
+- pieza que ondula;
+- muñeco armado.
+
+Las genera la prueba «visor 3D: capturas de los patrones de referencia y de las fibras (CA4-V2, CA4-V8)» de `apps/web/e2e/webgl.spec.ts`. **Queda pendiente la revisión visual de `experto-tejido`**, que T21 pidió para cerrar CA4-V2.
+
+**Pendientes que no son código**:
+
+- la medición en el equipo de referencia (CA4-P1 a CA4-P4, CA4-P10, CA-P6 y R4-20; de ella depende el *worker*);
+- la revisión de las capturas (CA4-V2 y CA4-V8);
+- T1b;
+- lector de pantalla real y contraste (CA4-A1 y CA4-A3).
 
 ## Veredicto (T19)
 
 **Apto para PR con observaciones; no se aprueba la fase entera todavía.** Todo lo que depende del código pasa salvo cuatro bugs de severidad media o baja, todos con prueba que lo reproduce (`it.fails` / `test.fail`, así la suite queda en verde y avisa cuando se corrijan):
 
-1. **BUG-QA4-1 (media)**: la muestra supuesta tiene dos fuentes (ADR 0011, T14-5). Lo decide `experto-tejido` en T21; no se corrigió.
-2. **BUG-QA4-2 (baja)**: el diálogo de límites nombra solo el primer límite que cruza la acción, pero «Seguir igual» acepta todos.
-3. **BUG-QA4-3 (media)**: en bloques, una vuelta que pasa los 200 puntos recomendados no muestra la advertencia junto a la vuelta (T15-5 dice que sí); solo se ve al volver al texto.
-4. **BUG-QA4-4 (media, accesibilidad)**: al borrar una parte con el teclado el foco cae en `body`.
-5. **BUG-QA4-5 (baja, infraestructura de pruebas)**: `pnpm -r test` (paquetes en paralelo) hace fallar las guardias de tiempo CA4-P6 y CA-P5 con la máquina cargada; en serie pasan.
+1. **BUG-QA4-1 (media)**: la muestra supuesta tiene dos fuentes (ADR 0011, T14-5). Lo decide `experto-tejido` en T21; no se corrigió. **Corregido** en `92f7268` y `8dc6303`.
+2. **BUG-QA4-2 (baja)**: el diálogo de límites nombra solo el primer límite que cruza la acción, pero «Seguir igual» acepta todos. **Corregido** en `ffe3ba3`.
+3. **BUG-QA4-3 (media)**: en bloques, una vuelta que pasa los 200 puntos recomendados no muestra la advertencia junto a la vuelta (T15-5 dice que sí); solo se ve al volver al texto. **Corregido** en `ffe3ba3`.
+4. **BUG-QA4-4 (media, accesibilidad)**: al borrar una parte con el teclado el foco cae en `body`. **Corregido** en `ffe3ba3`.
+5. **BUG-QA4-5 (baja, infraestructura de pruebas)**: `pnpm -r test` (paquetes en paralelo) hace fallar las guardias de tiempo CA4-P6 y CA-P5 con la máquina cargada; en serie pasan. **Corregido** en `ffe3ba3`: `pnpm test` corre en serie.
 
 Pendientes que no son código: medición en el equipo de referencia (CA4-P1 a CA4-P4, CA4-P10, CA-P6, R4-20), revisión de capturas (CA4-V2, CA4-V8; T11c y T21), T1b (tejedoras), lector de pantalla real y contraste (CA4-A1, CA4-A3), pruebas de RT1 en el borde de los topes nuevos de T20 (T20 en curso en el mismo árbol).
 
@@ -51,7 +97,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 | CA4-P3 | CUMPLE; **PENDIENTE** equipo de referencia | Misma prueba: contadores de mallas, atributos y programas (T12) |
 | CA4-P4 | **PENDIENTE** (manual) | 60 fps en el M1 con 19.800 puntos (T12); decide el equipo de referencia |
 | CA4-P5 | CUMPLE | `latencia-visor.spec.ts`: 0 validaciones dentro de una ventana de edición |
-| CA4-P6 | CUMPLE en serie | `viewer-3d/test/perf.test.ts` y `viewer-3d/test/scene.test.ts` («editar una vuelta… reconstruye exactamente 1 malla»). Con `pnpm -r test` en paralelo y carga, la guardia de tiempo falla (BUG-QA4-5) |
+| CA4-P6 | CUMPLE en serie | `viewer-3d/test/perf.test.ts` y `viewer-3d/test/scene.test.ts` («editar una vuelta… reconstruye exactamente 1 malla»). Con `pnpm -r test` en paralelo y carga, la guardia de tiempo falla (BUG-QA4-5). **T22**: `pnpm test` ya corre en serie (`ffe3ba3`); `buildPartMesh` del fixture A, unos 0,94 ms después de la espiral continua (ADR 0010, G-E5) |
 | CA4-P7 | **CUMPLE** | `/dev/estudio`: `latencia-visor.spec.ts` (T12). **Con sesión en `/disenos/[id]`**: `web/e2e/sesion/qa-fase4.spec.ts` «CA4-P7: /disenos/[id] de un gráfico no pide el fragmento de three» (nuevo). Fragmento del visor: 251 KB con gzip |
 | CA4-P8 | CUMPLE en local; en la CI solo se informa | `latencia-visor.spec.ts` (`limites-60k`): `edit-to-feedback` p95 26,2 ms. **Propuesta T19 (T12-8)**: aceptar `E2E_P8_REPORT_ONLY=1` en la CI y exigir los 100 ms en local y en el equipo de referencia, como ya está |
 | CA4-P9 | CUMPLE con el criterio ajustado | `latencia-visor.spec.ts` (`tope`): siluetas, ninguna tarea larga al editar; al cargar, 118 ms. **Propuesta T19 (T12-8)**: enmendar el criterio a «ninguna tarea de más de 500 ms al editar; al cargar, 500 ms × la limitación de CPU», que es lo que exige la prueba; la carga de la página cuesta lo mismo con cualquier escena |
@@ -65,7 +111,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 | CA4-M2 | **CUMPLE** (nuevo) | `web/e2e/sesion/qa-fase4.spec.ts`: «un amigurumi v1 de la base se abre, se guarda como v2 (schema_version = 2) y sigue igual», «un gráfico v1…» y «Tejiendo de una versión fijada v1 da los mismos pasos que la del mismo diseño en v2» (la versión fijada tiene `schemaVersion: 1`; 4 pasos comparados con su gemelo v2) |
 | CA4-M3 | CUMPLE | `pattern-core/test/validate-v2.test.ts` «LAYOUT_*» y «CA4-M3: documentos hostiles…» |
 | CA4-M4 | CUMPLE | `validate-v2.test.ts` «CA4-M4: …»; `web/e2e/sesion/escritos.spec.ts` |
-| CA4-M5 | CUMPLE | G1 a G3, G10, G11: `pattern-core/test/profile.test.ts`; G4 a G13: `viewer-3d/test/property.test.ts`; RT1 a RT6: `pattern-core/test/property-texto.test.ts` (RT3 a profundidad completa). **Nuevas en T19**: `pattern-core/test/qa-fase4.test.ts` (G3 por tramos) y `viewer-3d/test/qa-fase4.test.ts` (G4 a G7, G10 y G12 a 6 niveles y con muestras extremas). Tres semillas. **PENDIENTE**: RT1 en el borde de los topes que agrega T20 (`maxRoundItems`, `maxExpansionWork`, `start.count`), cuando T20 cierre |
+| CA4-M5 | CUMPLE | G1 a G3, G10, G11: `pattern-core/test/profile.test.ts`; G4 a G13: `viewer-3d/test/property.test.ts`; RT1 a RT6: `pattern-core/test/property-texto.test.ts` (RT3 a profundidad completa). **Nuevas en T19**: `pattern-core/test/qa-fase4.test.ts` (G3 por tramos) y `viewer-3d/test/qa-fase4.test.ts` (G4 a G7, G10 y G12 a 6 niveles y con muestras extremas). Tres semillas. ~~**PENDIENTE**: RT1 en el borde de los topes que agrega T20 (`maxRoundItems`, `maxExpansionWork`, `start.count`), cuando T20 cierre~~ **T22**: cubierto por `pattern-core/test/t20-topes.test.ts` (`cd6c02a`). Prueba RT1 y los topes en los bordes: 50.000 y 50.001 de trabajo por vuelta, 2.000.000 y 2.000.001 por documento, `expected` y cadeneta de 50.000, 100 y 101 nodos, y texto de 100.000 y 100.001 caracteres |
 | CA4-M6 | CUMPLE (revisión) | Sin conteos en `apps/web/src` ni en `viewer-3d/src`: el único uso de `STITCHES[…].consumes/produces` en la web es decidir si un punto admite hebra (`BlockEditor.tsx:552`); la malla usa `STITCHES` y `expandRound` |
 | CA4-M7 | **CUMPLE** (nuevo) | `pattern-core/test/casos-dominio-fase4-trazabilidad.test.ts`: los 84 casos F4 tienen prueba activa con su número y los 12 marcados «validar con tejedora» llevan el comentario. Faltaban 41 casos con su número y el comentario en F4-61 y F4-69 (agregado en `text-v2.test.ts`). Casos nuevos: `pattern-core/test/qa-fase4.test.ts` y `web/test/qa-fase4.test.ts` |
 | CA4-M8 | CUMPLE | `pattern-core/test/recommended.test.ts`; G13 en `viewer-3d/test/property.test.ts` |
@@ -81,11 +127,11 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 | CA4-E5 | CUMPLE | `amigurumi.spec.ts` «el aviso de los comentarios con #…»; `web/test/qa-fase4.test.ts` «F4-81» |
 | CA4-E6 | CUMPLE | `bloques.spec.ts`; `web/test/amigurumi-bloques.test.ts` |
 | CA4-E7 | CUMPLE | `amigurumi.spec.ts` (el cursor no salta) |
-| CA4-E8 | CUMPLE | `amigurumi.spec.ts` «partes…»; `pattern-core/test/edit-written.test.ts`. Foco al borrar: BUG-QA4-4 (va por CA4-A1) |
+| CA4-E8 | CUMPLE | `amigurumi.spec.ts` «partes…»; `pattern-core/test/edit-written.test.ts`. Foco al borrar: BUG-QA4-4 (va por CA4-A1), corregido en `ffe3ba3` |
 | CA4-E9 | CUMPLE | `sesion/amigurumi.spec.ts`; **nueva**: `sesion/qa-fase4.spec.ts` «respaldo con líneas sin leer cuando el servidor tiene una versión más nueva» (aviso, recupera el texto y nunca lo guarda) |
 | CA4-E10 | CUMPLE | `amigurumi.spec.ts` «lanas…»; **nueva**: `qa-fase4.spec.ts` «quitar una lana usada mientras otra parte tiene líneas sin leer» |
 | CA4-E11 | CUMPLE | (1) `web/test/amigurumi-bloques.test.ts`; (2) revisión: la única comparación de profundidad es `canEditBlock` (`web/src/lib/amigurumi/blocks.ts:33`), la selección va por `ItemPath`; (3) RT3 completo. **Nuevas**: `qa-fase4.spec.ts` «?bloques=completo con teclado» y «@movil a 390 px» |
-| CA4-E12 | **CUMPLE con observaciones** | `amigurumi.spec.ts`, `bloques.spec.ts` y **nuevas** en `qa-fase4.spec.ts`: el diálogo que cruza el límite de partes y el de la escena (un solo diálogo; Cancelar no cambia nada; Seguir igual no vuelve a preguntar por ninguno). Hallazgos: BUG-QA4-2 y BUG-QA4-3; T15-5, abajo |
+| CA4-E12 | **CUMPLE** (con observaciones en T19) | `amigurumi.spec.ts`, `bloques.spec.ts` y **nuevas** en `qa-fase4.spec.ts`: el diálogo que cruza el límite de partes y el de la escena (un solo diálogo; Cancelar no cambia nada; Seguir igual no vuelve a preguntar por ninguno). Hallazgos: BUG-QA4-2 y BUG-QA4-3, **corregidos en `ffe3ba3`**; T15-5, abajo (se acepta el alcance del ADR, con la advertencia junto a la vuelta también en bloques) |
 
 **T15-5 frente a CA4-E12 (`guard()` solo al insertar vueltas)**: coincide con la sección 3b del ADR 0011, que enumera las acciones puntuales (agregar una parte, fijar copias, insertar una vuelta en bloques). CA4-E12 dice «acción puntual» en general. Hoy una sola acción de bloques (por ejemplo, un grupo ×500) puede llevar la escena de mil a cientos de miles de puntos sin diálogo. **Recomendación**: aceptar el alcance del ADR y corregir BUG-QA4-3, para que la advertencia se vea junto a la vuelta también en bloques; o, si `arquitecto` lo prefiere, pasar también por `guard()` los cambios de cantidad y de veces. La prueba «bloques (T15-5)…» fija el comportamiento actual.
 
@@ -94,13 +140,13 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 | ID | Estado | Prueba y evidencia |
 |---|---|---|
 | CA4-V1 | CUMPLE | `web/e2e/webgl.spec.ts`; `web/test/viewer-3d-adaptador.test.ts`; textos F4-44, F4-54 y F4-79 en `web/test/qa-fase4.test.ts` |
-| CA4-V2 | **PENDIENTE** | Las capturas salen de `webgl.spec.ts`; las revisa `experto-tejido` (T21) |
+| CA4-V2 | **CUMPLE en lo automático**; **PENDIENTE** revisión visual de `experto-tejido` | Las capturas salen de `webgl.spec.ts` («capturas de los patrones de referencia y de las fibras»). **T22**: las siete están en [`docs/capturas/fase-4/visor-3d/`](capturas/fase-4/visor-3d/README.md) (`c4ab055`), con la espiral continua |
 | CA4-V3 | CUMPLE | `web/e2e/sesion/posicionar.spec.ts` (4 vueltas más en la cabeza no mueven el ancla) |
 | CA4-V4 | CUMPLE | `posicionar.spec.ts`, `webgl.spec.ts`, `amigurumi.spec.ts`; `web/test/qa-fase4.test.ts` «F4-80» |
 | CA4-V5 | CUMPLE | `webgl.spec.ts`, `amigurumi.spec.ts` «sin WebGL…» |
 | CA4-V6 | CUMPLE | `pattern-core/test/profile.test.ts` F4-36 a F4-38; `viewer-3d/test/scene.test.ts` (SHAPE_RUFFLES); `pattern-core/test/qa-fase4.test.ts` F4-77 |
 | CA4-V7 | CUMPLE | `sesion/escritos.spec.ts` |
-| CA4-V8 | CUMPLE en código; **PENDIENTE** revisión de capturas (T11c) | `viewer-3d/test/three.test.ts` (neutro = base), `web/test/viewer-3d-surface-look.test.ts` (tipos), `web/test/viewer-3d-adaptador.test.ts`, `webgl.spec.ts`. Dependencias: `viewer-3d` solo depende de `pattern-core` (las menciones a `stitch-render` en `src/svg.ts` y `src/types.ts` son comentarios) |
+| CA4-V8 | CUMPLE en código; **PENDIENTE** revisión de capturas (T11c). T21 las aprueba como aproximación v1, con los niveles de fibra pendientes de T1b | `viewer-3d/test/three.test.ts` (neutro = base), `web/test/viewer-3d-surface-look.test.ts` (tipos), `web/test/viewer-3d-adaptador.test.ts`, `webgl.spec.ts`. Dependencias: `viewer-3d` solo depende de `pattern-core` (las menciones a `stitch-render` en `src/svg.ts` y `src/types.ts` son comentarios) |
 
 ### Glosario y accesibilidad
 
@@ -110,7 +156,7 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 | CA4-G2 | CUMPLE | `pattern-core/test/text-v2.test.ts` |
 | CA4-G3 | CUMPLE | `web/test/profile-dialect.test.ts`; `sesion/amigurumi.spec.ts` (dialecto UK del perfil); `10_rls_check.sql` (T8, `pattern_dialect`) |
 | CA4-G4 | CUMPLE | `glossary.test.ts` |
-| CA4-A1 | CUMPLE en automático salvo BUG-QA4-4; **PENDIENTE** lector real | `web/e2e/amigurumi-a11y.spec.ts`; foco al mover en `qa-fase4.spec.ts` (pasa) |
+| CA4-A1 | CUMPLE en automático (BUG-QA4-4 corregido en `ffe3ba3`); **PENDIENTE** lector real | `web/e2e/amigurumi-a11y.spec.ts`; foco al mover en `qa-fase4.spec.ts` (pasa) |
 | CA4-A2 | CUMPLE | `amigurumi-a11y.spec.ts` (flechas, + −, 0, `describedBy`, movimiento reducido) |
 | CA4-A3 | CUMPLE en automático; **PENDIENTE** contraste | `amigurumi-a11y.spec.ts` (390 px, 200 %, 320 px) |
 
@@ -133,6 +179,8 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 - No se cambió ninguna prueba ni código.
 
 ## Bugs y observaciones (T19)
+
+> **T22**: los cinco bugs están corregidos (BUG-QA4-1 en `92f7268` y `8dc6303`; BUG-QA4-2 a 5 en `ffe3ba3`). Ver [Estado al cierre (T22)](#estado-al-cierre-t22). El detalle de abajo es el registro de T19.
 
 ### BUG-QA4-1 (media): la muestra supuesta tiene dos fuentes
 
@@ -175,9 +223,10 @@ Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas 
 
 ### Observaciones
 
-- **O-QA4-1**: F4-16 propone «hilera»; el motor escribe «fila» en los mensajes de las partes en hileras (`validate.ts:776`). Nunca dice «vuelta» (probado). Para T21.
-- **O-QA4-2**: F4-82 pide aclarar en la ayuda que una parte que se teje varias veces cuenta como una sola parte; falta (`web/test/qa-fase4.test.ts`, `it.fails`). Para `documentador`.
-- **O-QA4-3**: los flags de WebGL copiados a mano en `posicionar.spec.ts` y `amigurumi-a11y.spec.ts` (T16-3) siguen así; conviene importar `webglLaunch` de `playwright.config.ts`. No se tocó.
+- **O-QA4-1**: F4-16 propone «hilera»; el motor escribe «fila» en los mensajes de las partes en hileras (`validate.ts:776`). Nunca dice «vuelta» (probado). Para T21. **Corregido** en `92f7268` (ADR 0011, T21-4).
+- **O-QA4-2**: F4-82 pide aclarar en la ayuda que una parte que se teje varias veces cuenta como una sola parte; falta (`web/test/qa-fase4.test.ts`, `it.fails`). Para `documentador`. **Corregido** en `ffe3ba3`.
+- **O-QA4-3**: los flags de WebGL copiados a mano en `posicionar.spec.ts` y `amigurumi-a11y.spec.ts` (T16-3) siguen así; conviene importar `webglLaunch` de `playwright.config.ts`. No se tocó. **Sigue abierta** al cierre (T22).
+- **O-QA4-4 (T22)**: las pruebas de BUG-QA4-2 y BUG-QA4-4 de `apps/web/e2e/qa-fase4.spec.ts` ya verifican lo corregido, pero sus nombres siguen diciendo «(hoy solo el primero)» y «(hoy cae en el body)». Es una limpieza de nombres.
 
 ## Pruebas agregadas o editadas en T19
 

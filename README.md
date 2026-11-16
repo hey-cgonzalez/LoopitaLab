@@ -11,7 +11,7 @@ Plataforma web para diseñar patrones de colorwork y amigurumi, seguir el avance
 | 1. Base: web con registro, ingreso, proyectos y cuenta | Listo (`apps/web`) |
 | 2. Estudio de colorwork (plano, tubo y círculo) | Listo en código (`/disenos`): editor, vista previa realista, guardado y E2E. Cierre pendiente de la validación con tejedoras (T1b/T16), la medición en el equipo de referencia (CA-P6). Probado con VoiceOver y NVDA el 2026-11-09. Ver [docs/qa-fase-2.md](docs/qa-fase-2.md) |
 | 3. Lanas por grosor y composición, y seguimiento de colorwork fila a fila | Listo en código: selector de lanas (grosor, composición, paleta), metraje estimado, «Mis lanas» (`/lanas`), «Tejer este diseño» con la versión fijada, proyectos con avance guardado entre dispositivos (`/proyectos`) y el modo tejiendo fila a fila para colorwork, con la fila actual resaltada y aviso de conflicto entre dispositivos. Pendiente: validación con tejedoras (T1b, después de T1c), medición CA-P6 y prueba con lector de pantalla real. Ver [docs/qa-fase-3.md](docs/qa-fase-3.md) y el [cierre de la fase 3](docs/roadmap.md#estado-al-cierre-de-la-fase-3) |
-| 4. Estudio amigurumi 3D | Pendiente |
+| 4. Estudio amigurumi 3D | Lista en código: estudio amigurumi (`/disenos/nuevo` con tipo «Amigurumi (escrito)») con patrón escrito por partes en texto (abreviaturas ES, US o UK) o en bloques, conteos y revisión del motor, muestra supuesta por parte y límites recomendados visibles. Visor 3D en vivo (Three.js con react-three-fiber) con color por punto, aspecto por fibra, posicionado y armado de las piezas, y siluetas sin WebGL. Glosario ES, US y UK pendiente de validación. Paquetes nuevos: `viewer-3d` y `glossary`. Pendiente: validación con tejedoras (T1b, después de T1c), medición en el equipo de referencia, prueba con lector de pantalla real y contraste, y la migración de `terminology` en el proyecto real. Ver [docs/qa-fase-4.md](docs/qa-fase-4.md) y el [cierre de la fase 4](docs/roadmap.md#estado-al-cierre-de-la-fase-4) |
 | 5. Imagen → patrón (IA) | Pendiente |
 | 6. Modo tejiendo completo | Pendiente |
 | 7. Compartir, publicar, exportar PDF y lanzamiento | Pendiente |
@@ -46,18 +46,22 @@ cd packages/pattern-core && node --test "test/**/*.test.ts"
 ## Estructura
 
 ```
-apps/web/                Next.js 16: acceso, proyectos con avance (/proyectos y «Tejiendo»), cuenta, lanas (/lanas) y estudio de colorwork (/disenos); E2E en apps/web/e2e
-supabase/                Migraciones (esquema, RLS, datos, storage, cuotas, proyectos) y verificaciones
-packages/pattern-core/   Modelo canónico, motor (derivados, edición, migraciones, conteos de hebras) y validador
-packages/pattern-render/ Gráfico SVG accesible y descripción textual del motivo
+apps/web/                Next.js 16: acceso, proyectos con avance (/proyectos y «Tejiendo»), cuenta, lanas (/lanas), estudio de colorwork y estudio amigurumi con visor 3D (/disenos); E2E en apps/web/e2e
+supabase/                Migraciones (esquema, RLS, datos, storage, cuotas, proyectos, dialecto del perfil) y verificaciones
+packages/pattern-core/   Modelo canónico (schemaVersion 2), motor (derivados, edición, migraciones, conteos), perfil de las partes, texto escrito (ES, US, UK) y validador
+packages/pattern-render/ Gráfico SVG accesible, descripción textual del motivo y del patrón escrito
 packages/stitch-render/  Render realista de puntos en Canvas 2D (plano, tubo y círculo)
+packages/viewer-3d/      Geometría 3D del amigurumi (malla por punto, escena con copias y anclas) y backend Three.js en @loopitalab/viewer-3d/three
+packages/glossary/       Terminología ES, US y UK basada en el Craft Yarn Council (pendiente de validar con tejedoras)
 packages/follow/         Secuenciador del modo tejiendo: pasos por fila del gráfico y puntero de avance
 packages/yarn-catalog/   Grosores CYC, búsqueda de grosores, fibras, paleta propia, muestra sugerida, color más cercano y metraje estimado
 packages/ai-router/      Router de modelos de IA del producto (se usa desde la fase 5)
-docs/adr/                Decisiones de arquitectura (0001 a 0009)
+docs/adr/                Decisiones de arquitectura (0001 a 0011)
 docs/roadmap.md          Fases 2 a 7
 docs/qa-fase-2.md        QA de cierre de la fase 2 (criterios y casos de dominio)
 docs/qa-fase-3.md        QA de cierre de la fase 3 (matriz de criterios, latencia y observaciones)
+docs/qa-fase-4.md        QA de cierre de la fase 4 (matriz de criterios, latencia del visor 3D y guía para el equipo de referencia)
+docs/capturas/           Capturas de referencia (fibras y visor 3D)
 docs/seguridad.md        Revisiones de seguridad, riesgos aceptados y pendientes
 docs/validacion-tejedoras.md  Hoja de preguntas para validar terminología con tejedoras (T1b)
 docs/agentes-runtime.md  Agentes de IA del producto
