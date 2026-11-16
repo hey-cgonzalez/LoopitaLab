@@ -35,6 +35,23 @@ La tarea de prioridad baja tiene un costo: fuera de los límites, el 3D espera a
 
 ## Latencia (CA4-P1 a CA4-P3, CA4-P5, CA4-P8 a CA4-P10)
 
+### Primera corrida en GitHub (PR #15, SwiftShader, CPU ×1)
+
+| Escenario | p95 en GitHub | Umbral de la CI |
+|---|---|---|
+| Referencia, texto (`edit-to-paint-3d`) | 44,3 ms | 150 ms (`E2E_VIEWER_BUDGET_MS`) |
+| Referencia, bloques | 33,2 ms | 150 ms |
+| Referencia, color / Colores planos / vista previa | 14,1 / 13,4 / 4,7 ms | 150 ms |
+| CA4-P8, 60.900 puntos, `edit-to-feedback` | 125,9 y 141,9 ms | 220 ms (`E2E_FEEDBACK_OUT_OF_LIMITS_MS`) |
+| CA4-P9, peor tarea al cargar | 517 y 414 ms | 800 ms (`E2E_LOAD_LONG_TASK_MS`); al editar, 500 ms y no hubo ninguna |
+| R4-20, cerca del tope, `edit-to-feedback` (solo se informa) | 388 ms | — |
+
+GitHub con SwiftShader es unas 5 veces más lento que el M1 fuera de los límites recomendados. Los dos escenarios
+fuera de los límites (que la usuaria acepta con "Seguir igual") tienen umbral propio en la CI, 1,5 × lo medido; en
+local y en el equipo de referencia se siguen exigiendo 100 ms (CA4-P8) y 500 ms (CA4-P9). Dentro de los límites, la
+CI exige 150 ms y el peor p95 fue 44,3 ms: con más corridas se puede bajar a 1,5 × su peor p95.
+
+
 Escenario de referencia (`referencia`) salvo donde se indica; 50 entradas por fila (30 cerca del tope), con pausas al azar de 80 a 580 ms y semilla fija. Siempre con el aspecto por fibra activado (el A/B con "Colores planos" va aparte). **p50 / p95 en ms.** En todas las corridas: 0 ediciones sin frame y **0 validaciones dentro de una ventana de edición** (CA4-P5).
 
 ### SwiftShader con CPU ×1, como la CI (`CI=1`, proyecto `webgl` entero, tres corridas seguidas)

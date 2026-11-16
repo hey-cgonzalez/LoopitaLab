@@ -35,7 +35,9 @@ Variables opcionales:
 | `E2E_PORT` | `3100` | Puerto del servidor de pruebas |
 | `E2E_SKIP_BUILD` | — | `1`: no vuelve a hacer `next build` (usa el `.next` existente; tiene que haberse construido con las variables de ejemplo) |
 | `E2E_LATENCY_BUDGET_MS` | `100` | Umbral del p95 de latencia (CA-P1 y CA-P3) |
-| `E2E_VIEWER_BUDGET_MS` | `100` | Umbral del p95 de `edit-to-paint-3d` y `hover-to-paint-3d` en `latencia-visor.spec.ts` (CA4-P1 a CA4-P3 y CA4-P10). La CI lo fija en `150` (WebGL por software; razonamiento en `docs/qa-fase-4.md`). `edit-to-feedback` fuera de los límites usa 100 ms fijos |
+| `E2E_VIEWER_BUDGET_MS` | `100` | Umbral del p95 de `edit-to-paint-3d` y `hover-to-paint-3d` en `latencia-visor.spec.ts` (CA4-P1 a CA4-P3 y CA4-P10). La CI lo fija en `150` (WebGL por software; razonamiento en `docs/qa-fase-4.md`). `edit-to-feedback` fuera de los límites usa 100 ms (en la CI, `E2E_FEEDBACK_OUT_OF_LIMITS_MS` = 220) |
+| `E2E_FEEDBACK_OUT_OF_LIMITS_MS` | `100` | Umbral del p95 de `edit-to-feedback` fuera de los límites recomendados (CA4-P8). La CI lo fija en `220` (SwiftShader en GitHub: 126 a 142 ms medidos en el PR #15) |
+| `E2E_LOAD_LONG_TASK_MS` | `500` | Tarea larga máxima al cargar la página sobre el tope (CA4-P9), por la limitación de CPU. La CI lo fija en `800`. Al editar se exigen siempre 500 ms |
 | `E2E_CPU_RATE` | `1` | CPU limitada por CDP. `4` reproduce las condiciones del ADR 0004 |
 | `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` y `latencia-visor.spec.ts` miden con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
 | `E2E_R420_STRICT` | — | `1`: `latencia-visor.spec.ts` exige también `edit-to-feedback` < 100 ms cerca de `SCENE_HARD_STITCH_CAP` (R4-20; sin la variable, solo informa) |
@@ -108,7 +110,7 @@ Validaciones dentro de una ventana de edición: 0 en todos los casos.
 pnpm --filter @loopitalab/web e2e --project=webgl --workers=1 e2e/latencia-visor.spec.ts
 ```
 
-Umbrales: `E2E_VIEWER_BUDGET_MS` para el 3D (100 ms por defecto) y 100 ms fijos para `edit-to-feedback` fuera de los límites (CA4-P8). **Sin traza** (`test.use({ trace: "off" })`): grabarla toma instantáneas del DOM en cada acción y falsea la medición (con 60.900 puntos, `edit-to-feedback` p50 de 60–66 ms con traza y 16–17 ms sin ella). `latencia.spec.ts` (colorwork) sí graba la traza al fallar; sus cifras de la CI pueden estar infladas por eso. Cifras, presupuesto de la CI y guía para el equipo de referencia: `docs/qa-fase-4.md`.
+Umbrales: `E2E_VIEWER_BUDGET_MS` para el 3D (100 ms por defecto) y 100 ms para `edit-to-feedback` fuera de los límites (CA4-P8; `E2E_FEEDBACK_OUT_OF_LIMITS_MS` en la CI). **Sin traza** (`test.use({ trace: "off" })`): grabarla toma instantáneas del DOM en cada acción y falsea la medición (con 60.900 puntos, `edit-to-feedback` p50 de 60–66 ms con traza y 16–17 ms sin ella). `latencia.spec.ts` (colorwork) sí graba la traza al fallar; sus cifras de la CI pueden estar infladas por eso. Cifras, presupuesto de la CI y guía para el equipo de referencia: `docs/qa-fase-4.md`.
 
 **Chromium completo, no el shell.** Por defecto Playwright usa `chromium-headless-shell`, que dibuja el canvas mucho más lento: con CPU ×4, el círculo de rombos daba p95 de 177 ms al pintar y 202 ms en repeticiones, contra 63,5 ms y 86,7 ms con Chromium completo. Por eso la configuración usa `channel: "chromium"`.
 

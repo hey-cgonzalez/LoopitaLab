@@ -30,13 +30,18 @@ import {
  *
  * Siempre con el aspecto por fibra activado; `E2E_FLAT_COLORS=1` mide con "Colores planos" (A/B, solo se informa).
  * Umbrales: `E2E_VIEWER_BUDGET_MS` para el 3D (100 ms por defecto, el de la regla de oro 7; la CI usa el suyo, ver
- * `e2e/README.md`) y 100 ms fijos para `edit-to-feedback` fuera de los límites (CA4-P8). CPU: `E2E_CPU_RATE` (1).
+ * `e2e/README.md`) y 100 ms para `edit-to-feedback` fuera de los límites (CA4-P8; la CI usa `E2E_FEEDBACK_OUT_OF_LIMITS_MS`). CPU: `E2E_CPU_RATE` (1).
  * Los números quedan en la salida (`[latencia-visor]`) y como adjuntos JSON. Corre en orden en un trabajador: con
  * otras pruebas en paralelo, la CPU compartida falsearía las cifras (en local, `--workers=1`).
  */
 const BUDGET_MS = Number(process.env.E2E_VIEWER_BUDGET_MS ?? 100);
-const FEEDBACK_MS = 100;
+/** CA4-P8 (edit-to-feedback fuera de los límites recomendados): 100 ms en local y en el equipo de referencia. La CI
+ * (SwiftShader en GitHub) usa el suyo por `E2E_FEEDBACK_OUT_OF_LIMITS_MS`. */
+const FEEDBACK_MS = Number(process.env.E2E_FEEDBACK_OUT_OF_LIMITS_MS ?? 100);
+/** CA4-P9 al editar: 500 ms siempre. */
 const LONG_TASK_MS = 500;
+/** CA4-P9 al cargar la página: 500 ms × CPU por defecto; la CI usa `E2E_LOAD_LONG_TASK_MS`. */
+const LOAD_LONG_TASK_MS = Number(process.env.E2E_LOAD_LONG_TASK_MS ?? LONG_TASK_MS);
 const CPU_RATE = Number(process.env.E2E_CPU_RATE ?? 1);
 const FLAT_COLORS = process.env.E2E_FLAT_COLORS === "1";
 const N = 50;
@@ -254,7 +259,7 @@ test("sobre SCENE_HARD_STITCH_CAP (270.000 puntos): siluetas, ninguna tarea de m
   const editing = tasks.slice(atLoad).reduce((m, t) => Math.max(m, t.duration), 0);
   const loading = tasks.slice(0, atLoad).reduce((m, t) => Math.max(m, t.duration), 0);
   expect(editing, `CA4-P9: ninguna tarea de más de ${LONG_TASK_MS} ms al editar`).toBeLessThan(LONG_TASK_MS);
-  expect(loading, `CA4-P9: ninguna tarea de más de ${LONG_TASK_MS} ms × CPU al cargar`).toBeLessThan(LONG_TASK_MS * CPU_RATE);
+  expect(loading, `CA4-P9: ninguna tarea de más de ${LOAD_LONG_TASK_MS} ms × CPU al cargar`).toBeLessThan(LOAD_LONG_TASK_MS * CPU_RATE);
 });
 
 /*
