@@ -9,7 +9,7 @@
  * - **Posiciones**: `FreeAt` en el mundo; `SurfaceAt` con `surfaceFrame` del anfitrión; las
  *   copias sin posición, en fila sobre +x, separadas, en el orden de `parts`.
  */
-import { LIMITS, partProfile, type Part, type PartProfile, type Placement, type ShapeMetrics, type SurfaceAt } from "@loopitalab/pattern-core";
+import { LIMITS, exceedsExpansionLimits, partExpansionWork, partProfile, type Part, type PartProfile, type Placement, type ShapeMetrics, type SurfaceAt } from "@loopitalab/pattern-core";
 import { surfaceFrame } from "./frame.ts";
 import { basis, eulerXYZ, finiteOr, identity, multiply, rotationX, rotationY, rotationZ, transformPoint, translation, type Mat4 } from "./mat4.ts";
 import { buildPartMesh, colorizePartMesh, reusedRoundsOf, shapeSignature } from "./mesh.ts";
@@ -25,7 +25,12 @@ interface Entry {
   signature: string | null;
   profile: PartProfile;
   mesh: PartMesh;
+  /** true si la parte pasa los topes de expansión y se armó vacía (T20-A1). */
+  tooLarge: boolean;
 }
+
+/** Firma de una parte armada vacía: nunca coincide con la de una parte real, así que no se recolorea. */
+const TOO_LARGE_SIGNATURE = "\u0000too-large";
 
 const STATE = new WeakMap<SceneCache, Map<string, Entry>>();
 
@@ -61,27 +66,46 @@ export function buildScene(input: SceneInput): SceneResult {
   const assumed: string[] = [];
 
   // 1. Una malla por parte (con caché).
+  // Defensa ante la bomba de expansión (T20-A1): una parte que pasa los topes del validador
+  // (trabajo de una vuelta sobre `maxRoundStitches`, o el del documento sobre
+  // `maxExpansionWork`) se arma vacía y con un aviso. Un documento `savable` nunca llega aquí;
+  // un documento dañado, hostil o sin validar no cuelga la vista. Cuesta lo que el texto.
+  let budget: number = LIMITS.maxExpansionWork;
   const entries: Entry[] = parts.map((part) => {
     const metrics = input.metrics(part);
     if (metrics?.assumed) assumed.push(part.id);
     const mKey = metricsKey(metrics);
     const duplicate = next.has(part.id);
     const old = duplicate ? undefined : previous?.get(part.id);
+    const work = partExpansionWork(part);
+    const tooLarge = exceedsExpansionLimits(part) || !(work <= budget);
+    if (!tooLarge) budget -= work;
     let entry: Entry;
-    if (old && old.part === part && old.metricsKey === mKey && old.yarnKey === yarnKey) {
+    if (tooLarge) {
+      const empty: Part = { ...part, rounds: [] };
+      const profile = partProfile(empty, metrics);
+      entry = { part, metricsKey: mKey, yarnKey, signature: TOO_LARGE_SIGNATURE, profile, mesh: buildPartMesh(empty, yarnIds, profile), tooLarge };
+      updates.push({ partId: part.id, kind: "built", reusedRounds: 0 });
+      notes.push({
+        code: "PART_TOO_LARGE",
+        message: `${part.name}: sus repeticiones se despliegan en más pasos de los que el motor acepta, así que el 3D no la dibuja. La revisión del patrón indica qué vuelta cambiar.`,
+        partId: part.id,
+        data: { work, max: LIMITS.maxExpansionWork },
+      });
+    } else if (old && !old.tooLarge && old.part === part && old.metricsKey === mKey && old.yarnKey === yarnKey) {
       entry = old;
       updates.push({ partId: part.id, kind: "kept" });
     } else {
       const signature = shapeSignature(part);
       if (old && old.metricsKey === mKey && (old.signature ?? shapeSignature(old.part)) === signature) {
         const range = colorizePartMesh(old.mesh, part, yarnIds);
-        entry = { part, metricsKey: mKey, yarnKey, signature, profile: old.profile, mesh: old.mesh };
+        entry = { part, metricsKey: mKey, yarnKey, signature, profile: old.profile, mesh: old.mesh, tooLarge: false };
         updates.push({ partId: part.id, kind: "recolored", from: range.from, to: range.to });
       } else {
         const profile = partProfile(part, metrics);
         const reuse = old && old.metricsKey === mKey ? { reuse: { mesh: old.mesh, fromRound: Number.MAX_SAFE_INTEGER } } : {};
         const mesh = buildPartMesh(part, yarnIds, profile, reuse);
-        entry = { part, metricsKey: mKey, yarnKey, signature, profile, mesh };
+        entry = { part, metricsKey: mKey, yarnKey, signature, profile, mesh, tooLarge: false };
         updates.push({ partId: part.id, kind: "built", reusedRounds: reusedRoundsOf(mesh) });
       }
     }

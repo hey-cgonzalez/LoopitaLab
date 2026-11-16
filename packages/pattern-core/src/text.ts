@@ -31,6 +31,7 @@
  */
 import { LIMITS } from "./limits.ts";
 import {
+  DIALECTS,
   lookupLoop,
   lookupStitch,
   loopAbbrev,
@@ -752,4 +753,67 @@ export function formatPartLines(part: Part, dialect: Dialect = "es"): FormattedP
 
 export function formatPart(part: Part, dialect: Dialect = "es"): string {
   return formatPartLines(part, dialect).text;
+}
+
+// ------------------------------------------------- Largo del texto (T20-B3)
+
+/** Largo de `${v}` en un texto armado (igual que la interpolación de plantilla). */
+const strLen = (v: unknown): number => String(v).length;
+
+function itemsLength(items: Item[], dialect: Dialect): number {
+  let n = 0;
+  items.forEach((item, i) => {
+    if (i > 0) n += 2; // ", "
+    if (item.type === "color") n += 1 + strLen(item.yarn);
+    else if (item.type === "group") n += 1 + itemsLength(item.items, dialect) + 3 + strLen(item.times); // "[" … "] x" N
+    else {
+      n += stitchAbbrev(item.stitch, dialect).length;
+      if (item.loop && item.loop !== "both") n += 1 + loopAbbrev(item.loop, dialect).length;
+      if (item.count !== 1) n += strLen(item.count) + 1;
+    }
+  });
+  return n;
+}
+
+/** Largo de las líneas `>` de un texto de varias líneas, con sus saltos de línea delante. */
+function noteLinesLength(lines: string[]): number {
+  let n = 0;
+  for (const l of lines) n += 1 + (l === "" ? 1 : 2 + l.length);
+  return n;
+}
+
+function partLength(part: Part, dialect: Dialect): number {
+  const es = dialect === "es";
+  const name = oneLine(part.name) || (es ? "Parte" : "Part");
+  const construction = es ? { spiral: "espiral", joined: "cerrada", flat: "hileras" }[part.construction] : part.construction;
+  const start = part.start.type === "magic_ring" ? 2 : (es ? 3 : 2) + 1 + strLen(part.start.count);
+  // Cada encabezado mide "Título: valor"; las líneas se unen con "\n".
+  let n = (es ? 5 : 4) + 2 + name.length;
+  if (isInt(part.copies) && part.copies > 1) n += 1 + (es ? 8 : 4) + 2 + strLen(part.copies);
+  n += 1 + (es ? 6 : 5) + 2 + start;
+  n += 1 + 12 + 2 + strLen(construction); // "Construcción" y "Construction" miden 12
+  n += 1 + 4 + 2 + strLen(part.startYarn); // "Lana" y "Yarn" miden 4
+  for (const r of part.rounds) {
+    const range = r.through !== undefined && r.through !== r.number ? 1 + strLen(r.through) : 0;
+    const expected = r.expected !== undefined ? 3 + strLen(r.expected) : 0;
+    n += 1 + 1 + strLen(r.number) + range + 2 + itemsLength(r.items, dialect) + expected;
+    n += noteLinesLength(textLines(r.note));
+  }
+  const finish = textLines(part.finish, true);
+  if (finish.length > 0) n += 1 + 6 + 2 + (finish[0] as string).length + noteLinesLength(finish.slice(1)); // "Cierre" y "Finish" miden 6
+  return n;
+}
+
+/**
+ * Largo exacto (en unidades UTF-16, como `PARSE_LIMITS.maxTextLength`) de `formatPart(part,
+ * dialect)`, sin armar el texto: tiempo lineal en el tamaño de la parte. Sin `dialect`, el
+ * del dialecto más largo. El validador lo usa para que toda parte `savable` se pueda abrir en
+ * el editor de texto (hueco 2 de T20). Como `formatPart`, espera una parte con la forma del
+ * modelo (las vueltas e ítems revisados por el validador).
+ */
+export function formattedPartLength(part: Part, dialect?: Dialect): number {
+  if (dialect !== undefined) return partLength(part, dialect);
+  let max = 0;
+  for (const d of DIALECTS) max = Math.max(max, partLength(part, d));
+  return max;
 }

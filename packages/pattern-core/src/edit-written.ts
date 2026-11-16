@@ -21,6 +21,7 @@ import { LIMITS } from "./limits.ts";
 import { normalizePart } from "./text.ts";
 import { SCHEMA_VERSION, type Gauge, type Issue, type Item, type Part, type PartRef, type Placement, type Round, type WrittenPattern, type Yarn } from "./types.ts";
 import { isDraftError, validatePattern } from "./validate.ts";
+import { partExpansionWork } from "./written.ts";
 
 /**
  * Ruta de un ítem dentro de una vuelta: `[i]` es `round.items[i]`; `[i, j]`, el ítem `j`
@@ -59,6 +60,17 @@ function partSound(pattern: WrittenPattern, part: Part): boolean {
 }
 
 /**
+ * true si el trabajo de expansión del documento pasa `LIMITS.maxExpansionWork` (T20-A1). Es el
+ * único tope estructural que depende de varias partes: `partSound` mira la parte sola. Cuenta
+ * todas las vueltas; con partes sanas (cada vuelta bajo su tope) es lo mismo que el validador.
+ */
+function overExpansionWork(parts: readonly Part[]): boolean {
+  let total = 0;
+  for (const p of parts) total += partExpansionWork(p);
+  return !(total <= LIMITS.maxExpansionWork);
+}
+
+/**
  * Reemplaza la parte `index` por `next` (normalizada). Devuelve la entrada si no cambia
  * nada o si la parte nueva tiene errores estructurales que la anterior no tenía.
  */
@@ -69,6 +81,7 @@ function commitPart(pattern: WrittenPattern, index: number, next: Part): Written
   if (!partSound(pattern, part) && partSound(pattern, prev)) return pattern;
   const parts = pattern.parts.slice();
   parts[index] = part;
+  if (overExpansionWork(parts) && !overExpansionWork(pattern.parts)) return pattern;
   return { ...pattern, parts };
 }
 

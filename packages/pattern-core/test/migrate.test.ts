@@ -2,6 +2,12 @@
  * Migraciones (ADR 0003, sección 5; ADR 0011, sección 5): `STEPS[1]` (v1 → v2) y las
  * propiedades M1 a M4 (criterio CA4-M1). M1 compara contra el validador v1 congelado
  * (`support/validate-v1.ts`).
+ *
+ * Excepciones deliberadas de M1 (endurecimientos, como T4-4): los topes de T20 (enmienda T20-x
+ * del ADR 0011). Un v1 hostil que era `savable` (o `valid`) deja de serlo con un `LIMIT`
+ * estructural cuyo `data.limit` es uno de `T20_LIMITS`. Ningún documento real cambia: la base no
+ * tiene patrones escritos (auditoría T2), y ningún patrón dentro de los límites recomendados
+ * llega a esos topes.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -27,7 +33,9 @@ import {
   type ChartPattern,
   type ChartPatternV1,
   type Issue,
+  type Item,
   type PatternV1,
+  type Round,
   type WrittenPattern,
   type WrittenPatternV1,
 } from "../src/index.ts";
@@ -74,6 +82,14 @@ function genChartV1(r: Rng): ChartPatternV1 {
 
 const genV1 = (r: Rng): PatternV1 => (r.bool(0.25) ? genChartV1(r) : genWrittenV1(r));
 
+/**
+ * Topes de T20 que rompen M1 a propósito (`data.limit` del `LIMIT`): trabajo de expansión por
+ * vuelta y por documento (T20-A1), `expected` y `start.count` (hueco 1), nodos por vuelta y
+ * texto de la parte (hueco 2).
+ */
+const T20_LIMITS = new Set(["maxRoundWork", "maxExpansionWork", "maxRoundStitches", "maxRoundItems", "maxTextLength"]);
+const hasT20Limit = (issues: Issue[]) => issues.some((i) => i.code === "LIMIT" && T20_LIMITS.has(i.data?.limit as string));
+
 /** Códigos que la v2 puede sumar como advertencia o información (M1 enmendada por C-9). */
 const NEW_NOTICE_CODES = new Set(["PART_START_RING_SHORT", "PART_START_FLAT_RING", "MAGIC_RING_UNUSUAL", "ROUND_GROWS_FAST", "ROUND_SHRINKS_FAST"]);
 
@@ -86,6 +102,7 @@ function checkM1(doc: PatternV1): void {
   const m = migratePattern(doc);
   assert.equal(m.ok, true);
   const after = validatePattern(m.document);
+  if (hasT20Limit(after.issues)) return; // excepción deliberada de T20 (ver arriba)
 
   const oldErrors = before.issues.filter((i) => i.severity === "error" && i.code !== "SCHEMA_VERSION");
   const newErrors = after.issues.filter((i) => i.severity === "error");
@@ -196,6 +213,39 @@ describe("M1: un v1 valid o savable migrado conserva sus errores y solo suma avi
       if (validatePatternV1(doc).savable) savable++;
     }, 400);
     assert.ok(savable >= 100, `se probaron ${savable} documentos v1 savable (se esperaban al menos 100)`);
+  });
+
+  it("excepción deliberada de T20: un v1 savable que pasa un tope nuevo deja de serlo, con un LIMIT", () => {
+    const round = (items: Item[], extra: Partial<Round> = {}): Round => ({ number: 2, items, ...extra });
+    const bomb: Item = [1, 2, 3, 4, 5].reduce<Item>((g) => ({ type: "group", times: 500, items: [g] }), { type: "color", yarn: "A" });
+    const cases: Array<{ name: string; limit: string; edit: (d: WrittenPatternV1) => void }> = [
+      { name: "bomba de expansión", limit: "maxRoundWork", edit: (d) => d.parts[0]!.rounds.splice(1, 1, round([bomb, { type: "stitch", stitch: "inc", count: 6 }], { expected: 12 })) },
+      // Un `expected` desmedido no rompe M1: en la v1 el desajuste de conteo ya impedía guardar.
+      // La cadeneta sí: en hileras, el desajuste de la V1 es advertencia (T20-B1).
+      {
+        name: "cadeneta de 1e300 en hileras",
+        limit: "maxRoundStitches",
+        edit: (d) => {
+          d.parts[0]!.construction = "flat";
+          d.parts[0]!.start = { type: "chain", count: 1e300 };
+        },
+      },
+      { name: "101 nodos", limit: "maxRoundItems", edit: (d) => void d.parts[0]!.rounds[0]!.items.unshift(...Array.from({ length: 100 }, () => ({ type: "color" as const, yarn: "A" }))) },
+      { name: "texto de 100.001 caracteres", limit: "maxTextLength", edit: (d) => void d.parts[0]!.rounds.forEach((r) => (r.note = "n".repeat(500))) },
+    ];
+    for (const { name, limit, edit } of cases) {
+      const doc = asV1(ballPattern());
+      edit(doc);
+      if (limit === "maxTextLength") {
+        // Bolita tiene pocas vueltas: se suman vueltas iguales con nota hasta pasar el tope.
+        const last = doc.parts[0]!.rounds.at(-1)!;
+        for (let n = 1; n <= 200; n++) doc.parts[0]!.rounds.push({ number: (last.through ?? last.number) + n, items: [{ type: "stitch", stitch: "sc", count: 6 }], note: "n".repeat(500) });
+      }
+      assert.equal(validatePatternV1(doc).savable, true, `${name}: savable en la v1`);
+      const after = validatePattern(migratePattern(doc).document);
+      assert.equal(after.savable, false, `${name}: deja de ser savable en la v2`);
+      assert.ok(after.issues.some((i) => i.code === "LIMIT" && i.data?.limit === limit), `${name}: LIMIT ${limit}`);
+    }
   });
 
   it("la V1 con cadeneta en aro pasa de error a advertencia (C-9); desde la V2 sigue siendo error", () => {

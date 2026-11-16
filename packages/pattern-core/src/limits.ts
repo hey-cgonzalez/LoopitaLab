@@ -18,7 +18,27 @@ export const LIMITS = {
   maxItemCount: 5_000,
   maxGroupTimes: 500,
   maxNesting: 6,
+  /**
+   * Tope de una vuelta: lo que deja (`produced`), lo que trabaja (`consumed`, T4-4), su
+   * trabajo de expansión (T20-A1), su conteo declarado (`expected`) y la cadeneta inicial
+   * de la parte (`start.count`, hueco 1 de T20).
+   */
   maxRoundStitches: 50_000,
+  /**
+   * Nodos de una vuelta (puntos, cambios de lana y grupos, en todos los niveles; hueco 2 de
+   * T20). Con 100, la peor vuelta posible se escribe en menos de `PARSE_LIMITS.maxLineLength`
+   * caracteres en los tres dialectos, así que toda vuelta hace la ida y vuelta por texto.
+   * Un tapestry de 200 puntos con color por punto cabe en 5 nodos (`[@A, pb, @B, pb] x100`).
+   */
+  // validar con experto-tejido: ¿alcanzan 100?
+  maxRoundItems: 100,
+  /**
+   * Trabajo de expansión de todo el documento (T20-A1): Σ, sobre las vueltas concretas de
+   * todas las partes, del trabajo de cada vuelta (Σ sobre sus nodos del producto de los
+   * `times` que los envuelven: lo que recorre `expandRound`). Unas 10 veces lo que dejan los
+   * límites recomendados (`RECOMMENDED_WRITTEN_LIMITS`). Las copias no suman: comparten malla.
+   */
+  maxExpansionWork: 2_000_000,
   /** Largo del título en caracteres, igual que la columna `patterns.title` (`char_length`). */
   maxTitleLength: 120,
   /*

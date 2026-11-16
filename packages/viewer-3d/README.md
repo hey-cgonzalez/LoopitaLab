@@ -65,7 +65,9 @@ Se recorre `expandRound` de cada vuelta concreta con un cursor sobre lo consumid
   - `SurfaceAt`: `anfitrión · T(posición + normal × offsetCm) · [tangente, meridiano, normal] · giro · unión`. El giro `rotationDeg` es `[sobre la normal, sobre la tangente, sobre el meridiano]`, aplicado en ese orden. Con `attach: "start"`, el inicio de la parte va en el ancla y la pieza crece por la normal. Con `"end"`, el borde abierto (centro de la última vuelta) va en el ancla y la pieza sale hacia afuera.
   - Sin posición: en fila sobre +x, en el orden de `parts` y de las copias, separadas por `AUTO_PLACEMENT_GAP_CM`, a la derecha de las piezas libres.
   - Anclas que no se resuelven (anfitrión inexistente, ciclo o cadena de más de `LIMITS.maxLayoutDepth`; solo en documentos que no son `savable`): ubicación automática y aviso.
-- **Avisos** (`notes`, nunca errores): `ANCHOR_CLAMPED`, `ANCHOR_UNRESOLVED`, `GAUGE_ASSUMED`, `SHAPE_RUFFLES` y `SHAPE_GATHERS` (anillos con `strain` distinto de 1). Mensajes provisionales; la redacción final es de `documentador`.
+- **Avisos** (`notes`, nunca errores): `ANCHOR_CLAMPED`, `ANCHOR_UNRESOLVED`, `GAUGE_ASSUMED`, `SHAPE_RUFFLES`, `SHAPE_GATHERS` (anillos con `strain` distinto de 1) y `PART_TOO_LARGE`. Mensajes provisionales; la redacción final es de `documentador`.
+- **Topes de expansión** (T20-A1): una parte que pasa los topes del validador (`exceedsExpansionLimits`, o el trabajo acumulado del documento sobre `LIMITS.maxExpansionWork`) se arma **vacía** con el aviso `PART_TOO_LARGE`. Solo pasa con documentos que no son `savable` (dañados, hostiles o sin validar): la vista no se cuelga. Cuesta lo que el texto de la parte. Al corregirla se vuelve a armar (nunca se recolorea ni se conserva la malla vacía).
+- **Expansión** (T20-M1): `buildPartMesh` y `colorizePartMesh` expanden cada vuelta escrita a lo más una vez por lana inicial (dos en un rango); las vueltas de un rango comparten la lista de puntos.
 - `copies` se lee como en `recommendedLimitUsage` (omitido o inválido = 1), acotado a `LIMITS.maxCopies`.
 
 ## Backend `three` (`@loopitalab/viewer-3d/three`)
@@ -114,6 +116,7 @@ SEED=99999 node --test "test/**/*.test.ts"
 - `scene.test.ts`: F4-58, anclas, ubicación automática, caché (CA4-P6) y avisos.
 - `svg.test.ts`: siluetas.
 - `three.test.ts`: backend `three` sin GPU (política, capacidad, atributos en el lugar, tabla por lana, parche del material, relieve procedural, límites entre paquetes).
+- `t20-hostiles.test.ts`: `buildScene` con los documentos hostiles de la revisión T20 (`pattern-core/test/support/hostile.ts`) en menos de 50 ms (100 en CI; `T20_TIME_FACTOR`), `PART_TOO_LARGE` por parte y por documento, y "un rango da la misma malla que sus vueltas escritas una por una".
 - `perf.test.ts`: guardia CA4-P6. Falla si `partProfile`, `buildPartMesh` (fixture A) o `buildScene` (escenario de referencia, completa y con una parte editada) superan 3 veces la referencia (6 en CI; `VIEWER_3D_PERF_FACTOR` la cambia).
 
 ### Referencia de rendimiento (R4-19)

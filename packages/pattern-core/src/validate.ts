@@ -7,6 +7,7 @@ import { yarnLetter } from "./letters.ts";
 import { LIMITS } from "./limits.ts";
 import { PROFILE_RADIAL_TOLERANCE, revolutionProfile, shapeMetrics, type GaugeStitch, type ShapeMetrics } from "./profile.ts";
 import { STITCHES } from "./stitches.ts";
+import { PARSE_LIMITS, formattedPartLength } from "./text.ts";
 import {
   NO_STITCH,
   SCHEMA_VERSION,
@@ -20,7 +21,7 @@ import {
   type Severity,
   type WeightCategory,
 } from "./types.ts";
-import { countRound, startAvailable } from "./written.ts";
+import { countRound, startAvailable, type ConcreteRound, type RoundCount } from "./written.ts";
 
 export interface ValidateOptions {
   /** Fibras conocidas (de `yarn-catalog`). Si se entregan, se avisa de fibras desconocidas. */
@@ -134,7 +135,7 @@ const LINE_BREAK_RE = /[\r\n\u2028\u2029]/;
  * `LIMIT`). `what` es el sujeto del mensaje, con mayúscula ("El cierre de Bolita").
  * Devuelve true si el texto es válido.
  */
-function checkText(v: unknown, path: string, what: string, max: number, c: Collector, multiline = false): v is string {
+function checkText(v: unknown, path: string, what: string, max: number, c: ErrorSink, multiline = false): v is string {
   if (!isStr(v)) {
     c.error("SHAPE", path, `${what} debe ser texto.`);
     return false;
@@ -161,7 +162,7 @@ const LONE_SURROGATE_RE = /[\uD800-\uDBFF](?![\uDC00-\uDFFF])|(?<![\uD800-\uDBFF
 const codePointLabel = (n: number) => `U+${n.toString(16).toUpperCase().padStart(4, "0")}`;
 
 /** TEXT_CONTROL_CHAR si el texto tiene un carácter prohibido. Devuelve true si está limpio. */
-function checkChars(v: string, path: string, what: string, multiline: boolean, c: Collector): boolean {
+function checkChars(v: string, path: string, what: string, multiline: boolean, c: ErrorSink): boolean {
   const control = (multiline ? CONTROL_MULTILINE_RE : CONTROL_RE).exec(v);
   if (control) {
     const codePoint = codePointLabel(control[0].codePointAt(0) ?? 0);
@@ -238,6 +239,51 @@ function checkTextList(v: unknown, path: string, what: string, item: (i: number)
     return;
   }
   v.forEach((t: unknown, i: number) => checkText(t, `${path}[${i}]`, item(i), LIMITS.maxNoteLength, c, true));
+}
+
+/**
+ * Destino de los errores. El `Collector` los guarda todos; `CappedSink` y el `emit` de
+ * `layout` guardan hasta 20 por código (T20-B4 y T20-B5).
+ */
+interface ErrorSink {
+  error(code: string, path: string, message: string, data?: Record<string, unknown>): void;
+}
+
+/** Tope de problemas por código y por parte de los códigos estructurales de las vueltas (T20-B5). */
+const MAX_PART_ISSUES_PER_CODE = 20;
+
+/**
+ * Errores con tope por código (T20-B5): guarda los primeros `max` de cada código y, al
+ * cerrar (`finish`), anota en `data.omitted` del último guardado cuántos se omitieron.
+ * `savable` no cambia: de cada código queda al menos uno.
+ */
+class CappedSink implements ErrorSink {
+  readonly #c: Collector;
+  readonly #max: number;
+  readonly #seen = new Map<string, { n: number; last: Issue }>();
+  constructor(c: Collector, max: number) {
+    this.#c = c;
+    this.#max = max;
+  }
+  /** `message` puede ser una función: solo se arma si el problema se guarda (40.000 ítems malos no arman 80.000 textos). */
+  error(code: string, path: string, message: string | (() => string), data?: Record<string, unknown>): void {
+    const seen = this.#seen.get(code);
+    if (seen && seen.n >= this.#max) {
+      seen.n++;
+      return;
+    }
+    this.#c.error(code, path, typeof message === "function" ? message() : message, data);
+    const last = this.#c.issues[this.#c.issues.length - 1] as Issue;
+    if (seen) {
+      seen.n++;
+      seen.last = last;
+    } else this.#seen.set(code, { n: 1, last });
+  }
+  finish(): void {
+    for (const { n, last } of this.#seen.values()) {
+      if (n > this.#max) last.data = { ...last.data, omitted: n - this.#max };
+    }
+  }
 }
 
 class Collector {
@@ -435,6 +481,8 @@ function checkYarn(y: unknown, p: string, label: string, c: Collector, opts: Pic
 }
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
+/** Entero con separador de miles ("50.000"); un valor desmedido (1e300) se escribe tal cual, sin una cifra de 300 dígitos. */
+const num = (n: number) => (Number.isSafeInteger(n) ? n.toLocaleString("es-CL") : String(n));
 /** Recorta un texto de la usuaria o de la IA antes de ponerlo en un mensaje. */
 const clip = (s: string, max = 40) => {
   // Sin caracteres de control ni sustitutos sueltos: el mensaje nunca los arrastra (E16).
@@ -834,8 +882,10 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
   const usedYarns = new Set<string>();
   const partIds = new Set<string>();
   const infos = new Map<string, PartInfo>();
+  /** Trabajo de expansión del documento (T20-A1): Σ sobre las vueltas concretas que se pudieron medir. */
+  let docWork = 0;
 
-  parts.forEach((part: unknown, pi: number) => {
+  const checkPart = (part: unknown, pi: number, sink: CappedSink): void => {
     const pp = `parts[${pi}]`;
     if (!isRec(part)) {
       c.error("SHAPE", pp, "Cada parte debe ser un objeto.");
@@ -889,6 +939,17 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
     }
     if (start.type === "chain" && (!isInt(start.count) || start.count < (flat ? 2 : 1))) {
       c.error("PART_START", `${pp}.start.count`, `${pname}: la cadeneta inicial necesita una cantidad válida.`);
+      return;
+    }
+    // Hueco 1 de T20: ninguna vuelta trabaja más de `maxRoundStitches` puntos, así que una
+    // cadeneta mayor nunca cuadra. Estructural, como el tope de la vuelta.
+    if (start.type === "chain" && (start.count as number) > LIMITS.maxRoundStitches) {
+      const count = start.count as number;
+      c.error("LIMIT", `${pp}.start.count`, `${pname}: la cadeneta inicial puede tener hasta ${num(LIMITS.maxRoundStitches)} cadenetas (tiene ${num(count)}).`, {
+        count,
+        max: LIMITS.maxRoundStitches,
+        limit: "maxRoundStitches",
+      });
       return;
     }
     // Ajustes de T1 (ADR 0011, sección 4; enmiendas C-9 y C-19). No cambian `valid` ni `savable`.
@@ -968,26 +1029,57 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
       expectedNext = ((r.through as number | undefined) ?? r.number) + 1;
       if (r.expected !== undefined && (!isInt(r.expected) || r.expected < 0)) {
         c.error("ROUND_EXPECTED", `${rp}.expected`, `${label}: el conteo declarado no es válido.`);
+      } else if (isInt(r.expected) && r.expected > LIMITS.maxRoundStitches) {
+        // Hueco 1 de T20: ninguna vuelta deja más de `maxRoundStitches` puntos, así que nunca cuadra.
+        sink.error("LIMIT", `${rp}.expected`, `${label}: el conteo declarado (${num(r.expected)}) pasa el máximo de ${num(LIMITS.maxRoundStitches)} puntos por ${word}.`, {
+          expected: r.expected,
+          max: LIMITS.maxRoundStitches,
+          limit: "maxRoundStitches",
+        });
       }
       if (r.items.length === 0) {
         c.error("ROUND_EMPTY", rp, `${label} no tiene puntos.`);
         structureOk = false;
         return;
       }
-      if (!checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, 1)) {
+      const stats: ItemStats = { nodes: 0, work: 0, consumed: 0, produced: 0 };
+      if (!checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, sink, 1, 1, stats)) {
         structureOk = false;
         return;
       }
-      // Tope de puntos por vuelta (estructural): lo que deja y lo que trabaja. Se revisa aquí,
-      // y no al contar, para que un error de tejido (la numeración) nunca lo salte. El tope de
-      // lo que trabaja acota `expandRound` (una vuelta de `saltar` desmedida no deja puntos).
-      const count = countRound(r as unknown as Round, "");
-      if (count.produced > LIMITS.maxRoundStitches) {
-        c.error("LIMIT", rp, `${label}: demasiados puntos (${count.produced}).`, { produced: count.produced, max: LIMITS.maxRoundStitches });
+      // Topes de la vuelta (estructurales), calculados de forma aritmética al revisar los ítems
+      // (sin repetir los grupos). Se revisan aquí, y no al contar, para que un error de tejido
+      // (la numeración) nunca los salte.
+      // - Nodos (hueco 2 de T20): toda vuelta cabe en una línea del lector.
+      if (stats.nodes > LIMITS.maxRoundItems) {
+        sink.error(
+          "LIMIT",
+          rp,
+          `${label}: tiene demasiados elementos (${num(stats.nodes)}); una ${word} puede tener hasta ${LIMITS.maxRoundItems} entre puntos, cambios de lana y grupos. Agrupa lo que se repite con [ … ] xN.`,
+          { nodes: stats.nodes, max: LIMITS.maxRoundItems, limit: "maxRoundItems" },
+        );
         structureOk = false;
-      } else if (count.consumed > LIMITS.maxRoundStitches) {
-        c.error("LIMIT", rp, `${label}: se trabaja sobre demasiados puntos (${count.consumed}).`, { consumed: count.consumed, max: LIMITS.maxRoundStitches });
+      }
+      // - Lo que deja y lo que trabaja (T4-4: el tope de lo que trabaja acota `expandRound`).
+      // - Trabajo de expansión (T20-A1): Σ sobre los nodos del producto de los `times` que los
+      //   envuelven; acota `expandRound` ante grupos que solo cambian de lana.
+      if (stats.produced > LIMITS.maxRoundStitches) {
+        sink.error("LIMIT", rp, `${label}: demasiados puntos (${stats.produced}).`, { produced: stats.produced, max: LIMITS.maxRoundStitches });
         structureOk = false;
+      } else if (stats.consumed > LIMITS.maxRoundStitches) {
+        sink.error("LIMIT", rp, `${label}: se trabaja sobre demasiados puntos (${stats.consumed}).`, { consumed: stats.consumed, max: LIMITS.maxRoundStitches });
+        structureOk = false;
+      } else if (stats.work > LIMITS.maxRoundStitches) {
+        sink.error(
+          "LIMIT",
+          rp,
+          `${label}: los grupos [ … ] xN anidados se despliegan en demasiados pasos (${num(stats.work)}; el máximo es ${num(LIMITS.maxRoundStitches)}). Revisa las repeticiones, en especial las de grupos que solo cambian de lana.`,
+          { work: stats.work, max: LIMITS.maxRoundStitches, limit: "maxRoundWork" },
+        );
+        structureOk = false;
+      } else {
+        // Solo suman al documento las vueltas dentro de su tope: la que lo pasa ya tiene su LIMIT.
+        docWork += stats.work * (((r.through as number | undefined) ?? r.number) - r.number + 1);
       }
     });
     if (structureOk && concrete > maxR) {
@@ -997,8 +1089,21 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
     }
     if (!structureOk) return;
 
-    // 2) Conteos: cada vuelta consume lo que dejó la anterior.
+    // Texto de la parte (hueco 2 de T20): en el dialecto más largo cabe en el lector, así que
+    // toda parte `savable` se puede abrir en el editor de texto. Lineal, sin armar el texto.
     const typed = part as unknown as Part;
+    const textLength = formattedPartLength(typed);
+    if (textLength > PARSE_LIMITS.maxTextLength) {
+      c.error(
+        "LIMIT",
+        pp,
+        `${pname}: escrita como texto mediría ${num(textLength)} caracteres y el editor de texto lee hasta ${num(PARSE_LIMITS.maxTextLength)}. Divide la parte en dos o acorta sus notas.`,
+        { length: textLength, max: PARSE_LIMITS.maxTextLength, limit: "maxTextLength" },
+      );
+      return;
+    }
+
+    // 2) Conteos: cada vuelta consume lo que dejó la anterior.
     const ringStart = typed.start.type === "chain" && !flat;
     const missingExpected: number[] = [];
     const produced = new Map<number, number>();
@@ -1007,12 +1112,23 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
     let yarn = typed.startYarn;
     const lastRound = typed.rounds.at(-1);
     const finalNumber = lastRound ? (lastRound.through ?? lastRound.number) : 0;
+    /** Vueltas concretas, para los avisos de forma (las mismas de `concreteRounds`, sin volver a contar). */
+    const concreteList: ConcreteRound[] = [];
     typed.rounds.forEach((round, ri) => {
       const rp = `${pp}.rounds[${ri}]`;
       const last = round.through ?? round.number;
       let rangeReported = false;
+      // El conteo solo depende de la lana inicial, que desde la segunda vuelta del rango ya no
+      // cambia: cada vuelta escrita se cuenta a lo más dos veces (T20-M1).
+      let cached: RoundCount | null = null;
+      let cachedYarn: string | null = null;
       for (let n = round.number; n <= last; n++) {
-        const count = countRound(round, yarn);
+        if (cached === null || cachedYarn !== yarn) {
+          cached = countRound(round, yarn);
+          cachedYarn = yarn;
+        }
+        const count = cached;
+        concreteList.push({ number: n, sourceIndex: ri, round, startYarn: yarn, count });
         const label = `${pname}, ${word} ${n}`;
         const first = prevNumber === null;
         if (prevProduced !== null && count.consumed !== prevProduced && !rangeReported) {
@@ -1038,7 +1154,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
           );
         }
         // Un `expected` mal formado ya es ROUND_EXPECTED: no se compara (evita un mensaje con "[object Object]").
-        if (isInt(round.expected) && round.expected >= 0 && count.produced !== round.expected && !rangeReported) {
+        if (isInt(round.expected) && round.expected >= 0 && round.expected <= LIMITS.maxRoundStitches && count.produced !== round.expected && !rangeReported) {
           const hints: Hint[] = typed.construction !== "spiral" && joinSized(count.produced - round.expected) ? ["join"] : [];
           c.error(
             "ROUND_COUNT_MISMATCH",
@@ -1080,7 +1196,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
       }
     });
     info.produced = produced;
-    if (!flat && metrics) shapeNotices(typed, pp, pname, word, metrics, c);
+    if (!flat && metrics) shapeNotices(typed, pp, pname, word, metrics, c, concreteList);
     if (missingExpected.length > 0) {
       const n = missingExpected.length;
       c.info(
@@ -1090,7 +1206,21 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
         { rounds: missingExpected },
       );
     }
+  };
+  parts.forEach((part: unknown, pi: number) => {
+    const sink = new CappedSink(c, MAX_PART_ISSUES_PER_CODE);
+    checkPart(part, pi, sink);
+    sink.finish();
   });
+  if (docWork > LIMITS.maxExpansionWork) {
+    // Estructural (T20-A1): acota de punta a punta lo que recorren los derivados (3D, modo tejiendo).
+    c.error(
+      "LIMIT",
+      "parts",
+      `El patrón despliega demasiados pasos al repetir sus grupos y rangos (${num(docWork)}; el máximo es ${num(LIMITS.maxExpansionWork)}). Reduce las vueltas, los rangos o los grupos [ … ] xN anidados.`,
+      { work: docWork, max: LIMITS.maxExpansionWork, limit: "maxExpansionWork" },
+    );
+  }
 
   yarnIds.forEach((id, i) => {
     if (id && !usedYarns.has(id)) c.info("YARN_UNUSED", `yarns[${i}]`, `${capitalize(yarnLabel(input.yarns, i))} no se usa en ninguna parte.`);
@@ -1127,8 +1257,8 @@ function writtenShapeMetrics(docGauge: unknown, opts: ValidateOptions): ShapeMet
  * evalúa. Un aviso por vuelta escrita (un rango que cambia el conteo ya es error).
  * Textos de F4-77 y F4-78. // validar con tejedora
  */
-function shapeNotices(part: Part, pp: string, pname: string, word: string, metrics: ShapeMetrics, c: Collector): void {
-  const { steps } = revolutionProfile(part, metrics);
+function shapeNotices(part: Part, pp: string, pname: string, word: string, metrics: ShapeMetrics, c: Collector, concrete: ConcreteRound[]): void {
+  const { steps } = revolutionProfile(part, metrics, concrete);
   let lastSource = -1;
   for (const step of steps) {
     if (!step.evaluated || step.sourceIndex === lastSource) continue;
@@ -1177,6 +1307,8 @@ function validateLayout(layout: unknown, parts: Map<string, PartInfo> | null, c:
     counts.set(code, n);
     if (n <= MAX_LAYOUT_ISSUES_PER_CODE) c.add(severity, code, path, message, data);
   };
+  /** Destino de `checkText` dentro de `layout`: `LIMIT` y `TEXT_CONTROL_CHAR` entran en el tope por código (T20-B4). */
+  const layoutSink: ErrorSink = { error: (code, path, message, data) => emit("error", code, path, message, data) };
   if (!isRec(layout)) {
     emit("error", "SHAPE", "layout", "La ubicación de las piezas debe ser un objeto.");
     return;
@@ -1209,7 +1341,7 @@ function validateLayout(layout: unknown, parts: Map<string, PartInfo> | null, c:
     if (!isStr(v.part) || v.part === "") {
       emit("error", "SHAPE", `${path}.part`, `${what} no indica a qué parte se refiere.`);
       ok = false;
-    } else if (!checkText(v.part, `${path}.part`, `${what}: el identificador de la parte`, LIMITS.maxIdLength, c)) ok = false;
+    } else if (!checkText(v.part, `${path}.part`, `${what}: el identificador de la parte`, LIMITS.maxIdLength, layoutSink)) ok = false;
     if (typeof v.copy !== "number") {
       emit("error", "SHAPE", `${path}.copy`, `${what} no indica cuál de las piezas es.`);
       ok = false;
@@ -1388,16 +1520,33 @@ function validateLayout(layout: unknown, parts: Map<string, PartInfo> | null, c:
   }
 }
 
-function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<string>, used: Set<string>, c: Collector, depth: number): boolean {
+/** Lo que `checkItems` mide de una vuelta, de forma aritmética (sin repetir los grupos). */
+interface ItemStats {
+  /** Nodos: puntos, cambios de lana y grupos, en todos los niveles. */
+  nodes: number;
+  /** Trabajo de expansión: Σ sobre los nodos del producto de los `times` que los envuelven. */
+  work: number;
+  consumed: number;
+  produced: number;
+}
+
+/**
+ * Revisa los ítems de una vuelta y suma sus medidas en `stats` (`mult` es el producto de los
+ * `times` de los grupos que los envuelven). Los errores van a `sink`, con tope por código y
+ * por parte (T20-B5); las claves desconocidas, al tope por documento de `checkKeys`.
+ */
+function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<string>, used: Set<string>, c: Collector, sink: CappedSink, depth: number, mult: number, stats: ItemStats): boolean {
   if (depth > LIMITS.maxNesting) {
-    c.error("LIMIT", path, `${label}: demasiados grupos anidados.`);
+    sink.error("LIMIT", path, `${label}: demasiados grupos anidados.`);
     return false;
   }
   let ok = true;
   items.forEach((it, i) => {
     const p = `${path}[${i}]`;
+    stats.nodes++;
+    stats.work += mult;
     if (!isRec(it)) {
-      c.error("SHAPE", p, `${label}: elemento mal formado.`);
+      sink.error("SHAPE", p, () => `${label}: elemento mal formado.`);
       ok = false;
       return;
     }
@@ -1405,41 +1554,50 @@ function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<
     const keys = item.type === "stitch" ? SCHEMA_KEYS.stitchItem : item.type === "group" ? SCHEMA_KEYS.groupItem : item.type === "color" ? SCHEMA_KEYS.colorItem : null;
     if (keys) checkKeys(item, keys, p, c);
     if (item.type === "stitch") {
+      let known = false;
       // Object.hasOwn: `in` aceptaría "toString", "constructor" o "__proto__" de Object.prototype.
       if (!isStr(item.stitch)) {
-        c.error("STITCH_UNKNOWN", p, `${label}: falta indicar qué punto es.`);
+        sink.error("STITCH_UNKNOWN", p, () => `${label}: falta indicar qué punto es.`);
         ok = false;
       } else if (!Object.hasOwn(STITCHES, item.stitch)) {
-        c.error("STITCH_UNKNOWN", p, `${label}: punto desconocido "${clip(item.stitch)}".`);
+        const code = item.stitch;
+        sink.error("STITCH_UNKNOWN", p, () => `${label}: punto desconocido "${clip(code)}".`);
         ok = false;
-      }
+      } else known = true;
       if (!isInt(item.count) || item.count < 1 || item.count > LIMITS.maxItemCount) {
-        c.error("ITEM_COUNT", p, `${label}: la cantidad de puntos debe ser un entero entre 1 y ${LIMITS.maxItemCount}.`);
+        sink.error("ITEM_COUNT", p, () => `${label}: la cantidad de puntos debe ser un entero entre 1 y ${LIMITS.maxItemCount}.`);
         ok = false;
+      } else if (known) {
+        // El mismo conteo que `countItems`, multiplicado por las repeticiones que lo envuelven.
+        const def = STITCHES[item.stitch as keyof typeof STITCHES];
+        stats.consumed += def.consumes * item.count * mult;
+        stats.produced += def.produces * item.count * mult;
       }
       if (item.loop !== undefined && !["both", "front", "back"].includes(item.loop as string)) {
-        c.error("STITCH_LOOP", p, `${label}: la lazada no es válida (debe ser ambas, delantera o trasera).`);
+        sink.error("STITCH_LOOP", p, () => `${label}: la lazada no es válida (debe ser ambas, delantera o trasera).`);
         ok = false;
       }
     } else if (item.type === "group") {
+      let times = 1;
       if (!isInt(item.times) || item.times < 1 || item.times > LIMITS.maxGroupTimes) {
-        c.error("GROUP_TIMES", p, `${label}: un grupo debe repetirse entre 1 y ${LIMITS.maxGroupTimes} veces.`);
+        sink.error("GROUP_TIMES", p, () => `${label}: un grupo debe repetirse entre 1 y ${LIMITS.maxGroupTimes} veces.`);
         ok = false;
-      }
+      } else times = item.times;
       if (!Array.isArray(item.items) || item.items.length === 0) {
-        c.error("GROUP_EMPTY", p, `${label}: hay un grupo vacío.`);
+        sink.error("GROUP_EMPTY", p, () => `${label}: hay un grupo vacío.`);
         ok = false;
-      } else if (!checkItems(item.items, `${p}.items`, label, yarnSet, used, c, depth + 1)) ok = false;
+      } else if (!checkItems(item.items, `${p}.items`, label, yarnSet, used, c, sink, depth + 1, mult * times, stats)) ok = false;
     } else if (item.type === "color") {
       if (!isStr(item.yarn) || item.yarn === "") {
-        c.error("COLOR_UNKNOWN_YARN", p, `${label}: el cambio de color no indica a qué lana.`);
+        sink.error("COLOR_UNKNOWN_YARN", p, () => `${label}: el cambio de color no indica a qué lana.`);
         ok = false;
       } else if (!yarnSet.has(item.yarn)) {
-        c.error("COLOR_UNKNOWN_YARN", p, `${label}: la lana "${clip(item.yarn)}" no existe en el patrón.`);
+        const id = item.yarn;
+        sink.error("COLOR_UNKNOWN_YARN", p, () => `${label}: la lana "${clip(id)}" no existe en el patrón.`);
         ok = false;
       } else used.add(item.yarn);
     } else {
-      c.error("SHAPE", p, `${label}: tipo de elemento desconocido.`);
+      sink.error("SHAPE", p, () => `${label}: tipo de elemento desconocido.`);
       ok = false;
     }
   });

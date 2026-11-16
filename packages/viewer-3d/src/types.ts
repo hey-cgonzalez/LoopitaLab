@@ -126,7 +126,9 @@ export type SceneNoteCode =
   | "ANCHOR_UNRESOLVED"
   | "GAUGE_ASSUMED"
   | "SHAPE_RUFFLES"
-  | "SHAPE_GATHERS";
+  | "SHAPE_GATHERS"
+  /** La parte pasa los topes de expansión del motor (T20-A1) y se arma vacía. Solo con documentos que no son `savable`. */
+  | "PART_TOO_LARGE";
 
 /** Lo que la escena aproximó. La interfaz lo muestra como aviso, nunca como error. */
 export interface SceneNote {

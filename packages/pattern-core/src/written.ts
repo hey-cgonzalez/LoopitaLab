@@ -20,19 +20,114 @@ export interface RoundCount {
   endYarn: string;
 }
 
-/** Recorre los ítems en orden de tejido sin construir listas (eficiente para conteos). */
-function walk(items: Item[], yarn: string, visit: (code: StitchCode, count: number, yarn: string, loop: Loop) => void): string {
+/**
+ * Recorre los ítems en orden de tejido sin construir listas. `state.visits` cuenta los puntos
+ * visitados (con cantidad positiva).
+ *
+ * Defensa ante la bomba de expansión (T20-A1): un grupo cuyo subárbol no visita ningún punto
+ * (solo cambios de lana) se recorre una sola vez. Es exacto: todos los ítems de un grupo se
+ * recorren siempre, así que la lana con que termina una pasada es la del último cambio de
+ * lana del grupo, o la de entrada si no tiene ninguno; desde la segunda pasada ya no cambia.
+ * El validador además acota el trabajo de expansión (`LIMITS.maxExpansionWork`).
+ * Pendiente de `experto-tejido`: si un grupo sin puntos debe ser error estructural; hoy es válido.
+ */
+function walk(items: Item[], yarn: string, visit: (code: StitchCode, count: number, yarn: string, loop: Loop) => void, state: { visits: number }): string {
   let current = yarn;
   for (const item of items) {
     if (item.type === "color") {
       current = item.yarn;
     } else if (item.type === "stitch") {
-      visit(item.stitch, item.count, current, item.loop ?? "both");
+      if (item.count > 0) {
+        visit(item.stitch, item.count, current, item.loop ?? "both");
+        state.visits++;
+      }
     } else {
-      for (let i = 0; i < item.times; i++) current = walk(item.items, current, visit);
+      const before = state.visits;
+      current = walk(item.items, current, visit, state);
+      if (state.visits === before) continue; // sin puntos: las demás pasadas no cambian nada
+      for (let i = 1; i < item.times; i++) current = walk(item.items, current, visit, state);
     }
   }
   return current;
+}
+
+/**
+ * Trabajo de expansión de unos ítems (T20-A1): Σ sobre los nodos (puntos, cambios de lana y
+ * grupos) del producto de los `times` que los envuelven, multiplicado por `mult`. Aritmético:
+ * no repite los grupos. Es una cota de lo que recorre `walk` sin la defensa de los grupos sin
+ * puntos. Con datos sin validar (un `times` que no es un entero positivo, ítems que no son
+ * objetos, anidación más allá de `LIMITS.maxNesting`) devuelve `Infinity`, nunca lanza por
+ * recursión sin tope.
+ */
+function itemsWork(items: unknown, mult: number, depth: number): number {
+  if (!Array.isArray(items) || depth > LIMITS.maxNesting) return Infinity;
+  let work = 0;
+  for (const item of items as unknown[]) {
+    if (typeof item !== "object" || item === null) return Infinity;
+    const it = item as { type?: unknown; times?: unknown; items?: unknown };
+    work += mult;
+    if (it.type === "group") {
+      const times = it.times;
+      if (typeof times !== "number" || !Number.isInteger(times) || times < 1) return Infinity;
+      work += itemsWork(it.items, mult * times, depth + 1);
+    }
+    if (!(work <= Number.MAX_VALUE)) return Infinity;
+  }
+  return work;
+}
+
+/** Trabajo de expansión de una vuelta (lo que recorre `expandRound` una vez). Ver `itemsWork`. */
+export function roundExpansionWork(round: Round): number {
+  return itemsWork((round as { items?: unknown } | null)?.items, 1, 1);
+}
+
+/**
+ * Trabajo de expansión de una parte: Σ sobre sus vueltas concretas (cada vuelta de un rango
+ * cuenta) de `roundExpansionWork`. Lineal en el tamaño de la parte. `Infinity` si una vuelta
+ * no se puede medir (documento sin validar).
+ */
+export function partExpansionWork(part: Part): number {
+  const rounds = (part as { rounds?: unknown } | null)?.rounds;
+  if (!Array.isArray(rounds)) return 0;
+  let total = 0;
+  for (const round of rounds as Round[]) {
+    if (typeof round !== "object" || round === null) return Infinity;
+    const first = round.number;
+    const last = round.through ?? first;
+    if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)) continue; // como `concreteRounds`
+    if (last < first) continue;
+    total += roundExpansionWork(round) * Math.min(last - first + 1, LIMITS.maxRounds);
+  }
+  return total;
+}
+
+/** Nodos de unos ítems en todos los niveles; `Infinity` en cuanto pasa `max` o con datos sin forma. */
+function itemsNodes(items: unknown, max: number, depth: number): number {
+  if (!Array.isArray(items) || depth > LIMITS.maxNesting) return Infinity;
+  let n = 0;
+  for (const item of items as unknown[]) {
+    n++;
+    if (typeof item === "object" && item !== null && (item as { type?: unknown }).type === "group") n += itemsNodes((item as { items?: unknown }).items, max - n, depth + 1);
+    if (!(n <= max)) return Infinity;
+  }
+  return n;
+}
+
+/**
+ * true si la parte pasa los topes de tamaño del validador: más de `LIMITS.maxRoundItems` nodos
+ * en una vuelta, el trabajo de una vuelta sobre `LIMITS.maxRoundStitches` o el de la parte
+ * sobre `LIMITS.maxExpansionWork`. Un documento `savable` nunca los pasa; los derivados (3D)
+ * lo usan como defensa con datos sin validar. Lineal y sin recursión sin tope.
+ */
+export function exceedsExpansionLimits(part: Part): boolean {
+  const rounds = (part as { rounds?: unknown } | null)?.rounds;
+  if (!Array.isArray(rounds)) return false;
+  for (const round of rounds as Round[]) {
+    const items = (round as { items?: unknown } | null)?.items;
+    if (!(itemsNodes(items, LIMITS.maxRoundItems, 1) <= LIMITS.maxRoundItems)) return true;
+    if (!(roundExpansionWork(round) <= LIMITS.maxRoundStitches)) return true;
+  }
+  return !(partExpansionWork(part) <= LIMITS.maxExpansionWork);
 }
 
 function addInto(target: RoundCount, src: RoundCount, times: number): void {
@@ -65,7 +160,8 @@ function countItems(items: Item[], startYarn: string): RoundCount {
       const first = countItems(item.items, total.endYarn);
       addInto(total, first, 1);
       if (item.times > 1) {
-        const rest = countItems(item.items, first.endYarn);
+        // Si la primera pasada termina en la lana con que empezó, las demás son iguales (T20-M1).
+        const rest = first.endYarn === total.endYarn ? first : countItems(item.items, first.endYarn);
         addInto(total, rest, item.times - 1);
         total.endYarn = rest.endYarn;
       } else {
@@ -86,7 +182,7 @@ export function expandRound(round: Round, startYarn: string): { stitches: Expand
   const stitches: ExpandedStitch[] = [];
   const endYarn = walk(round.items, startYarn, (stitch, count, yarn, loop) => {
     for (let i = 0; i < count; i++) stitches.push({ stitch, yarn, loop });
-  });
+  }, { visits: 0 });
   return { stitches, endYarn };
 }
 
@@ -97,6 +193,10 @@ export interface ConcreteRound {
   sourceIndex: number;
   round: Round;
   startYarn: string;
+  /**
+   * Conteo de la vuelta. Solo lectura: las vueltas de un rango que empiezan con la misma lana
+   * comparten el mismo objeto (T20-M1).
+   */
   count: RoundCount;
 }
 
@@ -114,8 +214,15 @@ export function concreteRounds(part: Part): ConcreteRound[] {
     const first = round.number;
     const last = round.through ?? first;
     if (!Number.isSafeInteger(first) || !Number.isSafeInteger(last)) return;
+    // El conteo solo depende de la lana inicial, y desde la segunda vuelta del rango esa lana
+    // ya no cambia: cada vuelta escrita se cuenta a lo más dos veces (T20-M1).
+    let cachedYarn: string | null = null;
+    let count: RoundCount | null = null;
     for (let n = first; n <= last && out.length < LIMITS.maxRounds; n++) {
-      const count = countRound(round, yarn);
+      if (count === null || cachedYarn !== yarn) {
+        count = countRound(round, yarn);
+        cachedYarn = yarn;
+      }
       out.push({ number: n, sourceIndex, round, startYarn: yarn, count });
       yarn = count.endYarn;
     }

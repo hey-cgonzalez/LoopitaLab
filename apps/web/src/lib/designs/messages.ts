@@ -85,7 +85,7 @@ export const WRITTEN_ISSUE_MESSAGES: Record<string, string> = {
   LAYOUT_HOST_UNKNOWN: "Una pieza está cosida a una parte que no existe.",
   LAYOUT_DUPLICATE: "Una pieza tiene dos posiciones. Deja solo una.",
   LAYOUT_ANCHOR_RANGE: "Una pieza está cosida a una vuelta o a un punto que ya no existe. El 3D la pone en el más cercano; revisa dónde va.",
-  LIMIT: "El diseño supera un límite del editor (partes, vueltas, puntos, lanas o largo de los textos). Hazlo más pequeño para guardarlo.",
+  LIMIT: "El diseño supera un límite del editor (partes, vueltas, puntos, elementos o repeticiones de una vuelta, lanas o largo de los textos). Hazlo más pequeño para guardarlo.",
   ROUND_CONSUMPTION_MISMATCH: "Una vuelta no trabaja sobre todos los puntos de la anterior. Se guarda como borrador; corrígela antes de tejer.",
   ROUND_COUNT_MISMATCH: "El conteo que escribiste al final de una vuelta no coincide con los puntos que resultan. Se guarda como borrador; corrígelo antes de tejer.",
   ROUND_ZERO: "Una vuelta se queda sin puntos y no deja nada para la siguiente. Se guarda como borrador; corrígela antes de tejer.",

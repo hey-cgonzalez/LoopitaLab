@@ -16,7 +16,7 @@
  * Con un desajuste de consumo (borradores), las posiciones de abajo se reparten en proporción
  * a lo consumido: la malla siempre cierra y el validador informa el error.
  */
-import { STITCHES, concreteRounds, expandRound, type ExpandedStitch, type Item, type Part, type PartProfile, type Round } from "@loopitalab/pattern-core";
+import { STITCHES, concreteRounds, exceedsExpansionLimits, expandRound, type ConcreteRound, type ExpandedStitch, type Item, type Part, type PartProfile, type Round } from "@loopitalab/pattern-core";
 import { TWO_PI, panelGeometry, panelX, revolutionGeometry, ringZ, type PanelGeometry, type RingGeometry } from "./geometry.ts";
 import { LOOP_BACK, LOOP_BOTH, LOOP_FRONT, type PartMesh, type PartMeshOptions, type Vec3 } from "./types.ts";
 
@@ -144,12 +144,37 @@ interface RoundPlan {
 }
 
 /**
+ * Vueltas concretas de la parte, o ninguna si pasa los topes de expansión del motor (T20-A1:
+ * un documento `savable` nunca los pasa). Defensa para quien llame sin validar.
+ */
+function drawableRounds(part: Part): ConcreteRound[] {
+  return exceedsExpansionLimits(part) ? [] : concreteRounds(part);
+}
+
+/**
+ * Puntos expandidos de cada vuelta concreta. Una vuelta escrita se expande a lo más una vez
+ * por lana inicial (dos en un rango: la primera vuelta y el resto, T20-M1); las vueltas de un
+ * rango que empiezan con la misma lana comparten la lista, que es de solo lectura.
+ */
+function expandConcrete(concrete: readonly ConcreteRound[]): ExpandedStitch[][] {
+  const cache = new Map<Round, Map<string, ExpandedStitch[]>>();
+  return concrete.map((c) => {
+    let byYarn = cache.get(c.round);
+    if (!byYarn) cache.set(c.round, (byYarn = new Map()));
+    let stitches = byYarn.get(c.startYarn);
+    if (!stitches) byYarn.set(c.startYarn, (stitches = expandRound(c.round, c.startYarn).stitches));
+    return stitches;
+  });
+}
+
+/**
  * Malla de una parte a partir de su perfil (`partProfile` de `pattern-core`). Funciona con todo
  * documento `savable`, también con vueltas que no cuadran, y nunca lanza (G10).
  */
 export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: PartProfile, opts: PartMeshOptions = {}): PartMesh {
-  const concrete = concreteRounds(part);
-  const plans: RoundPlan[] = concrete.map((c) => ({ stitches: expandRound(c.round, c.startYarn).stitches, consumed: c.count.consumed, produced: c.count.produced }));
+  const concrete = drawableRounds(part);
+  const expanded = expandConcrete(concrete);
+  const plans: RoundPlan[] = concrete.map((c, i) => ({ stitches: expanded[i]!, consumed: c.count.consumed, produced: c.count.produced }));
   const R = plans.length;
 
   // Corte (fase 6): en `roundStart[roundsDone] + stitchesDone`, en puntos producidos.
@@ -442,11 +467,11 @@ export function colorizePartMesh(mesh: PartMesh, part: Part, yarnIds: readonly s
   let to = 0;
   let g = 0;
   let v = 0;
-  const concrete = concreteRounds(part);
+  const concrete = drawableRounds(part);
   const rounds = Math.min(concrete.length, mesh.roundStart.length - 1);
+  const expanded = expandConcrete(concrete.slice(0, rounds));
   done: for (let c = 0; c < rounds; c++) {
-    const cr = concrete[c]!;
-    for (const s of expandRound(cr.round, cr.startYarn).stitches) {
+    for (const s of expanded[c]!) {
       if (!hasStitch(s.stitch)) continue;
       const { consumes: a, produces: b } = STITCHES[s.stitch];
       const y = yarnOf(s.yarn);

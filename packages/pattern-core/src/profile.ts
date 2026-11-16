@@ -6,7 +6,7 @@
  */
 import { STITCHES } from "./stitches.ts";
 import type { Gauge, Item, Part, Round, StitchCode } from "./types.ts";
-import { concreteRounds } from "./written.ts";
+import { concreteRounds, type ConcreteRound } from "./written.ts";
 
 /** Punto con que se midió la muestra. Solo puntos con cuerpo (enmienda C-3). */
 export type GaugeStitch = "sc" | "hdc" | "dc" | "tr";
@@ -160,8 +160,12 @@ export interface RadialStep {
   heightFactor: number;
 }
 
-/** Perfil de revolución y pasos radiales (sección 2, paso 3; enmienda C-4). */
-export function revolutionProfile(part: Part, metrics: ShapeMetrics): { profile: RevolutionProfile; steps: RadialStep[] } {
+/**
+ * Perfil de revolución y pasos radiales (sección 2, paso 3; enmienda C-4). `concrete` son las
+ * vueltas concretas de la parte si quien llama ya las tiene (el validador, T20-M1); si no, se
+ * piden a `concreteRounds`, que cuenta cada vuelta escrita a lo más dos veces.
+ */
+export function revolutionProfile(part: Part, metrics: ShapeMetrics, concrete: readonly ConcreteRound[] = concreteRounds(part)): { profile: RevolutionProfile; steps: RadialStep[] } {
   const w = metrics.stitchWidthCm;
   const tol = PROFILE_RADIAL_TOLERANCE;
   const ring = part.start.type === "magic_ring";
@@ -175,7 +179,6 @@ export function revolutionProfile(part: Part, metrics: ShapeMetrics): { profile:
   let maxR = r0;
   let factorIndex = -1;
   let factor = 1;
-  const concrete = concreteRounds(part);
   concrete.forEach((c, i) => {
     if (c.sourceIndex !== factorIndex) {
       factor = roundHeightFactor(c.round);
