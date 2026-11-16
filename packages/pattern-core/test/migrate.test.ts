@@ -91,7 +91,7 @@ const T20_LIMITS = new Set(["maxRoundWork", "maxExpansionWork", "maxRoundStitche
 const hasT20Limit = (issues: Issue[]) => issues.some((i) => i.code === "LIMIT" && T20_LIMITS.has(i.data?.limit as string));
 
 /** Códigos que la v2 puede sumar como advertencia o información (M1 enmendada por C-9). */
-const NEW_NOTICE_CODES = new Set(["PART_START_RING_SHORT", "PART_START_FLAT_RING", "MAGIC_RING_UNUSUAL", "ROUND_GROWS_FAST", "ROUND_SHRINKS_FAST"]);
+const NEW_NOTICE_CODES = new Set(["PART_START_RING_SHORT", "PART_START_FLAT_RING", "MAGIC_RING_UNUSUAL", "ROUND_GROWS_FAST", "ROUND_SHRINKS_FAST", "GROUP_COLOR_ONLY"]);
 
 const key = (i: Issue) => `${i.code}@${i.path}`;
 const sorted = (xs: string[]) => [...xs].sort();
