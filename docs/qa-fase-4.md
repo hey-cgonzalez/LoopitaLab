@@ -1,11 +1,196 @@
-# QA de la fase 4: latencia del visor 3D y calibración (T12)
+# QA de la fase 4 (T19) y latencia del visor 3D (T12)
 
-- **Autor**: `visor-3d` (T12, con `devops` para la CI), 2026-11-15. La matriz de criterios completa de la fase la agrega `qa-tester` en T19.
-- **Código medido**: rama `fase-4/grupo-d` sobre `5ae6b57`, con los cambios de T12 (commit `be03aa7`).
-- **Equipo de desarrollo**: Apple M1 (8 núcleos, 8 GB), macOS 15.6.1, Node 24.16.0, Playwright 1.64.1 con Chromium completo (`channel: "chromium"`). "GPU" es el M1 con ANGLE sobre Metal y ventana visible (`HEADED=1`); "SwiftShader" es WebGL por software con las opciones de `webglLaunch`, como en la CI.
-- **No es el equipo de referencia**: las cifras del M1 son la primera calibración. Decide la medición de la sección [Medición en el equipo de referencia](#medición-en-el-equipo-de-referencia).
+- **Autores**: `qa-tester` (T19, 2026-11-16: veredicto, matriz de criterios CA4-*, revisión de T4 a T6, T10 a T12, bugs y pruebas nuevas) y `visor-3d` (T12, con `devops`, 2026-11-15: latencia y calibración, desde [Resumen de T12](#resumen)).
+- **Código revisado en T19**: rama `fase-4/grupo-e` en `295af53`. **Ojo**: durante la sesión, otra sesión de trabajo (arreglos de T20) cambió el mismo árbol (commits `7a3870c` y `295af53`, y cambios sin commit en `apps/web/src` y `packages/pattern-core/src`), corrió sus propias E2E y reinició la Supabase local. Las corridas finales de abajo son sobre ese estado; ver "Ruido de la sesión".
+- **Entorno**: Apple M1 (8 núcleos, 8 GB), macOS 15.6.1, Node 24.16.0, pnpm 10.28.0, Playwright 1.64.1 con Chromium completo, Supabase CLI 2.122.1 (Docker). Load average de 3 a 16 durante la sesión.
+
+## Veredicto (T19)
+
+**Apto para PR con observaciones; no se aprueba la fase entera todavía.** Todo lo que depende del código pasa salvo cuatro bugs de severidad media o baja, todos con prueba que lo reproduce (`it.fails` / `test.fail`, así la suite queda en verde y avisa cuando se corrijan):
+
+1. **BUG-QA4-1 (media)**: la muestra supuesta tiene dos fuentes (ADR 0011, T14-5). Lo decide `experto-tejido` en T21; no se corrigió.
+2. **BUG-QA4-2 (baja)**: el diálogo de límites nombra solo el primer límite que cruza la acción, pero «Seguir igual» acepta todos.
+3. **BUG-QA4-3 (media)**: en bloques, una vuelta que pasa los 200 puntos recomendados no muestra la advertencia junto a la vuelta (T15-5 dice que sí); solo se ve al volver al texto.
+4. **BUG-QA4-4 (media, accesibilidad)**: al borrar una parte con el teclado el foco cae en `body`.
+5. **BUG-QA4-5 (baja, infraestructura de pruebas)**: `pnpm -r test` (paquetes en paralelo) hace fallar las guardias de tiempo CA4-P6 y CA-P5 con la máquina cargada; en serie pasan.
+
+Pendientes que no son código: medición en el equipo de referencia (CA4-P1 a CA4-P4, CA4-P10, CA-P6, R4-20), revisión de capturas (CA4-V2, CA4-V8; T11c y T21), T1b (tejedoras), lector de pantalla real y contraste (CA4-A1, CA4-A3), pruebas de RT1 en el borde de los topes nuevos de T20 (T20 en curso en el mismo árbol).
+
+## Comandos y resultados (T19)
+
+| Suite | Comando | Resultado |
+|---|---|---|
+| Paquetes, por defecto | `pnpm -r test` | **Falla** con la máquina cargada: CA4-P6 (`viewer-3d/test/perf.test.ts`, 2 pruebas) y CA-P5 tubo (`stitch-render/test/perf.test.ts`). BUG-QA4-5 |
+| Paquetes, en serie | `pnpm -r --workspace-concurrency=1 test` | Todo pasa: pattern-core 729, viewer-3d 79, pattern-render 80, follow 69, stitch-render 87, yarn-catalog 36, ai-router 36, glossary 16; web (Vitest) 1.072 + 2 fallas esperadas |
+| Semillas | `node --test "test/**/*.test.ts"` en cada paquete, sin semilla, `SEED=7` y `SEED=99999` | Las mismas cifras en las tres, 0 fallas |
+| Tipos | `npx tsc -p tsconfig.json` (raíz), `pnpm --filter @loopitalab/web typecheck` y `typecheck:e2e` | OK |
+| Tipos de las pruebas web | `pnpm --filter @loopitalab/web typecheck:test` | **Falla solo en `test/qa-t20-respaldo.test.ts`** (archivo nuevo de la sesión de T20, no de T19: conversión `ChartPattern` sin `unknown`). Los archivos de T19 compilan |
+| Build | `next build` del servidor de las E2E (sin sesión, variables de ejemplo de la CI; y con sesión, `.next-e2e-sesion`) | OK |
+| E2E sin sesión | `E2E_PORT=3190 npx playwright test --project=escritorio --project=movil --project=latencia --workers=2` | **99 pasan** (incluye 3 fallas esperadas de BUG-QA4-2, 3 y 4) |
+| E2E WebGL | `npx playwright test --project=webgl --workers=1` | **17 pasan** |
+| E2E con sesión | `E2E_SUPABASE=1 npx playwright test --project=sesion --workers=1` (Supabase reiniciada con las variables de Auth del README y `db reset`) | **63 pasan** (las 52 de antes, las 6 nuevas de T19, las de T20 que ya estaban en el árbol, preparación y limpieza) |
+| RLS | `10_rls_check.sql` contra la Supabase local | 73 `ok`, «todas las verificaciones pasaron» |
+
+Latencia del colorwork (CPU ×1, ya sin traza, p95 en ms; pintar / repeticiones / hover / fila): plano 18,1 / 17,9 / 7,2 / 16,9; tubo 19,0 / 27,5 / 6,6 / 16,6; círculo de rombos 46,2 / 34,4 / 30,8 / 26,9; copa 20,5 / 20,4 / 11,9 / 20,2. Visor (SwiftShader, CPU ×1): texto 25,1, bloques 17,2, vista previa 12,2; CA4-P8 `edit-to-feedback` 26,2 (3D 53,2); CA4-P9 peor tarea al cargar 118 ms, ninguna al editar; R4-20 cerca del tope `edit-to-feedback` 284,8 (solo se informa, como en T12); fragmento del visor 251 KB con gzip.
+
+### Ruido de la sesión
+
+- Otra sesión (T20) corrió E2E con sesión y sin sesión en paralelo: borró `apps/web/test-results/` en medio de corridas (errores `ENOENT` de las trazas, no aserciones; se repitieron con `--output` propio y pasan) y **reinició la Supabase local sin las variables de Auth del README** (`GOTRUE_SITE_URL` quedó en `localhost:3000`), lo que rompe el registro y el cierre de sesión de las E2E. Se volvió a levantar con `SUPABASE_AUTH_SITE_URL=http://localhost:3200` y `db reset` antes de la corrida final.
+- Su limpieza (`sesion-limpiar`) borra todas las cuentas `@e2e.loopitalab.test`: dos corridas con sesión al mismo tiempo se rompen entre sí. Conviene que el orquestador no lance dos agentes con E2E con sesión a la vez.
+
+## Matriz de criterios CA4-*
+
+Estados: CUMPLE, NO CUMPLE, PENDIENTE (no depende del código). Rutas relativas a `packages/`, o a `apps/web/` las que empiezan con `web/`.
+
+### Rendimiento
+
+| ID | Estado | Prueba y evidencia |
+|---|---|---|
+| CA4-P1 | CUMPLE en el M1 y SwiftShader; **PENDIENTE** equipo de referencia | `web/e2e/latencia-visor.spec.ts`, escenario `referencia`, texto: p95 25,1 ms (CPU ×1) en T19; 32,0 ms en el M1 con CPU ×4 (T12) |
+| CA4-P2 | Ídem | Misma prueba, bloques: 17,2 ms en T19; 52,2 ms con CPU ×4 (T12) |
+| CA4-P3 | CUMPLE; **PENDIENTE** equipo de referencia | Misma prueba: contadores de mallas, atributos y programas (T12) |
+| CA4-P4 | **PENDIENTE** (manual) | 60 fps en el M1 con 19.800 puntos (T12); decide el equipo de referencia |
+| CA4-P5 | CUMPLE | `latencia-visor.spec.ts`: 0 validaciones dentro de una ventana de edición |
+| CA4-P6 | CUMPLE en serie | `viewer-3d/test/perf.test.ts` y `viewer-3d/test/scene.test.ts` («editar una vuelta… reconstruye exactamente 1 malla»). Con `pnpm -r test` en paralelo y carga, la guardia de tiempo falla (BUG-QA4-5) |
+| CA4-P7 | **CUMPLE** | `/dev/estudio`: `latencia-visor.spec.ts` (T12). **Con sesión en `/disenos/[id]`**: `web/e2e/sesion/qa-fase4.spec.ts` «CA4-P7: /disenos/[id] de un gráfico no pide el fragmento de three» (nuevo). Fragmento del visor: 251 KB con gzip |
+| CA4-P8 | CUMPLE en local; en la CI solo se informa | `latencia-visor.spec.ts` (`limites-60k`): `edit-to-feedback` p95 26,2 ms. **Propuesta T19 (T12-8)**: aceptar `E2E_P8_REPORT_ONLY=1` en la CI y exigir los 100 ms en local y en el equipo de referencia, como ya está |
+| CA4-P9 | CUMPLE con el criterio ajustado | `latencia-visor.spec.ts` (`tope`): siluetas, ninguna tarea larga al editar; al cargar, 118 ms. **Propuesta T19 (T12-8)**: enmendar el criterio a «ninguna tarea de más de 500 ms al editar; al cargar, 500 ms × la limitación de CPU», que es lo que exige la prueba; la carga de la página cuesta lo mismo con cualquier escena |
+| CA4-P10 | CUMPLE; **PENDIENTE** equipo de referencia | `latencia-visor.spec.ts`, vista previa: p95 12,2 ms |
+
+### Modelo y motor
+
+| ID | Estado | Prueba y evidencia |
+|---|---|---|
+| CA4-M1 | CUMPLE | `pattern-core/test/migrate.test.ts` «M1: …» (fixtures v1 y propiedad), tres semillas |
+| CA4-M2 | **CUMPLE** (nuevo) | `web/e2e/sesion/qa-fase4.spec.ts`: «un amigurumi v1 de la base se abre, se guarda como v2 (schema_version = 2) y sigue igual», «un gráfico v1…» y «Tejiendo de una versión fijada v1 da los mismos pasos que la del mismo diseño en v2» (la versión fijada tiene `schemaVersion: 1`; 4 pasos comparados con su gemelo v2) |
+| CA4-M3 | CUMPLE | `pattern-core/test/validate-v2.test.ts` «LAYOUT_*» y «CA4-M3: documentos hostiles…» |
+| CA4-M4 | CUMPLE | `validate-v2.test.ts` «CA4-M4: …»; `web/e2e/sesion/escritos.spec.ts` |
+| CA4-M5 | CUMPLE | G1 a G3, G10, G11: `pattern-core/test/profile.test.ts`; G4 a G13: `viewer-3d/test/property.test.ts`; RT1 a RT6: `pattern-core/test/property-texto.test.ts` (RT3 a profundidad completa). **Nuevas en T19**: `pattern-core/test/qa-fase4.test.ts` (G3 por tramos) y `viewer-3d/test/qa-fase4.test.ts` (G4 a G7, G10 y G12 a 6 niveles y con muestras extremas). Tres semillas. **PENDIENTE**: RT1 en el borde de los topes que agrega T20 (`maxRoundItems`, `maxExpansionWork`, `start.count`), cuando T20 cierre |
+| CA4-M6 | CUMPLE (revisión) | Sin conteos en `apps/web/src` ni en `viewer-3d/src`: el único uso de `STITCHES[…].consumes/produces` en la web es decidir si un punto admite hebra (`BlockEditor.tsx:552`); la malla usa `STITCHES` y `expandRound` |
+| CA4-M7 | **CUMPLE** (nuevo) | `pattern-core/test/casos-dominio-fase4-trazabilidad.test.ts`: los 84 casos F4 tienen prueba activa con su número y los 12 marcados «validar con tejedora» llevan el comentario. Faltaban 41 casos con su número y el comentario en F4-61 y F4-69 (agregado en `text-v2.test.ts`). Casos nuevos: `pattern-core/test/qa-fase4.test.ts` y `web/test/qa-fase4.test.ts` |
+| CA4-M8 | CUMPLE | `pattern-core/test/recommended.test.ts`; G13 en `viewer-3d/test/property.test.ts` |
+
+### Editor
+
+| ID | Estado | Prueba y evidencia |
+|---|---|---|
+| CA4-E1 | CUMPLE | `web/e2e/amigurumi.spec.ts` «escribir vueltas…»; `web/e2e/sesion/amigurumi.spec.ts` |
+| CA4-E2 | CUMPLE | `amigurumi.spec.ts` (`part-review` junto a la vuelta); bloques: `block-mismatch` en `bloques.spec.ts` |
+| CA4-E3 | **CUMPLE** | `web/e2e/bloques.spec.ts` (una semilla); **nuevas**: `web/e2e/qa-fase4.spec.ts` (semillas 7, 99999 y 20261116, con ediciones de texto variadas: alias US, cantidad después del punto, grupos, notas, rangos, hebra trasera) y `web/e2e/sesion/qa-fase4.spec.ts` «CA4-E3 con el documento guardado» (`toEqual` del documento de la base). Ayuda común: `web/e2e/support/ida-vuelta.ts` |
+| CA4-E4 | CUMPLE | `sesion/amigurumi.spec.ts` |
+| CA4-E5 | CUMPLE | `amigurumi.spec.ts` «el aviso de los comentarios con #…»; `web/test/qa-fase4.test.ts` «F4-81» |
+| CA4-E6 | CUMPLE | `bloques.spec.ts`; `web/test/amigurumi-bloques.test.ts` |
+| CA4-E7 | CUMPLE | `amigurumi.spec.ts` (el cursor no salta) |
+| CA4-E8 | CUMPLE | `amigurumi.spec.ts` «partes…»; `pattern-core/test/edit-written.test.ts`. Foco al borrar: BUG-QA4-4 (va por CA4-A1) |
+| CA4-E9 | CUMPLE | `sesion/amigurumi.spec.ts`; **nueva**: `sesion/qa-fase4.spec.ts` «respaldo con líneas sin leer cuando el servidor tiene una versión más nueva» (aviso, recupera el texto y nunca lo guarda) |
+| CA4-E10 | CUMPLE | `amigurumi.spec.ts` «lanas…»; **nueva**: `qa-fase4.spec.ts` «quitar una lana usada mientras otra parte tiene líneas sin leer» |
+| CA4-E11 | CUMPLE | (1) `web/test/amigurumi-bloques.test.ts`; (2) revisión: la única comparación de profundidad es `canEditBlock` (`web/src/lib/amigurumi/blocks.ts:33`), la selección va por `ItemPath`; (3) RT3 completo. **Nuevas**: `qa-fase4.spec.ts` «?bloques=completo con teclado» y «@movil a 390 px» |
+| CA4-E12 | **CUMPLE con observaciones** | `amigurumi.spec.ts`, `bloques.spec.ts` y **nuevas** en `qa-fase4.spec.ts`: el diálogo que cruza el límite de partes y el de la escena (un solo diálogo; Cancelar no cambia nada; Seguir igual no vuelve a preguntar por ninguno). Hallazgos: BUG-QA4-2 y BUG-QA4-3; T15-5, abajo |
+
+**T15-5 frente a CA4-E12 (`guard()` solo al insertar vueltas)**: coincide con la sección 3b del ADR 0011, que enumera las acciones puntuales (agregar una parte, fijar copias, insertar una vuelta en bloques). CA4-E12 dice «acción puntual» en general. Hoy una sola acción de bloques (por ejemplo, un grupo ×500) puede llevar la escena de mil a cientos de miles de puntos sin diálogo. **Recomendación**: aceptar el alcance del ADR y corregir BUG-QA4-3, para que la advertencia se vea junto a la vuelta también en bloques; o, si `arquitecto` lo prefiere, pasar también por `guard()` los cambios de cantidad y de veces. La prueba «bloques (T15-5)…» fija el comportamiento actual.
+
+### Visor
+
+| ID | Estado | Prueba y evidencia |
+|---|---|---|
+| CA4-V1 | CUMPLE | `web/e2e/webgl.spec.ts`; `web/test/viewer-3d-adaptador.test.ts`; textos F4-44, F4-54 y F4-79 en `web/test/qa-fase4.test.ts` |
+| CA4-V2 | **PENDIENTE** | Las capturas salen de `webgl.spec.ts`; las revisa `experto-tejido` (T21) |
+| CA4-V3 | CUMPLE | `web/e2e/sesion/posicionar.spec.ts` (4 vueltas más en la cabeza no mueven el ancla) |
+| CA4-V4 | CUMPLE | `posicionar.spec.ts`, `webgl.spec.ts`, `amigurumi.spec.ts`; `web/test/qa-fase4.test.ts` «F4-80» |
+| CA4-V5 | CUMPLE | `webgl.spec.ts`, `amigurumi.spec.ts` «sin WebGL…» |
+| CA4-V6 | CUMPLE | `pattern-core/test/profile.test.ts` F4-36 a F4-38; `viewer-3d/test/scene.test.ts` (SHAPE_RUFFLES); `pattern-core/test/qa-fase4.test.ts` F4-77 |
+| CA4-V7 | CUMPLE | `sesion/escritos.spec.ts` |
+| CA4-V8 | CUMPLE en código; **PENDIENTE** revisión de capturas (T11c) | `viewer-3d/test/three.test.ts` (neutro = base), `web/test/viewer-3d-surface-look.test.ts` (tipos), `web/test/viewer-3d-adaptador.test.ts`, `webgl.spec.ts`. Dependencias: `viewer-3d` solo depende de `pattern-core` (las menciones a `stitch-render` en `src/svg.ts` y `src/types.ts` son comentarios) |
+
+### Glosario y accesibilidad
+
+| ID | Estado | Prueba y evidencia |
+|---|---|---|
+| CA4-G1 | CUMPLE | `glossary/test/glossary.test.ts` |
+| CA4-G2 | CUMPLE | `pattern-core/test/text-v2.test.ts` |
+| CA4-G3 | CUMPLE | `web/test/profile-dialect.test.ts`; `sesion/amigurumi.spec.ts` (dialecto UK del perfil); `10_rls_check.sql` (T8, `pattern_dialect`) |
+| CA4-G4 | CUMPLE | `glossary.test.ts` |
+| CA4-A1 | CUMPLE en automático salvo BUG-QA4-4; **PENDIENTE** lector real | `web/e2e/amigurumi-a11y.spec.ts`; foco al mover en `qa-fase4.spec.ts` (pasa) |
+| CA4-A2 | CUMPLE | `amigurumi-a11y.spec.ts` (flechas, + −, 0, `describedBy`, movimiento reducido) |
+| CA4-A3 | CUMPLE en automático; **PENDIENTE** contraste | `amigurumi-a11y.spec.ts` (390 px, 200 %, 320 px) |
+
+## Revisión de las piezas de complejidad alta (T4, T5, T6, T10, T11, T12)
+
+| Pieza | Hueco | Prueba agregada | Resultado |
+|---|---|---|---|
+| T5 `profile.ts` | G3 se probaba con `genWrittenV2`, sin garantía de recorrer el segundo tramo ni el acotado hacia adentro | `pattern-core/test/qa-fase4.test.ts` «G3 por tramos»: generador de piezas de revolución que suben y bajan, con muestras de ρ 0,5 a 2; exige que aparezcan los cuatro casos; avisos = acotado y cambio en el mismo sentido | Pasa (3 semillas). La rama «acotado bajaría de 0» es inalcanzable (target ≥ 0); el radio acotado hacia adentro siempre queda positivo |
+| T5 tabla de muestra de crochet | Copia privada de `suggestedGauge` | `web/test/qa-fase4.test.ts` «prueba cruzada»: categorías 0 a 7, mismos avisos (código, vuelta, cambio, `ratio`) con `weightCat` y con `suggestedGauge(cat, "crochet")` | Pasa. **Límite**: el validador solo ve Δr/s, es decir vueltas × factor / puntos; un error que conserve esa razón no se ve (las categorías 3 y 5 tienen la misma, 1,2) |
+| T4 y T6 casos F4 | 41 casos sin prueba con su número | `pattern-core/test/qa-fase4.test.ts` (F4-8, 13 a 27, 35, 39, 42, 52, 53, 55 a 57, 59, 60, 71 a 75, 77, 78, 83, 84), `web/test/qa-fase4.test.ts` (F4-44, 54, 79 a 82) y la trazabilidad | Pasan |
+| T10 y T11 `viewer-3d` | Grupos hasta 2 niveles y muestras de 8 a 36 | `viewer-3d/test/qa-fase4.test.ts`: G4, G5, G10 y `buildScene` a 6 niveles; muestras de 1 a 200; partes mínimas (V1 de 1, cad 1, vueltas de solo `ch` o `sk`, última en 0); G12 editando vueltas anidadas; G7 en cada punto de la última vuelta; G6 a profundidad completa | Pasan (3 semillas) |
+| T11 resaltado con rangos | «V5–8» sin E2E | `web/e2e/qa-fase4-webgl.spec.ts`: tocar la V7 dentro de «V5-9» resalta la V7 (roundIndex 6), deja el cursor en la línea del rango y lo conserva al moverse por la línea y al volver a ella | Pasa |
+| T12 | `latencia.spec.ts` grababa traza | `test.use({ trace: "off" })` aplicado en `web/e2e/latencia.spec.ts` | Aplicado; cifras arriba |
+
+## "Tejiendo": conflicto intermitente (fase 3)
+
+- **Corridas**: las dos pruebas de conflicto (`tejer.spec.ts` «conflicto entre dos dispositivos…» y `tejer-a11y.spec.ts` «el conflicto abre un <dialog> modal…») con `--repeat-each=10`, tres veces: en reposo, con 12 bucles ocupados (load ≈ 17) y con 24 (load ≈ 53). **60 de 60 pasan**; no se reprodujo el avance en «pending».
+- **Causa más probable de las fallas vistas**: el entorno, no la prueba. En esta misma sesión, otra sesión corrió E2E con sesión contra la misma Supabase local: su `sesion-limpiar` borra las cuentas `@e2e.loopitalab.test` y reinició Supabase; cualquiera de las dos cosas deja el envío del avance sin respuesta del servidor.
+- **Hipótesis de la app, sin confirmar** (para `modo-tejiendo`): el efecto de la cola en `KnitScreen.tsx:171-207` se vuelve a ejecutar cuando cambian `plan`, `announcementFor` o `reacquire`. La limpieza llama a `queue.stop()`, que cancela el temporizador del envío; `start()` solo lo vuelve a programar si lee una entrada local vigente (`progress-queue.ts:257-272`). Si esa lectura falla (entrada rechazada por `parseStoredProgress` o borrada por la limpieza al abrir), el estado queda en «pending» sin temporizador hasta el próximo toque. Prueba sugerida en Vitest: `set()`, `stop()`, quitar la entrada local y `start()`; el estado no debería quedar «pending» sin un envío programado.
+- No se cambió ninguna prueba ni código.
+
+## Bugs y observaciones (T19)
+
+### BUG-QA4-1 (media): la muestra supuesta tiene dos fuentes
+
+- **Pasos**: un amigurumi sin muestra con la lana A de grosor 1 y la B de grosor 6; una parte que empieza con la B (`Lana: B`).
+- **Esperado**: la misma muestra supuesta para la misma pieza en el panel, el validador, la descripción y el 3D.
+- **Obtenido**: el panel («según el grosor de la lana A»), el validador (`writtenValidateOptions`) y la descripción accesible (`describeWritten` en `WrittenStudio.tsx`) usan la lana A; el 3D, la lista de medidas y las siluetas (`metricsResolver` en `components/amigurumi/metrics.ts`) usan la lana inicial de la parte. La misma pieza mide más del doble de alto en la lista de medidas que en la descripción, y los avisos de forma se calculan con otra muestra que la forma del 3D.
+- **Archivos**: `apps/web/src/lib/amigurumi/review.ts:18`, `apps/web/src/components/amigurumi/metrics.ts:21-36`, `apps/web/src/components/amigurumi/WrittenStudio.tsx:192-194`.
+- **Prueba**: `web/test/qa-fase4.test.ts` «BUG-QA4-1…» (lo muestra) y su `it.fails` (lo esperado). Decide la regla `experto-tejido` (T21).
+
+### BUG-QA4-2 (baja): el diálogo de límites nombra solo el primero
+
+- **Pasos**: 20 partes y 39.996 puntos en la escena; «Agregar parte».
+- **Esperado**: el diálogo dice que se superan las 20 partes y los 40.000 puntos de la escena.
+- **Obtenido**: solo «20 partes»; «Seguir igual» acepta también el de la escena, que ya no se vuelve a preguntar en la sesión.
+- **Archivos**: `apps/web/src/components/amigurumi/WrittenStudio.tsx:362-391` (`crossed` se arma pero `LimitDialog` solo recibe `usage`), `LimitsMeter.tsx:85`.
+- **Prueba**: `web/e2e/qa-fase4.spec.ts` «BUG-QA4-2…» (`test.fail`).
+
+### BUG-QA4-3 (media): en bloques no hay aviso de límite junto a la vuelta
+
+- **Pasos**: `/dev/amigurumi`, pestaña Bloques, cantidad de la V1 en 240.
+- **Esperado** (T15-5 y CA4-E12): sin diálogo, y la advertencia junto a la vuelta, como al escribir.
+- **Obtenido**: sin diálogo y sin advertencia en los bloques; aparece recién al volver al texto.
+- **Archivo**: `apps/web/src/components/amigurumi/BlockEditor.tsx` (recibe `review`, no `limits`; `WrittenStudio.tsx:631`).
+- **Prueba**: `qa-fase4.spec.ts` «BUG-QA4-3…» (`test.fail`) y «bloques (T15-5)…» (pasa).
+
+### BUG-QA4-4 (media, accesibilidad): el foco se pierde al borrar una parte
+
+- **Pasos**: tres partes; con el teclado, «Borrar» y Enter en «Borrar la parte».
+- **Esperado**: el foco queda en la lista de partes (la parte siguiente o «Agregar parte»).
+- **Obtenido**: el foco cae en `body` (WCAG 2.4.3).
+- **Archivo**: `apps/web/src/components/amigurumi/PartsPanel.tsx:140` (`confirmRemove` no fija `focusAfter`).
+- **Prueba**: `qa-fase4.spec.ts` «BUG-QA4-4…» (`test.fail`). Al mover, el foco sí sigue a la parte (pasa).
+
+### BUG-QA4-5 (baja): guardias de tiempo frágiles con `pnpm -r test`
+
+- **Pasos**: `pnpm -r test` con la máquina cargada.
+- **Esperado**: verde.
+- **Obtenido**: fallan CA4-P6 (`viewer-3d/test/perf.test.ts`) y CA-P5 tubo (`stitch-render/test/perf.test.ts`): 11 ms frente a 5,4 y 10,5 de umbral. En serie pasan.
+- **Propuesta** (`devops`): `pnpm -r --workspace-concurrency=1 test` en el script raíz o en la CI, o la mediana de varias tandas, como F3-13.
+
+### Observaciones
+
+- **O-QA4-1**: F4-16 propone «hilera»; el motor escribe «fila» en los mensajes de las partes en hileras (`validate.ts:776`). Nunca dice «vuelta» (probado). Para T21.
+- **O-QA4-2**: F4-82 pide aclarar en la ayuda que una parte que se teje varias veces cuenta como una sola parte; falta (`web/test/qa-fase4.test.ts`, `it.fails`). Para `documentador`.
+- **O-QA4-3**: los flags de WebGL copiados a mano en `posicionar.spec.ts` y `amigurumi-a11y.spec.ts` (T16-3) siguen así; conviene importar `webglLaunch` de `playwright.config.ts`. No se tocó.
+
+## Pruebas agregadas o editadas en T19
+
+- Nuevas: `packages/pattern-core/test/qa-fase4.test.ts` (33), `packages/pattern-core/test/casos-dominio-fase4-trazabilidad.test.ts` (86), `packages/viewer-3d/test/qa-fase4.test.ts` (5 propiedades), `apps/web/test/qa-fase4.test.ts` (16 + 2 `it.fails`), `apps/web/e2e/qa-fase4.spec.ts` (14, 3 con `test.fail`), `apps/web/e2e/qa-fase4-webgl.spec.ts` (1), `apps/web/e2e/sesion/qa-fase4.spec.ts` (6), `apps/web/e2e/support/ida-vuelta.ts` (ayuda).
+- Editadas: `packages/pattern-core/test/text-v2.test.ts` (comentario `// validar con tejedora` en F4-61 y F4-69) y `apps/web/e2e/latencia.spec.ts` (`trace: "off"`).
+- No se tocó código de producción.
+
+---
 
 ## Resumen
+
+Resumen de T12 (`visor-3d`, 2026-11-15; código medido: `fase-4/grupo-d` sobre `5ae6b57` con `be03aa7`).
+
 
 - **CA4-P1 a CA4-P3 y CA4-P10 cumplen** con p95 < 100 ms en el M1 con GPU y CPU ×4 (peor: bloques, 52 ms), y en SwiftShader con CPU ×1, como la CI (peor 23,8 ms en tres corridas) y con CPU ×4 (peor 65 ms). **CA4-P5**: 0 validaciones dentro de una ventana de edición en todos los escenarios dentro de los límites. **CA4-P7**: el colorwork no pide `three`; el fragmento del visor pesa 251 KB con gzip. **CA4-P8**: `edit-to-feedback` p95 de 20 a 25 ms en SwiftShader con CPU ×1, 31 ms en el M1 con CPU ×4. **CA4-P9**: siluetas, ninguna tarea larga al editar, la peor al cargar fue de 134 a 201 ms con CPU ×1. **CA4-P4** (manual): 60 fps en el M1 con 19.800 puntos en `"relief"` y razón de píxeles 2. A/B de "Colores planos": sin costo medible.
 - **Constantes sin cambios**: `LOD_STITCH_BUDGET = 20_000` y `SCENE_HARD_STITCH_CAP = 200_000` (la regla de V-1 daría unos 700.000 en el M1, pero R4-20 lo impide sin un *worker*).

@@ -166,6 +166,7 @@ describe("comentarios # (CA4-E5)", () => {
 
 describe('encabezado "Cantidad" (C-14, F4-61)', () => {
   it('escribe "Cantidad: N" solo si N > 1 y lee "Hacer", "Piezas" y "Tejer", con o sin dos puntos', () => {
+    // validar con tejedora: "Cantidad: 2" es la propuesta del ADR 0011; "Hacer 2" es lo más usual (F4-61).
     for (const line of ["Cantidad: 2", "cantidad 2", "Hacer 2", "Hacer: 2", "HACER:2", "Piezas 2", "Piezas: 2", "Tejer 2", "Tejer: 2", "Make 2"]) {
       const p = okPart(`${line}\nV1: 6 pb`);
       assert.equal(p.copies, 2, line);
@@ -471,6 +472,7 @@ describe("dialectos y modos de lectura (ADR 0011, sección 8; C-15, C-16; CA4-G2
   });
 
   it("F4-69: sin variantes regionales del español sin respaldo (medio punto, pma, punto raso, pr, punto bajísimo)", () => {
+    // validar con tejedora: no se agregan alias regionales hasta que T1b los respalde.
     for (const mode of READING_MODES) {
       for (const t of ["medio punto", "pma", "punto raso", "pr", "punto pasado", "punto bajisimo", "punto bajísimo", "p bjs", "pbjs"]) {
         assert.equal(lookupStitch(t, mode), undefined, `${mode}: ${t}`);

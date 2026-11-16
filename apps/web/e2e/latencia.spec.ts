@@ -26,6 +26,11 @@ const CPU_RATE = Number(process.env.E2E_CPU_RATE ?? 1);
  */
 const FLAT_COLORS = process.env.E2E_FLAT_COLORS === "1";
 
+// Sin traza (T19 de la fase 4, como en `latencia-visor.spec.ts`): con `trace: "retain-on-failure"` Playwright graba
+// instantáneas del DOM en cada acción aunque la prueba pase, y eso falsea la medición. Los números quedan en los
+// adjuntos JSON y en las líneas `[latencia]`.
+test.use({ trace: "off" });
+
 const SCENARIOS = [
   { name: "plano", query: "forma=plano&reps=10&perf=1", fields: ["A lo ancho", "A lo alto"] },
   { name: "tubo", query: "forma=tubo&reps=10&perf=1", fields: ["A lo ancho", "A lo alto"] },
