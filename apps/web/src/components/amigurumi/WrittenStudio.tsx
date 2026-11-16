@@ -147,7 +147,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const setAnnounce = useCallback((message: string) => setAnnouncement((prev) => (prev === message ? message + String.fromCharCode(0x200b) : message)), []);
   const [lineRequest, setLineRequest] = useState<LineRequest | null>(null);
   const [textNotice, setTextNotice] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<{ usage: LimitUsage; crossed: RecommendedLimit[]; run: () => void } | null>(null);
+  const [dialog, setDialog] = useState<{ usages: LimitUsage[]; run: () => void } | null>(null);
   /** Límites aceptados con "Seguir igual" en esta sesión: estado del estudio, nunca del documento. */
   const accepted = useRef(new Set<RecommendedLimit>());
   const viewerRef = useRef<ViewerHandle | null>(null);
@@ -372,19 +372,15 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         return;
       }
       // Todos los límites que esta acción supera: si sigue, no se vuelve a preguntar por ninguno de ellos.
-      const all: RecommendedLimit[] = [crossed.limit];
-      let next = crossed;
+      const usages: LimitUsage[] = [crossed];
       const seen = new Set(accepted.current);
-      while (next) {
-        seen.add(next.limit);
-        const more = crossedLimit(store.doc, sim.doc, seen);
-        if (!more) break;
-        all.push(more.limit);
-        next = more;
+      seen.add(crossed.limit);
+      for (let more = crossedLimit(store.doc, sim.doc, seen); more; more = crossedLimit(store.doc, sim.doc, seen)) {
+        usages.push(more);
+        seen.add(more.limit);
       }
       setDialog({
-        usage: crossed,
-        crossed: all,
+        usages,
         run: () => done?.(store.run(action)),
       });
     },
@@ -643,6 +639,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
                   policy={blockPolicy}
                   actions={blockActions}
                   review={review.byPart.get(selected.id)}
+                  limits={limits}
                   onEditInText={editInText}
                   announce={setAnnounce}
                   onRoundFocus={onCaretRound}
@@ -784,13 +781,13 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       />
 
       <LimitDialog
-        usage={dialog?.usage ?? null}
+        usages={dialog?.usages ?? null}
         onCancel={() => setDialog(null)}
         onConfirm={() => {
           const d = dialog;
           setDialog(null);
           if (!d) return;
-          for (const l of d.crossed) accepted.current.add(l);
+          for (const u of d.usages) accepted.current.add(u.limit);
           d.run();
         }}
       />

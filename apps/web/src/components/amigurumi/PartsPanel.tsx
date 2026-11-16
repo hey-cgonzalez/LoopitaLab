@@ -61,12 +61,17 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
   const [notice, setNotice] = useState<string | null>(null);
   const [copiesText, setCopiesText] = useState<Record<string, string>>({});
   const listRef = useRef<HTMLUListElement>(null);
+  const addRef = useRef<HTMLButtonElement>(null);
   const focusAfter = useRef<{ id: string; act: string } | null>(null);
 
   useEffect(() => {
     const f = focusAfter.current;
     focusAfter.current = null;
     if (!f) return;
+    if (f.id === "") {
+      addRef.current?.focus();
+      return;
+    }
     const item = Array.from(listRef.current?.children ?? []).find((el) => (el as HTMLElement).dataset.partId === f.id);
     const btn = item?.querySelector<HTMLElement>(`[data-act="${f.act}"]`);
     (btn && !(btn as HTMLButtonElement).disabled ? btn : item?.querySelector<HTMLElement>('[data-act="open"]'))?.focus();
@@ -138,9 +143,13 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
   }
 
   function confirmRemove(p: Part) {
+    // El foco va a la parte siguiente, o a la anterior, o a "Agregar parte" si no queda ninguna (WCAG 2.4.3).
+    const at = store.doc.parts.findIndex((q) => q.id === p.id);
+    const neighbour = store.doc.parts[at + 1] ?? store.doc.parts[at - 1];
     const r = store.run({ type: "removePart", partId: p.id });
     setRemoving(null);
     if (!r.changed) return;
+    focusAfter.current = { id: neighbour?.id ?? "", act: "open" };
     const next = store.doc.parts[0];
     if (selectedId === p.id && next) onSelect(next.id);
     setNotice(r.unplaced.length > 0 ? T.sinUbicar(unplacedLabels(store.doc, r.unplaced).join(", ")) : null);
@@ -153,7 +162,7 @@ export function PartsPanel({ store, doc, selectedId, onSelect, limits, guard, an
         <h2 id={`${uid}-title`} className="font-display text-base font-bold">
           {T.titulo}
         </h2>
-        <button type="button" onClick={add} disabled={atMax} className={BTN} data-testid="add-part">
+        <button ref={addRef} type="button" onClick={add} disabled={atMax} className={BTN} data-testid="add-part">
           {T.agregar}
         </button>
       </div>

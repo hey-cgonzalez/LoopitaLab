@@ -173,8 +173,7 @@ describe("casos F4 de textos de la interfaz", () => {
   });
 
   // O-QA4-2: F4-82 pide además aclarar en la ayuda que las piezas que se tejen varias veces no cuentan como partes.
-  // `it.fails` mientras falte: al agregar la frase, quitar el `.fails`.
-  it.fails("F4-82 (pendiente): la ayuda aclara que una parte que se teje varias veces cuenta como una sola parte", () => {
+  it("F4-82 (copias): la ayuda aclara que una parte que se teje varias veces cuenta como una sola parte", () => {
     expect(AMIGURUMI_TEXTS.limites.ayuda.join(" ")).toMatch(/(veces|copias)[^.]*(cuenta|cuentan)[^.]*(una|sola) parte|no cuentan como partes/);
   });
 });

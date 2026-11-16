@@ -29,9 +29,11 @@ El detalle de cada fase (objetivo, entregables, agentes, dependencias y criterio
 nvm use           # toma la versión de .nvmrc
 pnpm install
 pnpm dev          # web en http://localhost:3000 (requiere apps/web/.env.local)
-pnpm test         # pruebas de todos los paquetes
+pnpm test         # pruebas de todos los paquetes, en serie (--workspace-concurrency=1)
 pnpm typecheck    # chequeo de tipos
 ```
+
+No corras `pnpm -r test` a secas: ejecuta los paquetes en paralelo y, con la máquina cargada, fallan las guardias de tiempo (CA4-P6 de `viewer-3d`, CA-P5 de `stitch-render`). Usa `pnpm test` o `pnpm -r --workspace-concurrency=1 test`. La CI corre cada paquete por separado.
 
 Para conectar Supabase y configurar Auth, sigue [docs/puesta-en-marcha.md](docs/puesta-en-marcha.md).
 

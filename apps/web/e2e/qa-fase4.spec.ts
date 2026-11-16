@@ -119,7 +119,6 @@ test.describe("QA fase 4: marcas, foco y límites", () => {
   });
 
   test("BUG-QA4-4: al borrar una parte con el teclado el foco queda dentro de la lista de partes (hoy cae en el body)", async ({ page }) => {
-    test.fail(true, "BUG-QA4-4: confirmRemove (PartsPanel.tsx) no fija focusAfter; el botón que tenía el foco desaparece");
     await open(page);
     await page.getByTestId("add-part").click();
     await page.getByTestId("add-part").click();
@@ -171,7 +170,6 @@ test.describe("QA fase 4: marcas, foco y límites", () => {
 
   test("BUG-QA4-2: el diálogo nombra todos los límites que la acción supera (hoy solo el primero)", async ({ page }) => {
     test.setTimeout(120_000);
-    test.fail(true, "BUG-QA4-2: LimitDialog muestra solo `usage` (el primer límite) pero «Seguir igual» acepta todos (WrittenStudio.guard)");
     await open(page);
     await nearBothLimits(page);
     await page.getByTestId("add-part").click();
@@ -193,7 +191,6 @@ test.describe("QA fase 4: marcas, foco y límites", () => {
   });
 
   test("BUG-QA4-3: en bloques, la vuelta que supera los puntos recomendados no muestra la advertencia junto a la vuelta", async ({ page }) => {
-    test.fail(true, "BUG-QA4-3: BlockEditor recibe la revisión del validador pero no los límites recomendados (limitSummary); T15-5 dice que la advertencia aparece junto a la vuelta");
     await open(page);
     await page.getByTestId("tab-blocks").click();
     await page.locator('[data-block="0:0"]').getByTestId("block-count").fill("240");

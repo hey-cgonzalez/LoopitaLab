@@ -170,6 +170,7 @@ export const AMIGURUMI_TEXTS = {
     ayudaTitulo: "¿Por qué hay límites recomendados?",
     ayuda: [
       `Son valores para que la vista previa responda al instante: ${n(R.parts)} partes, ${n(R.copiesPerPart)} veces por parte, ${n(R.roundsPerPart)} vueltas por parte, ${n(R.stitchesPerRound)} puntos por vuelta y ${n(R.sceneStitches)} puntos en toda la escena.`,
+      "Una parte que se teje varias veces cuenta como una sola parte: lo que se cuenta aparte son sus copias.",
       "No son límites del tejido: un patrón que los pasa no está mal y se guarda igual.",
       "Si los pasas, la vista previa puede ir más lenta. Tú decides si sigues.",
     ],
@@ -177,6 +178,13 @@ export const AMIGURUMI_TEXTS = {
     dialogoTitulo: "Límite recomendado",
     dialogo: (limit: RecommendedLimit, value: number) =>
       `Esto supera el límite recomendado de ${LIMIT_NAMES[limit]} (quedaría en ${n(value)}). La vista previa puede ir más lenta. ¿Seguir igual?`,
+    /** Uno o varios límites cruzados por la misma acción (BUG-QA4-2). */
+    dialogoVarios: (usages: readonly { limit: RecommendedLimit; value: number }[]) => {
+      const [first] = usages;
+      if (usages.length === 1 && first) return `Esto supera el límite recomendado de ${LIMIT_NAMES[first.limit]} (quedaría en ${n(first.value)}). La vista previa puede ir más lenta. ¿Seguir igual?`;
+      const list = usages.map((u) => `${LIMIT_NAMES[u.limit]} (quedaría en ${n(u.value)})`).join(", ");
+      return `Esto supera los límites recomendados de ${list}. La vista previa puede ir más lenta. ¿Seguir igual?`;
+    },
     seguir: "Seguir igual",
     cancelar: "Cancelar",
   },
