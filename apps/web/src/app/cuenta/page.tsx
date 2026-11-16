@@ -39,7 +39,6 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
             {profile ? (
               <ProfileForm
                 displayName={profile.display_name ?? ""}
-                terminology={profile.terminology}
                 units={profile.units}
                 dominantHand={profile.dominant_hand}
                 mirrorKnitting={profile.mirror_knitting}

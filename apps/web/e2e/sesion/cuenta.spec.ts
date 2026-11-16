@@ -32,9 +32,9 @@ test.describe("Cuenta", () => {
     expect(await stored()).toBe(false);
   });
 
-  test("«Abreviaturas de los patrones de amigurumi»: avisa que «dc» cambia, se guarda con teclado, sobrevive a recargar y se anuncia (T17)", async ({ page, admin, accounts }) => {
+  test("«Abreviaturas de los patrones»: avisa que «dc» cambia, se guarda con teclado, sobrevive a recargar y se anuncia (T17)", async ({ page, admin, accounts }) => {
     const stored = async () => (await admin.from("profiles").select("pattern_dialect").eq("id", accounts.bea.id).single()).data?.pattern_dialect;
-    const group = () => page.getByRole("group", { name: "Abreviaturas de los patrones de amigurumi" });
+    const group = () => page.getByRole("group", { name: "Abreviaturas de los patrones" });
     await page.goto("/cuenta");
     try {
       await expect(group()).toBeVisible();
@@ -70,7 +70,7 @@ test.describe("Cuenta", () => {
     for (const width of [320, 390]) {
       await page.setViewportSize({ width, height: 800 });
       await page.goto("/cuenta");
-      await expect(page.getByRole("group", { name: "Abreviaturas de los patrones de amigurumi" })).toBeVisible();
+      await expect(page.getByRole("group", { name: "Abreviaturas de los patrones" })).toBeVisible();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth), `/cuenta a ${width} px`).toBe(true);
     }
   });

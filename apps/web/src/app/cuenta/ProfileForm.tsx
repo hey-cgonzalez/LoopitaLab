@@ -8,7 +8,6 @@ import { updateProfile, type ProfileFormState } from "./actions";
 
 interface Props {
   displayName: string;
-  terminology: string;
   units: string;
   dominantHand: string;
   mirrorKnitting: boolean;
@@ -28,23 +27,13 @@ function Choice({ name, legend, value, options }: { name: string; legend: string
   );
 }
 
-export function ProfileForm({ displayName, terminology, units, dominantHand, mirrorKnitting }: Props) {
+export function ProfileForm({ displayName, units, dominantHand, mirrorKnitting }: Props) {
   const [state, action] = useActionState<ProfileFormState, FormData>(updateProfile, {});
   return (
     <form action={action} className="grid gap-6">
       <FormMessage message={state.error} tone="error" />
       <FormMessage message={state.ok} tone="ok" />
       <Field id="display_name" label="Nombre visible" defaultValue={displayName} maxLength={80} autoComplete="given-name" />
-      <Choice
-        name="terminology"
-        legend="Abreviaturas en los patrones"
-        value={terminology}
-        options={[
-          ["es", "Español (pb, aum, dism)"],
-          ["us", "Inglés de EE. UU. (sc, inc, dec)"],
-          ["uk", "Inglés británico (dc, inc, dec)"],
-        ]}
-      />
       <Choice
         name="units"
         legend="Unidades"

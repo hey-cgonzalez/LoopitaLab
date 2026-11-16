@@ -41,7 +41,7 @@ export function DialectPreference({ initial, loadError }: { initial: PatternDial
     <form onSubmit={save} className="grid gap-3" data-testid="dialect-form">
       <FormMessage message={message?.text} tone={message?.tone ?? "ok"} />
       <fieldset className="grid gap-2" aria-describedby={`${uid}-help`}>
-        <legend className="mb-1 font-bold">Abreviaturas de los patrones de amigurumi</legend>
+        <legend className="mb-1 font-bold">Abreviaturas de los patrones</legend>
         {PATTERN_DIALECTS.map((d) => (
           <label key={d} className="flex items-start gap-3">
             <input type="radio" name="pattern_dialect" value={d} checked={value === d} onChange={() => setValue(d)} className="mt-0.5 size-5 shrink-0 accent-marino" />
