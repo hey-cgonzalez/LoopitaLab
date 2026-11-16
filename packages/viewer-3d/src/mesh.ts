@@ -17,7 +17,7 @@
  * a lo consumido: la malla siempre cierra y el validador informa el error.
  */
 import { STITCHES, concreteRounds, exceedsExpansionLimits, expandRound, type ConcreteRound, type ExpandedStitch, type Item, type Part, type PartProfile, type Round } from "@loopitalab/pattern-core";
-import { TWO_PI, panelGeometry, panelX, revolutionGeometry, ringZ, type PanelGeometry, type RingGeometry } from "./geometry.ts";
+import { panelGeometry, panelX, revolutionGeometry, ringPoint, ringTurn, type PanelGeometry, type RingGeometry, type RingPoint } from "./geometry.ts";
 import { LOOP_BACK, LOOP_BOTH, LOOP_FRONT, type PartMesh, type PartMeshOptions, type Vec3 } from "./types.ts";
 
 // ------------------------------------------------------------------ topología
@@ -311,23 +311,22 @@ export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: P
   let global = roundStart[firstRound]!;
   const ringLast = rg ? rg.count - 1 : pg!.count - 1;
 
+  const scratch: RingPoint = { r: 0, angle: 0, z: 0, nr: 0, nz: 0 };
   const putRing = (j: number, f: number, u: number, w: number, y: number, lp: number): number => {
     const k3 = v * 3;
     if (ringLast < 0) {
       normals[k3 + 2] = 1;
     } else {
       const jj = j > ringLast ? ringLast : j;
-      const g = rg!;
-      const angle = TWO_PI * (f + (ringPhase[j] ?? 0));
-      const cs = Math.cos(angle);
-      const sn = Math.sin(angle);
-      const r = g.r[jj]!;
-      positions[k3] = r * cs;
-      positions[k3 + 1] = r * sn;
-      positions[k3 + 2] = ringZ(g, jj, f);
-      normals[k3] = g.nr[jj]! * cs;
-      normals[k3 + 1] = g.nr[jj]! * sn;
-      normals[k3 + 2] = g.nz[jj]!;
+      const p = ringPoint(rg!, ringPhase, jj, f, scratch);
+      const cs = Math.cos(p.angle);
+      const sn = Math.sin(p.angle);
+      positions[k3] = p.r * cs;
+      positions[k3 + 1] = p.r * sn;
+      positions[k3 + 2] = p.z;
+      normals[k3] = p.nr * cs;
+      normals[k3 + 1] = p.nr * sn;
+      normals[k3 + 2] = p.nz;
     }
     uvs[v * 2] = u;
     uvs[v * 2 + 1] = w;
@@ -398,8 +397,34 @@ export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: P
         }
         const t0 = revolution ? putRing(c + 1, tf0, 0, 1, y, lp) : putRow(c, 1, tf0, 0, 1, y, lp);
         const t1 = revolution ? putRing(c + 1, tf1, 1, 1, y, lp) : putRow(c, 1, tf1, 1, 1, y, lp);
-        // Abanico desde el vértice de arriba a la izquierda (antihorario visto desde afuera).
+        // Abanico (antihorario visto desde afuera) desde el vértice de arriba a la izquierda, o desde el de la
+        // derecha si la base del punto quedó corrida hacia adelante respecto del tope (aumentos o disminuciones
+        // juntos, T21): así la diagonal es la corta y el triángulo largo no se da vuelta. Mismos triángulos por punto.
         const m = t0 - base - 1;
+        if (revolution && ringLast >= 0 && m >= 0) {
+          const jb = c > ringLast ? ringLast : c;
+          const jt = c + 1 > ringLast ? ringLast : c + 1;
+          const fb = a > 0 && C > 0 ? (lo + hi) / 2 / C : (tf0 + tf1) / 2;
+          let shear = ringTurn(rg!, ringPhase, jb, fb) - ringTurn(rg!, ringPhase, jt, (tf0 + tf1) / 2);
+          shear -= Math.round(shear);
+          if (shear > 0) {
+            indices[ix] = t1;
+            indices[ix + 1] = t0;
+            indices[ix + 2] = base;
+            faceStitch[ix / 3] = global;
+            ix += 3;
+            for (let k = 0; k < m; k++) {
+              indices[ix] = t1;
+              indices[ix + 1] = base + k;
+              indices[ix + 2] = base + k + 1;
+              faceStitch[ix / 3] = global;
+              ix += 3;
+            }
+            global++;
+            local++;
+            continue;
+          }
+        }
         for (let k = 0; k <= m; k++) {
           const p = base + k;
           const q = k < m ? base + k + 1 : t1;
