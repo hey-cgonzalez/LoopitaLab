@@ -1,6 +1,6 @@
 # Roadmap de LoopitaLab (fases 2 a 7)
 
-Última revisión: 2026-11-16, agente `arquitecto` (planificación de la fase 5 en la rama `fase-5/planificacion`: ADR [0012](adr/0012-pipeline-imagen-a-patron.md), [0013](adr/0013-subidas-y-storage.md) y [0014](adr/0014-costos-y-cuotas-de-ia.md) propuestos, [sección "Fase 5 en detalle"](#fase-5-en-detalle) y [decisiones de la fase 5](#decisiones-de-la-fase-5-propuestas); la fase 4 queda en `main` con los PR #12 a #16). Revisión anterior: 2026-11-16, agente `arquitecto` (cierre de la fase 4, T22: T19, T20 y T21 hechas; enmiendas del grupo E en los [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-del-grupo-e-2026-11-16) (G-E1 a G-E5), [0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-e-2026-11-16) (T20-1 a T20-9 y T21-1 a T21-8) y [0006](adr/0006-guardado-de-disenos.md#enmienda-e13-2026-11-16-topes-de-t20-fase-4-grupo-e) (E13); ver [Estado al cierre de la fase 4](#estado-al-cierre-de-la-fase-4)). Revisión anterior: 2026-11-16, agente `arquitecto` (fase 4, grupo D: T13 a T18 hechas, y T12 del grupo C; enmiendas T12-1 a T12-8 del [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t12-2026-11-16) y T14-1 a T17-2 y D-1 del [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-d-2026-11-16); `/cuenta` con un solo control, "Abreviaturas de los patrones" (commit `1bddc44`); pendientes anotados en T19 a T22). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, grupo B: T4, T4b, T5, T6 y T8 hechas; enmienda E12 del [ADR 0006](adr/0006-guardado-de-disenos.md#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4), T5-1 a T5-6 del [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t5-2026-11-13) y T4-1 a T4-7, T6-1 a T6-6 y T8-1 del [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-b-2026-11-13); tareas T13 a T21 ajustadas). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, grupo A: T1, T3 y T3b hechas; enmiendas C-1 a C-21 de la revisión de dominio y V-1 a V-5 del prototipo del visor en los [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-t1-y-t3b-2026-11-13) y [0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-t1-2026-11-13); tareas T4 a T18 y criterios CA4-* ajustados). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, T0 hecha: la usuaria respondió las [decisiones de la fase 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13); [ADR 0010](adr/0010-geometria-3d-amigurumi.md) y [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md) aceptados con enmiendas; tareas y criterios ajustados). Revisión anterior: 2026-11-13, agente `arquitecto` (planificación de la fase 4, ADR 0010 y 0011 propuestos, [sección "Fase 4 en detalle"](#fase-4-en-detalle)). Revisión anterior: 2026-11-13, agentes `arquitecto` y `documentador` (cierre de la fase 3, T19; ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3)). Revisión anterior: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
+Última revisión: 2026-11-16, agente `arquitecto` (fase 5, T0 hecha: la usuaria respondió las [decisiones de la fase 5](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16); ADR [0012](adr/0012-pipeline-imagen-a-patron.md), [0013](adr/0013-subidas-y-storage.md) y [0014](adr/0014-costos-y-cuotas-de-ia.md) aceptados con enmiendas; presupuesto de USD 5 al mes; la fase se parte en el hito 1, la ruta plana, que se entrega sola, y el hito 2, la ruta 3D; tareas y criterios ajustados). Revisión anterior: 2026-11-16, agente `arquitecto` (planificación de la fase 5 en la rama `fase-5/planificacion`: ADR [0012](adr/0012-pipeline-imagen-a-patron.md), [0013](adr/0013-subidas-y-storage.md) y [0014](adr/0014-costos-y-cuotas-de-ia.md) propuestos, [sección "Fase 5 en detalle"](#fase-5-en-detalle) y [decisiones de la fase 5](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), entonces propuestas; la fase 4 queda en `main` con los PR #12 a #16). Revisión anterior: 2026-11-16, agente `arquitecto` (cierre de la fase 4, T22: T19, T20 y T21 hechas; enmiendas del grupo E en los [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-del-grupo-e-2026-11-16) (G-E1 a G-E5), [0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-e-2026-11-16) (T20-1 a T20-9 y T21-1 a T21-8) y [0006](adr/0006-guardado-de-disenos.md#enmienda-e13-2026-11-16-topes-de-t20-fase-4-grupo-e) (E13); ver [Estado al cierre de la fase 4](#estado-al-cierre-de-la-fase-4)). Revisión anterior: 2026-11-16, agente `arquitecto` (fase 4, grupo D: T13 a T18 hechas, y T12 del grupo C; enmiendas T12-1 a T12-8 del [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t12-2026-11-16) y T14-1 a T17-2 y D-1 del [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-d-2026-11-16); `/cuenta` con un solo control, "Abreviaturas de los patrones" (commit `1bddc44`); pendientes anotados en T19 a T22). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, grupo B: T4, T4b, T5, T6 y T8 hechas; enmienda E12 del [ADR 0006](adr/0006-guardado-de-disenos.md#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4), T5-1 a T5-6 del [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-la-implementación-de-t5-2026-11-13) y T4-1 a T4-7, T6-1 a T6-6 y T8-1 del [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-b-2026-11-13); tareas T13 a T21 ajustadas). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, grupo A: T1, T3 y T3b hechas; enmiendas C-1 a C-21 de la revisión de dominio y V-1 a V-5 del prototipo del visor en los [ADR 0010](adr/0010-geometria-3d-amigurumi.md#enmiendas-por-t1-y-t3b-2026-11-13) y [0011](adr/0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-t1-2026-11-13); tareas T4 a T18 y criterios CA4-* ajustados). Revisión anterior: 2026-11-13, agente `arquitecto` (fase 4, T0 hecha: la usuaria respondió las [decisiones de la fase 4](#decisiones-de-la-fase-4-aprobadas-el-2026-11-13); [ADR 0010](adr/0010-geometria-3d-amigurumi.md) y [ADR 0011](adr/0011-posicion-de-partes-y-editor-escrito.md) aceptados con enmiendas; tareas y criterios ajustados). Revisión anterior: 2026-11-13, agente `arquitecto` (planificación de la fase 4, ADR 0010 y 0011 propuestos, [sección "Fase 4 en detalle"](#fase-4-en-detalle)). Revisión anterior: 2026-11-13, agentes `arquitecto` y `documentador` (cierre de la fase 3, T19; ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3)). Revisión anterior: 2026-11-09, agente `arquitecto` (fase 3: T0, T1 y T3 hechas; ADR 0007 a 0009 aceptados con las enmiendas de la revisión de dominio T1; [sección "Fase 3 en detalle"](#fase-3-en-detalle)). Revisión anterior: 2026-11-06 (T4, T5, T6 y T7 hechas; enmiendas E1 a E8 del ADR 0004 y E11 del ADR 0006; contrato de `pattern-render` actualizado; antes: T2b y T2c, enmiendas E10 a E13 del ADR 0003 y E10 del ADR 0006), con la revisión de dominio de `experto-tejido` aplicada. Las fases se derivan de las modalidades v1 de [`CLAUDE.md`](../CLAUDE.md). Las decisiones de arquitectura están en [`docs/adr/`](adr/). Los pendientes de seguridad, en [`docs/seguridad.md`](seguridad.md).
 
 ## Resumen
 
@@ -10,7 +10,7 @@
 | 2 | Estudio de colorwork (palillo: plano, tubo y círculo) | Lista en código; ADR 0003 a 0006 aceptados. Faltan CA-P6, T1b, T16 y el E2E con sesión | Alta |
 | 3 | Lanas por grosor y composición en la interfaz, más seguimiento de colorwork fila a fila | Lista en código (PR #9 a #11 en `main`). Pendiente lo que no es código: T1b (tras T1c), CA-P6, lector de pantalla real y la puesta en público. Ver [Estado al cierre de la fase 3](#estado-al-cierre-de-la-fase-3) | Media-alta |
 | 4 | Estudio amigurumi 3D | **Lista en código (PR #12 a #16 en `main`)**: estudio amigurumi con texto y bloques, visor 3D con aspecto por fibra, posicionado y armado, glosario ES/US/UK y los paquetes `viewer-3d` y `glossary`. ADR 0010 y 0011 aceptados, con las enmiendas de la implementación. Pendiente lo que no es código: <ul><li>T1b, que depende de T1c (la revisión legal), con la hoja de T1b y los ítems nuevos de T21;</li><li>la medición en el equipo de referencia, de la que depende el *worker* de R4-20;</li><li>VoiceOver/NVDA y el contraste;</li><li>en el proyecto real, `20261116225434_quitar_update_terminology.sql` ya está aplicada (2026-11-16): faltan la migración que borra `profiles.terminology` después del despliegue y repetir `10_rls_check.sql`;</li><li>las propuestas de T21: borde abierto de la última vuelta, destello del lurex y relieve del pb. `maxRoundItems` a 200 pasa a la fase 5 (T5).</li></ul>Ver [Estado al cierre de la fase 4](#estado-al-cierre-de-la-fase-4) | Alta |
-| 5 | Imagen → patrón (IA) | **En planificación** (rama `fase-5/planificacion`): ADR 0012 a 0014 propuestos, con las tareas T0 a T24 y las decisiones para la usuaria. Ver [Fase 5 en detalle](#fase-5-en-detalle) y [Decisiones de la fase 5](#decisiones-de-la-fase-5-propuestas) | Alta |
+| 5 | Imagen → patrón (IA) | **Planificada, T0 hecha** (rama `fase-5/planificacion`): ADR 0012 a 0014 aceptados el 2026-11-16. Hito 1: la ruta plana (colorwork), con PR propio. Hito 2: la ruta 3D (amigurumi), con su propia revisión de dominio. Presupuesto de USD 5 al mes. Ver [Fase 5 en detalle](#fase-5-en-detalle) y [Decisiones de la fase 5](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16) | Alta |
 | 6 | Modo tejiendo completo (amigurumi punto a punto, contadores, tiempo) | Pendiente | Media |
 | 7 | Compartir y publicar, exportación PDF y lanzamiento | Pendiente | Media |
 | Futuras | Trabajo registrado sin fecha, por ejemplo el [editor de bloques completo](#editor-de-bloques-completo) | Sin fecha | — |
@@ -169,8 +169,9 @@ Detalle completo en la [sección de la fase 4](#fase-4-en-detalle) más abajo (A
 
 ## Fase 5: Imagen → patrón (IA)
 
-Detalle completo en la [sección de la fase 5](#fase-5-en-detalle) más abajo (ADR [0012](adr/0012-pipeline-imagen-a-patron.md), [0013](adr/0013-subidas-y-storage.md) y [0014](adr/0014-costos-y-cuotas-de-ia.md), propuestos). Donde el detalle precisa este resumen, manda el detalle. En particular:
+Detalle completo en la [sección de la fase 5](#fase-5-en-detalle) más abajo (ADR [0012](adr/0012-pipeline-imagen-a-patron.md), [0013](adr/0013-subidas-y-storage.md) y [0014](adr/0014-costos-y-cuotas-de-ia.md), aceptados el 2026-11-16). Donde el detalle precisa este resumen, manda el detalle. En particular:
 
+- La fase tiene dos hitos: el 1 es la ruta plana y se entrega sola, con su PR; el 2 es la ruta 3D, con su propia revisión de dominio (decisión 2).
 - `packages/ai-router` ya es paquete del workspace, con `package.json`, `src/` y pruebas. Le faltan los esquemas, los prompts, el cliente y el orquestador.
 - El pipeline y las subidas corren en Supabase Edge Functions, no en el Worker: la puerta es T2.
 - La subida reemplaza la ruta de `sharp`.
@@ -1336,7 +1337,7 @@ Evidencia:
 
 ## Fase 5 en detalle
 
-Planificada el 2026-11-16 por `arquitecto` sobre `main` (fase 4 lista en código, PR #12 a #16), en la rama `fase-5/planificacion`. Los tres ADR están **propuestos** y la usuaria los aprueba en T0, junto con las [decisiones de la fase 5](#decisiones-de-la-fase-5-propuestas):
+Planificada el 2026-11-16 por `arquitecto` sobre `main` (fase 4 lista en código, PR #12 a #16), en la rama `fase-5/planificacion`. La usuaria aprobó los tres ADR el 2026-11-16 (T0), junto con las [decisiones de la fase 5](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), y quedaron **aceptados** con las enmiendas de esas decisiones:
 
 - el [ADR 0012](adr/0012-pipeline-imagen-a-patron.md): pipeline imagen → patrón (etapas, IA y motor, salidas estructuradas, reintentos, inyección, etiquetado, dónde corre cada parte, `schemaVersion: 3`);
 - el [ADR 0013](adr/0013-subidas-y-storage.md): subidas, raster de trabajo, bucket, retención, aviso de derechos y dependencias de imagen;
@@ -1344,13 +1345,15 @@ Planificada el 2026-11-16 por `arquitecto` sobre `main` (fase 4 lista en código
 
 En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se citan con su fase ("T21 de la fase 4").
 
-**Límite de esta planificación.** La sesión de `arquitecto` no tuvo acceso al skill `claude-api`. Los ID de modelo, los precios, la regla de tokens de imagen, la salida estructurada y la caché de la familia Claude 5 **no están verificados**: se usan los del repositorio (`router.config.ts`), marcados así. T3 los verifica con el skill antes de T8, y las diferencias son enmiendas del ADR 0014. Fable 5.2 no está en la escalera del router: su ID, su precio y su disponibilidad en la API no se conocen en el repositorio (decisión 6).
+**Precios y modelos verificados.** El orquestador verificó el 2026-11-16, con el skill `claude-api`, los ID de modelo, los precios y la salida estructurada de la familia 5.5, y coinciden con `router.config.ts`: los detalles están en la nota del inicio de los ADR 0012 y 0014 y en la [decisión 6](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). Fable 5.2 existe en la API, pero queda fuera del router. T3 sigue verificando la regla de tokens de imagen, la caché, los tokens de pensamiento por etapa y el límite de gasto del espacio de trabajo antes de T8.
+
+**Dos hitos (decisión 2).** El **hito 1** es la ruta plana: se cierra con su propia QA, su revisión de seguridad, su revisión de dominio y su corrida real, y se entrega en un PR propio. El **hito 2** es la ruta 3D: empieza con su propia revisión de dominio (T1-3D) y se activa solo cuando `experto-tejido` aprueba los resultados (T22-3D). Lo que ambos comparten (la migración con todos los estados, el router, las subidas y el flujo) se construye en el hito 1. La ruta 3D queda apagada en el servidor (`iniciar` responde `route_disabled`) y oculta en la interfaz hasta el hito 2.
 
 ### Alcance
 
 **Dentro**
 
-- **Ruta plana (colorwork a palillo)**, de foto a gráfico (`kind: "chart"`):
+- **Hito 1: ruta plana (colorwork a palillo)**, de foto a gráfico (`kind: "chart"`):
   - recorte de la usuaria;
   - ancho en puntos o en cm con la muestra (o la muestra supuesta del grosor, marcada);
   - de 2 a 8 colores (lo confirma T1), mapeados a la paleta propia o como colores personalizados;
@@ -1359,19 +1362,20 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
   - redactor de notas y supuestos.
 
   El resultado se abre en el estudio de colorwork, editable y etiquetado.
-- **Ruta 3D (amigurumi aproximado)**, de foto a patrón escrito (`kind: "written"`), como **segundo hito** de la fase (decisión 2, recomendada):
+- **Hito 2: ruta 3D (amigurumi aproximado)**, de foto a patrón escrito (`kind: "written"`), como **segundo hito** de la fase, con su propia revisión de dominio antes (T1-3D) y después (T22-3D) (decisión 2):
   - triaje y descomponedor de primitivas del conjunto que fije T1;
   - `planToWritten` en el motor con la muestra y el alto objetivo que da la usuaria;
   - anclas de `layout` calculadas;
   - redactor del armado y de los supuestos.
 
   El resultado se abre en el estudio amigurumi, con "Aproximación".
-- **Subidas** por una Edge Function (ADR 0013), con el aviso de derechos, la retención corta y "Borrar la foto".
-- **Trabajos de IA** con estados, cuota por usuaria, presupuesto diario y mensual con corte, tope por trabajo, registro por llamada, alertas por correo e interruptor (ADR 0014).
-- **`ai-router` completo**: esquemas propios, prompts versionados, política de reintentos corregida, `jobCapUSD`, orquestador con puertos y `FakeModelClient`.
-- **`schemaVersion: 3`**, solo con `origin.assumptions`.
-- **Duplicar un diseño de IA** por el servidor (ADR 0006, E11), condicionado a la revisión B3.
-- **`LIMITS.maxRoundItems = 200`** con `PARSE_LIMITS.maxLineLength = 4.000` (T21 de la fase 4).
+- **En el hito 1, comunes a las dos rutas**:
+  - **subidas** por una Edge Function (ADR 0013), con el aviso de derechos en cada subida, la retención de 24 h (7 días como máximo) y "Borrar la foto";
+  - **trabajos de IA** con todos los estados (también los de la ruta 3D, apagada), cuota por usuaria, presupuesto diario y mensual con corte (USD 0,25 y USD 5), tope por trabajo, registro por llamada, alertas por correo e interruptor (ADR 0014);
+  - **`ai-router` completo** para los agentes de la ruta plana: esquemas propios, prompts versionados, política de reintentos corregida, `jobCapUSD`, orquestador con puertos y `FakeModelClient`. El esquema y el prompt del descomponedor y del redactor 3D entran en el hito 2;
+  - **`schemaVersion: 3`**, solo con `origin.assumptions`;
+  - **duplicar un diseño de IA** por el servidor (ADR 0006, E11), detrás de una bandera que se activa con la revisión legal B3 (decisión 12).
+- **En el hito 2**: **`LIMITS.maxRoundItems = 200`** con `PARSE_LIMITS.maxLineLength = 4.000` (T21 de la fase 4). Solo lo necesitan los patrones escritos, así que no bloquea el hito 1.
 
 **Fuera** (fase en que entra)
 
@@ -1430,14 +1434,15 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
 
 | ID | Criterio |
 |---|---|
-| CA5-B1 | Con `daily_cap_usd` igual al costo de 2 trabajos, el tercero se rechaza **antes** de llamar al modelo (0 llamadas al doble), con "La creación con IA está en pausa hasta mañana" |
+| CA5-B1 | Con `daily_cap_usd` igual al costo de 2 trabajos (y la cuota diaria subida para la prueba), el tercero se rechaza **antes** de llamar al modelo (0 llamadas al doble), con "La creación con IA está en pausa hasta mañana" |
 | CA5-B2 | 20 reservas simultáneas contra la base local (script de Node con conexiones paralelas) nunca dejan `reserved + spent` sobre el tope del día ni del trabajo |
 | CA5-B3 | Si se niega la reserva del redactor, se entrega con el respaldo determinista. Si se niega en otra etapa, el trabajo queda `failed`/`budget` y se devuelve el cupo (`ai_job_refund`) |
-| CA5-B4 | Cuota: el cuarto trabajo del día da `54000` (`ai_daily`) antes de subir la foto; el vigésimo primero en 30 días da `ai_monthly`; un segundo trabajo simultáneo da `55P03`. El cupo se devuelve en `failed` (no por moderación), `expired` y `cancelled` sin llamadas |
+| CA5-B4 | Cuota (decisión 3: 2 por día y 10 cada 30 días): el tercer trabajo del día da `54000` (`ai_daily`) antes de subir la foto; el undécimo en 30 días da `ai_monthly`; un segundo trabajo simultáneo da `55P03`. El cupo se devuelve en `failed` (no por moderación), `expired` y `cancelled` sin llamadas |
 | CA5-B5 | Cruzar el 80 % del mes crea una sola fila en `ai_alerts` por periodo, y `ia-mantenimiento` la envía una vez (con el doble de Resend en la CI) |
 | CA5-B6 | Con `ai_settings.enabled = false` o `LOOPITA_AI_ENABLED` apagado, la entrada "Crear desde una imagen" no aparece y las funciones responden `disabled` sin llamar al modelo |
 | CA5-B7 | Cada llamada registra el modelo, los tokens de entrada, salida y caché, el costo reservado y el real, la latencia y el resultado. Los totales de `ai_jobs` son la suma de sus llamadas (aserción en `10_rls_check.sql` o en un check nuevo). Una llamada `pending` vencida se liquida por lo reservado |
 | CA5-B8 | El cupo de patrones (T15 B-2) se comprueba antes de subir: con 500 patrones, la interfaz lo dice y `iniciar` da `54000` (`patterns`) |
+| CA5-B9 | Con los valores aprobados (decisión 3), probados con el doble del modelo y costos simulados: `jobCapUSD("chart") ≤ 0,05` y `jobCapUSD("amigurumi") ≤ 0,15`, calculados con `maxOutputTokens` que **incluye el pensamiento**; en un día vacío, un trabajo 3D en el peor caso termina sin `daily_cap`; un segundo trabajo 3D en el peor caso el mismo día se corta con `budget` y devuelve el cupo; un trabajo plano en el peor caso más uno 3D en el peor caso caben en el mismo día (0,20 ≤ 0,25) |
 
 **Etiqueta (regla de oro 4)**
 
@@ -1446,7 +1451,7 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
 | CA5-L1 | El patrón entregado tiene `origin.kind = "ai"`, `model`, `promptVersion` y `assumptions`, y `ai_jobs.result_pattern_id` lo enlaza |
 | CA5-L2 | `10_rls_check.sql`: `authenticated` no crea patrones `ai`, no cambia `origin` ni lo quita. Editar marca `ai_edited` y conserva `model`, `promptVersion` y `assumptions` |
 | CA5-L3 | La insignia "Generado con IA" (o "… y editado") se ve y no se cierra en el estudio, en `/disenos` y en "Tejiendo". La ruta 3D muestra "Aproximación", y hay un panel de supuestos (E2E) |
-| CA5-L4 | Duplicar un diseño de IA crea una copia `ai_edited` con los mismos metadatos, y `AI_DUPLICATE_UNSUPPORTED` desaparece de la interfaz (E2E con sesión). Solo si B3 quedó resuelta |
+| CA5-L4 | Con la bandera de duplicar encendida (en local y en la CI), duplicar un diseño de IA crea una copia `ai_edited` con los mismos metadatos, y `AI_DUPLICATE_UNSUPPORTED` desaparece de la interfaz (E2E con sesión). Con la bandera apagada, que es el valor del proyecto real hasta B3, todo sigue como hoy (decisión 12) |
 
 **Seguridad (obligatoria, T21)**
 
@@ -1468,7 +1473,7 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
 | CA5-U3 | Sin `rightsAck` vigente, 400; la interfaz no permite subir sin la casilla; la versión y la hora quedan en `uploads` |
 | CA5-U4 | La purga borra el objeto y la fila vencidos (prueba local con el reloj adelantado); "Borrar la foto" borra al instante; eliminar la cuenta con un trabajo en curso borra todo |
 | CA5-U5 | Topes: 10 imágenes guardadas y 30 intentos cada 24 h, una subida a la vez, 6 MB y 2048 px por lado |
-| CA5-U6 | `apps/web` ya no tiene `/api/subidas` ni `sharp`. Si la decisión 5 fue R, la ruta sigue la sección 2 del ADR 0013 |
+| CA5-U6 | `apps/web` ya no tiene `/api/subidas` ni `sharp`. Si T2 falla y la usuaria elige R (decisión 5), la ruta sigue la sección 2 del ADR 0013 |
 
 **Latencia percibida (regla de oro 7)**
 
@@ -1510,7 +1515,7 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
 
 - **`/disenos/nuevo`**: opción "Crear desde una imagen", visible solo con la IA encendida y la cuenta habilitada.
 - **`/disenos/nuevo/imagen`**, en pasos:
-  1. ruta: gráfico de colores o amigurumi;
+  1. ruta: gráfico de colores o amigurumi (la segunda aparece en el hito 2);
   2. cuota y cupo de patrones;
   3. archivo y recorte local;
   4. aviso de derechos;
@@ -1518,7 +1523,7 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
   6. parámetros con vista previa en vivo (ruta plana) o alto objetivo y lana (ruta 3D);
   7. "Crear", con el progreso por etapa y "Cancelar";
   8. resultado, con "Abrir en el estudio", "Borrar la foto" y "Detalles" (modelo y costo aproximado).
-- **Estudios de colorwork y amigurumi, `/disenos` y "Tejiendo"**: la insignia de IA, "Aproximación" (3D), el panel "Supuestos" y "Duplicar" para los diseños de IA (si B3 lo permite).
+- **Estudios de colorwork y amigurumi, `/disenos` y "Tejiendo"**: la insignia de IA, "Aproximación" (3D, hito 2), el panel "Supuestos" y "Duplicar" para los diseños de IA (con la bandera, que se enciende con B3).
 
 ### Persistencia en Supabase
 
@@ -1533,25 +1538,26 @@ En esta sección, "T*n*" son las tareas de la fase 5; las de fases anteriores se
   - pg_cron con pg_net para `ia-mantenimiento`;
   - `10_rls_check.sql` ampliado.
 - **Secretos de las Edge Functions** (nunca en el repositorio ni en el Worker): `ANTHROPIC_API_KEY`, `LOOPITA_AI_ENABLED`, `LOOPITA_UPLOADS_ENABLED`, `LOOPITA_ALERT_EMAIL` y la clave de Resend con permiso solo de envío.
-- **Proyecto real**: las migraciones se aplican antes del despliegue de las funciones. `ai_settings.enabled` queda en `false` hasta T23.
+- **Valores iniciales de `ai_settings`** (decisión 3): `daily_cap_usd = 0,25`, `monthly_cap_usd = 5`, `job_cap_chart_usd = 0,05`, `job_cap_amigurumi_usd = 0,15`, `jobs_per_day = 2`, `jobs_per_30d = 10`, `saving_threshold = 0,80` y `allowlist_only = true`. Los topes por trabajo los confirma `jobCapUSD` en T8; si da más, se ajustan los `maxOutputTokens` o el esfuerzo, no el tope (ADR 0014, enmienda T0-3).
+- **Proyecto real**: las migraciones se aplican antes del despliegue de las funciones. `ai_settings.enabled` queda en `false` hasta T23, y `ai_allowlist` solo tiene la cuenta de la usuaria (decisión 11).
 
 ### Pendientes de la fase 4 que afectan a la fase 5
 
 | Pendiente | Efecto en la fase 5 |
 |---|---|
-| `maxRoundItems` a 200 con `maxLineLength` 4.000 (T21 de la fase 4) | T5, antes de T6 |
+| `maxRoundItems` a 200 con `maxLineLength` 4.000 (T21 de la fase 4) | T5, en el hito 2, antes de T6 |
 | T20-I4 (`display_name` con controles y bidireccionales) | T10b; no bloquea la IA, pero conviene cerrarlo antes de la fase 7 |
 | T20-I6 (`minimumReleaseAge` y Dependabot) | Condición de T11, porque entran dependencias nuevas (los códecs) |
 | T1c (revisión legal) y la Ley 21.719 | La IA con personas externas requiere declarar a Anthropic como encargado, la transferencia internacional y la retención (T4). Hasta entonces, solo la cuenta de la usuaria (decisión 11) |
-| B3 (revisión legal de copiar contenido de IA) | Condiciona T10 y CA5-L4 |
+| B3 (revisión legal de copiar contenido de IA) | Condiciona la activación de la bandera de T10 en el proyecto real (decisión 12); el código y CA5-L4 se cierran igual |
 | *Worker* de R4-20 | No lo necesita la fase 5: los amigurumis generados quedan dentro de los límites recomendados, o con su aviso |
 | CA-P6 y el equipo de referencia | CA5-P1 se mide también allí, en la misma sesión que la fase 4 |
 
 ### Qué depende de `experto-tejido` o de T1b
 
-T1, antes de implementar el motor y los prompts, responde:
+Antes de implementar el motor y los prompts, T1 (hito 1) responde lo de la ruta plana y del redactor, y T1-3D (al empezar el hito 2) lo de la ruta 3D:
 
-- **Ruta plana**:
+- **Ruta plana** (T1):
   - cuántos colores por fila es honesto ofrecer en jacquard (Fair Isle);
   - qué hacer con las hebras flotantes largas que deja una foto (¿avisar, simplificar o rechazar?);
   - la proporción de la muestra supuesta para el alto del gráfico;
@@ -1560,14 +1566,15 @@ T1, antes de implementar el motor y los prompts, responde:
   - el rango de colores máximos (2 a 8);
   - qué tipos de imagen no sirven (fotos con degradados, retratos);
   - el texto de los supuestos.
-- **Ruta 3D**:
+- **Ruta 3D** (T1-3D):
   - el conjunto de primitivas que se teje de forma honesta en espiral con pb, y el rango de proporción de cada una;
   - qué queda fuera (base ovalada, enmienda C-13 de la fase 4; aumentos asimétricos; detalles bordados);
   - cómo se cuentan los ojos y los bordados (solo en `assembly`);
   - las reglas de forma de cada primitiva (aumentos, vueltas rectas, disminuciones) sobre las fórmulas del ADR 0010;
   - el texto de "Aproximación";
-  - el límite de partes.
-- **Redactor**: qué puede decir y qué no, y la lista de términos para el filtro de cifras.
+  - el límite de partes;
+  - si `maxRoundItems = 200` basta para la ruta 3D y para tapestry (condición de T5).
+- **Redactor** (T1, con lo del armado en T1-3D): qué puede decir y qué no, y la lista de términos para el filtro de cifras.
 - **Lo que queda "validar con tejedora"** va a la ronda T1b, junto con las de las fases 2 a 4, después de T1c.
 
 ### Riesgos
@@ -1577,53 +1584,84 @@ Los riesgos técnicos están en los ADR: R5-1 a R5-7 en el 0012, R5-8 a R5-11 en
 | ID | Riesgo | Mitigación |
 |---|---|---|
 | R5-16 | La puerta T2 falla (Deno, códecs o límites) y obliga a cambiar de hosting | T2 va primero y sin cuentas externas, salvo un proyecto Supabase desechable. Las alternativas están descritas (ADR 0012, sección 7). La usuaria decide con las cifras |
-| R5-17 | La ruta 3D no se parece al objeto y frustra | Segundo hito con su propia puerta (T22 parcial de la ruta 3D antes de mostrarla); "Aproximación"; la usuaria ajusta en el estudio |
+| R5-17 | La ruta 3D no se parece al objeto y frustra | Hito 2 con su propia revisión de dominio antes (T1-3D) y su puerta después (T22-3D, antes de activarla); "Aproximación"; la usuaria ajusta en el estudio |
 | R5-18 | La revisión legal no llega y la IA no se puede abrir a la beta | La IA funciona para la cuenta de la usuaria (lista permitida); la apertura es una decisión aparte |
-| R5-19 | El costo real supera la estimación | Topes calculados por `jobCapUSD` desde precios verificados (T3); medición real en T23; crédito prepagado sin recarga |
+| R5-19 | El costo real supera la estimación, sobre todo por los tokens de pensamiento, que no se pueden apagar en Haiku 5.5 ni en Opus 5.5 y se cobran como salida | Topes calculados por `jobCapUSD` con `maxOutputTokens` que incluye el pensamiento (CA5-B9); T3 mide el pensamiento por etapa con el esfuerzo por defecto y con uno menor; medición real en T23; crédito prepagado sin recarga |
+| R5-21 | El tope diario de USD 0,25 es **global**, no por usuaria: con más cuentas en la lista permitida, se agota con unos 6 trabajos 3D típicos o 1 en el peor caso, y la IA queda "en pausa hasta mañana" para todas | Hoy solo está la cuenta de la usuaria (decisión 11), y su peor día (2 trabajos) se corta en el segundo 3D. Abrir la lista exige revisar el presupuesto: es una decisión aparte, con las cifras de T23 |
+| R5-22 | La corrida real (T23) no cabe en los topes del producto: con 2 trabajos al día, el conjunto de evaluación tardaría semanas | El script de evaluación de T14 corre `runStage` con el cliente real y un libro de presupuesto en memoria con su propio tope (USD 2 entre las dos corridas), desde el equipo de la usuaria y con la clave solo en su entorno (`.env.local` o la variable de la sesión), nunca en el repositorio ni en la CI. Unos pocos trabajos pasan además por el producto real, dentro de la cuota. La usuaria lo confirma al empezar T23 |
 | R5-20 | Una dependencia de los códecs trae una vulnerabilidad o un cambio de licencia | Versión fijada, edad mínima de 7 días (T20-I6), revisión de procedencia en T21 |
 
 ### Desglose de tareas
 
-El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir en paralelo, salvo las dependencias indicadas. Complejidad y modelo según la tabla de `CLAUDE.md`. QA y seguridad van al final (grupo E); `experto-tejido` revisa antes (T1) y al cierre (T22).
+El orden es el de ejecución. Las tareas con la misma letra de grupo pueden ir en paralelo, salvo las dependencias indicadas. Complejidad y modelo según la tabla de `CLAUDE.md`.
+
+La fase se parte en dos hitos (decisión 2). El **hito 1** (grupos A a E) es la ruta plana y se cierra solo, con su QA, su revisión de seguridad, su revisión de dominio, su corrida real y su PR. El **hito 2** (grupos F y G) es la ruta 3D, y sus tareas llevan el sufijo "-3D". `experto-tejido` revisa antes y después en cada hito: T1 y T22 en el 1, T1-3D y T22-3D en el 2.
+
+#### Hito 1: ruta plana (PR propio)
 
 | # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
 |---|---|---|---|---|---|
-| T0 | A | La usuaria aprueba los ADR 0012 a 0014 y las [decisiones de la fase 5](#decisiones-de-la-fase-5-propuestas). `arquitecto` registra lo elegido como enmiendas y ajusta esta sección. **Aceptación**: los tres ADR quedan "aceptado" o con su enmienda; cada decisión tiene su resolución | (usuaria) y `arquitecto` | Baja (haiku) | — |
-| T1 | A | **Qué se puede generar de forma honesta y qué no.** Revisión de dominio **antes de implementar**, con la lista de "Qué depende de `experto-tejido` o de T1b". Produce `docs/casos-dominio-fase-5.md`, con casos F5-n, imágenes de prueba descritas (sin marcas ni personas), el conjunto de primitivas con sus rangos y reglas, los colores por fila, las hebras flotantes, la proporción de la muestra, los textos de "Aproximación" y de los supuestos, y la lista de términos del filtro de cifras. Confirma si `maxRoundItems = 200` basta para tapestry y para la ruta 3D. **Aceptación**: cada tema tiene una regla con su fuente o queda "validar con tejedora"; hay una tabla "se genera / se genera con aviso / no se genera"; `arquitecto` registra las correcciones como enmiendas de los ADR 0012 y 0013 | `experto-tejido` | Media (sonnet) | T0 |
+| T0 | A | **Hecha (2026-11-16).** La usuaria aprobó los ADR 0012 a 0014 y respondió las [decisiones de la fase 5](#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). `arquitecto` las registró como enmiendas T0-n de los tres ADR y ajustó esta sección. **Aceptación**: los tres ADR quedan "aceptado (2026-11-16, T0)"; cada decisión tiene su resolución | (usuaria) y `arquitecto` | Baja (haiku) | — |
+| T1 | A | **Qué se puede generar de forma honesta y qué no, en la ruta plana.** Revisión de dominio **antes de implementar**, con la parte "Ruta plana" y "Redactor" de "Qué depende de `experto-tejido` o de T1b". Produce `docs/casos-dominio-fase-5.md`, con casos F5-n, imágenes de prueba descritas (sin marcas ni personas), los colores por fila, las hebras flotantes, la proporción de la muestra, el texto de los supuestos y la lista de términos del filtro de cifras. Lo de la ruta 3D queda para T1-3D. **Aceptación**: cada tema tiene una regla con su fuente o queda "validar con tejedora"; hay una tabla "se genera / se genera con aviso / no se genera"; `arquitecto` registra las correcciones como enmiendas de los ADR 0012 y 0013 | `experto-tejido` | Media (sonnet) | T0 |
 | T2 | A | **Puerta de viabilidad de las Edge Functions**, sin el proyecto real. Hay que confirmar varias cosas: los límites del plan gratuito (CPU, reloj, memoria, cuerpo de la petición e invocaciones); que Deno importe `pattern-core`, `yarn-catalog`, `image-chart` (esqueleto) y `ai-router` del monorepo (en local con `supabase functions serve` y desplegado en un proyecto desechable); los códecs de jSquash en Deno; el CPU de decodificar un JPEG de 2048 × 2048, redimensionar y codificar el PNG de 1024 px; el de `validatePattern` de un gráfico de 200 × 200; y la prueba cruzada Node/Deno de `resizeArea`. **Aceptación**: informe en `docs/qa-fase-5.md` con las cifras; p99 de CPU < 1 s en la subida y < 500 ms en una etapa; los imports funcionan desplegados. Si algo falla, propuesta de enmienda y vuelta a T0 | `devops` con `backend-supabase` | Alta (opus) | T0 |
-| T3 | A | **Verificar con el skill `claude-api`**: los ID de la familia Claude 5 (incluido si Fable 5.2 existe en la API, con su ID y su precio), los precios por millón de tokens, el recargo de Haiku sobre 100K tokens que menciona `router.config.ts`, la regla de tokens de imagen y los tamaños máximos, la salida estructurada o la herramienta forzada, `stop_reason`, la caché (precio de escritura y lectura, mínimos y duración), el crédito prepagado y el límite de gasto del espacio de trabajo, y si la facturación es por día UTC. **Aceptación**: `PRICE_PER_MTOK` y el README de `ai-router` actualizados con la fuente y la fecha; la sección 6 del ADR 0014 recalculada; enmiendas de los ADR 0012 y 0014 si algo cambia | `ia-pipeline` | Media (sonnet) | T0 |
-| T4 | A | **Textos legales en borrador**: en `/privacidad`, Anthropic como encargado, la transferencia internacional, qué se envía (imagen reducida, sin datos personales), la retención de la foto (decisión 4) y de `ai_jobs` y `ai_job_calls` (180 días); en `/terminos`, el contenido generado y su etiqueta; y el aviso de derechos `rights-v1`. Todo marcado `[PENDIENTE DE REVISIÓN LEGAL]`. **Aceptación**: los textos existen y se enlazan desde el flujo; la usuaria los lleva a la revisión legal (T1c) | `documentador` | Baja (haiku) | T0 |
-| T5 | B | `LIMITS.maxRoundItems = 200` y `PARSE_LIMITS.maxLineLength = 4.000` (enmienda del ADR 0011). Medir de nuevo la peor vuelta en los tres dialectos y la peor línea hostil, con RT1 en el borde (`t20-topes.test.ts`). **Aceptación**: la peor vuelta de 200 nodos cabe en 4.000 caracteres en `es`, `us` y `uk`; la línea hostil de 4.000 caracteres se lee en < 5 ms; `pnpm test` en verde | `motor-patrones` | Media (sonnet) | T1 (confirmación de 200) |
-| T6 | B | **Primitivas → vueltas** (`primitives.ts`): `validatePrimitivePlan` y `planToWritten` con las reglas de T1, las anclas de `layout` calculadas y los supuestos deterministas; IA-P2 e IA-P4; casos F5 de la ruta 3D. **Aceptación**: CA5-V3 (la parte de las primitivas) y CA5-D1 (la parte 3D); cada plan válido da un documento `valid` dentro de los límites recomendados, o con su aviso | `motor-patrones` | Alta (opus) | T1, T5, T6b |
+| T3 | A | **Lo que queda por verificar con el skill `claude-api`** (los ID, los precios, el recargo de Haiku sobre 100 K, Fable 5.2 y la salida estructurada ya los verificó el orquestador el 2026-11-16; ver la decisión 6): la regla de tokens de imagen y los tamaños máximos; `stop_reason` con `output_config.format`; los **tokens de pensamiento** por etapa (no se apaga en Haiku 5.5 ni en Opus 5.5; en Sonnet 5.5 se usa `between_tools`), con el esfuerzo por defecto (`medium`) y con uno menor, y si cuentan dentro de `max_tokens`; la caché (precio de escritura y lectura, mínimos y duración); el crédito prepagado y el límite de gasto del espacio de trabajo; y si la facturación es por día UTC. **Aceptación**: `PRICE_PER_MTOK` y el README de `ai-router` con la fuente y la fecha; la sección 6 del ADR 0014 recalculada con el pensamiento; los `maxOutputTokens` y el esfuerzo por agente propuestos para que `jobCapUSD` quede en 0,05 y 0,15 (CA5-B9); enmiendas de los ADR 0012 y 0014 si algo cambia | `ia-pipeline` | Media (sonnet) | T0 |
+| T4 | A | **Textos legales en borrador**: en `/privacidad`, Anthropic como encargado, la transferencia internacional, qué se envía (imagen reducida, sin datos personales), la retención de la foto (24 h desde el último uso, 7 días como máximo y borrado al instante a mano; decisión 4) y de `ai_jobs` y `ai_job_calls` (180 días), y el rechazo de las fotos de personas en la v1 (decisión 10); en `/terminos`, el contenido generado y su etiqueta; y el aviso de derechos `rights-v1`. Todo marcado `[PENDIENTE DE REVISIÓN LEGAL]`. **Aceptación**: los textos existen y se enlazan desde el flujo; la usuaria los lleva a la revisión legal (T1c) | `documentador` | Baja (haiku) | T0 |
 | T6b | B | **`schemaVersion: 3`** (`origin.assumptions`) con la migración, M1 a M4 y la lista de lectores (como T4 de la fase 4). **Aceptación**: CA4-M1 a CA4-M4 vuelven a pasar en v3; los fixtures usan `SCHEMA_VERSION` | `motor-patrones` | Media (sonnet) | T0 |
 | T7 | B | **`packages/image-chart`**: `sniffImageHeader` (JPEG, PNG y WebP, con truncados y políglotas), `resizeArea`, `rasterToChart` (proporción de la muestra, cuantización determinista en CIELAB, paleta propia o hex, alfa como fondo, fila 0 según `direction`) y `detectExactRepeat`; IA-P3; README; job de CI. `catalogo-lanas` revisa el mapeo a la paleta y fija `MERGE_MAX_DELTA_E`. **Aceptación**: CA5-V3 (la parte de `image-chart`), casos F5 de la ruta plana y `rasterToChart` de un raster de 1024 px a 200 de ancho en < 30 ms en Node | `motor-patrones` con `catalogo-lanas` | Alta (opus) | T1, T2 |
-| T8 | C | **`ai-router` completo** (ADR 0012, secciones 3, 4 y 8; ADR 0014, sección 6): `schema.ts` (validador y JSON Schema desde una sola definición), `agents.ts`, `prompts/` versionados v1, `digits-filter.ts`, `selectModel` corregido (mismo modelo en el primer fallo de forma, escalamiento en el segundo o con el rechazo del motor), `JOB_TRANSITIONS`, `jobCapUSD`, `runStage` con los puertos y `FakeModelClient` con respuestas grabadas. **Aceptación**: CA5-V1, CA5-V2, CA5-V4, CA5-R1 (la parte de las pruebas), CA5-R2 y CA5-R4 | `ia-pipeline` | Alta (opus) | T1, T3 |
-| T9 | C | **Migración y check** (ADR 0013, secciones 4 y 5; ADR 0014, secciones 1 a 5), con la tabla de transiciones comparada con `JOB_TRANSITIONS`. **Aceptación**: CA5-B2, CA5-B4, CA5-B7 (la parte de la base), CA5-B8, CA5-L2 y CA5-S5; `10_rls_check.sql` en verde en local | `backend-supabase` | Alta (opus) | T0, T6b, T8 (tabla de transiciones) |
-| T10 | C | **Duplicar diseños de IA** (ADR 0006, E11; ADR 0012, sección 6): `duplicate_ai_pattern` y la Server Action, con el mensaje de cupo. **Aceptación**: CA5-L4; solo se activa con B3 resuelta (si no, queda detrás de una bandera) | `backend-supabase` | Media (sonnet) | T9 |
+| T8 | C | **`ai-router` para la ruta plana** (ADR 0012, secciones 3, 4 y 8; ADR 0014, sección 6): `schema.ts` (validador y JSON Schema para `output_config.format` desde una sola definición), `agents.ts` con el triaje, el asistente de paleta y el redactor de la ruta plana, `prompts/` versionados v1 de esos tres, `digits-filter.ts`, `AGENT_POLICIES` de la decisión 6 (el redactor de la ruta plana pasa a Haiku), `selectModel` corregido (mismo modelo en el primer fallo de forma, escalamiento en el segundo o con el rechazo del motor), `JOB_TRANSITIONS` **completa, también con los estados 3D**, `jobCapUSD` de las dos rutas (las políticas del descomponedor ya existen), `runStage` con los puertos y las etapas planas, y `FakeModelClient` con respuestas grabadas. El esquema del descomponedor y las etapas 3D de `runStage` van en T8-3D. **Aceptación**: CA5-V1, CA5-V2, CA5-V4, CA5-R1 (la parte de las pruebas), CA5-R2, CA5-R4 y CA5-B9 (la parte de `jobCapUSD`) | `ia-pipeline` | Alta (opus) | T1, T3 |
+| T9 | C | **Migración y check** (ADR 0013, secciones 4 y 5; ADR 0014, secciones 1 a 5), con la tabla de transiciones completa comparada con `JOB_TRANSITIONS` (la ruta 3D no necesita otra migración en el hito 2) y los valores iniciales de `ai_settings` de la decisión 3. **Aceptación**: CA5-B2, CA5-B4, CA5-B7 (la parte de la base), CA5-B8, CA5-L2 y CA5-S5; `10_rls_check.sql` en verde en local | `backend-supabase` | Alta (opus) | T0, T6b, T8 (tabla de transiciones) |
+| T10 | C | **Duplicar diseños de IA** (ADR 0006, E11; ADR 0012, sección 6): `duplicate_ai_pattern` y la Server Action, con el mensaje de cupo, **detrás de la bandera `LOOPITA_AI_DUPLICATE_ENABLED`**, apagada en el proyecto real hasta que la revisión legal B3 lo apruebe (decisión 12). **Aceptación**: CA5-L4 con la bandera encendida en local y en la CI; con la bandera apagada, `AI_DUPLICATE_UNSUPPORTED` como hoy | `backend-supabase` | Media (sonnet) | T9 |
 | T10b | C | T20-I4: rechazar `\p{Cc}` y los caracteres bidireccionales en `display_name`, en la acción y con un CHECK. **Aceptación**: prueba y check | `backend-supabase` | Baja (haiku) | — |
 | T11 | C | **Edge Function `subir-imagen`** y el `DELETE` (ADR 0013, sección 2). Retira `/api/subidas` y `sharp` de `apps/web`. Dependencias de los códecs justificadas en el PR. Requiere T20-I6 aplicado (edad mínima y Dependabot). **Aceptación**: CA5-U1 a CA5-U3, CA5-U5, CA5-U6 y CA5-S4 (la parte de las subidas); CA5-P4 en la subida | `backend-supabase` | Alta (opus) | T2, T7 (encabezados y `resizeArea`), T9 |
-| T12 | C | **Edge Function `ia-trabajo`** (`iniciar`, `avanzar` y `cancelar`) con la **ruta plana**: adaptadores de los puertos, cliente de Anthropic sobre `fetch` (versión de la API fijada, tiempo límite de 90 s), arriendo, reservas y liquidación, creación del patrón con `service_role` y `origin`. **Aceptación**: CA5-V5, CA5-R1 (E2E), CA5-R3, CA5-B1, CA5-B3, CA5-B6, CA5-L1 y CA5-P3 (ruta plana), con el doble del modelo y Supabase local | `ia-pipeline` | Alta (opus) | T8, T9, T11 |
-| T13 | C | **Ruta 3D** en `ia-trabajo`: descomponedor → `validatePrimitivePlan` → `planToWritten` → validación → redactor del armado. **Aceptación**: lo mismo que T12 para la ruta 3D y CA5-P3 (ruta 3D). Se activa solo después de la parte 3D de T22 (decisión 2) | `ia-pipeline` | Alta (opus) | T6, T12 |
-| T14 | C | **Prompts v1 y conjunto de evaluación**: imágenes de prueba propias o de dominio público, sin marcas ni personas (logotipos simples, ilustraciones, objetos y peluches genéricos), al menos 15 imágenes hostiles, respuestas grabadas para `FakeModelClient` y un script de evaluación con tope de costo para T23. `experto-tejido` revisa los textos del redactor. **Aceptación**: CA5-S1 en la CI; el script corre en seco sin clave | `ia-pipeline` con `experto-tejido` | Alta (opus) | T1, T8 |
+| T12 | C | **Edge Function `ia-trabajo`** (`iniciar`, `avanzar` y `cancelar`) con la **ruta plana**: adaptadores de los puertos, cliente de Anthropic sobre `fetch` (versión de la API fijada, `output_config.format`, sin `tool_choice` forzado, tiempo límite de 90 s), arriendo, reservas y liquidación, creación del patrón con `service_role` y `origin`. `iniciar` con `route = "amigurumi"` responde `route_disabled` sin cobrar cupo hasta el hito 2. Si no valida, la decisión 9. **Aceptación**: CA5-V5, CA5-R1 (E2E), CA5-R3, CA5-B1, CA5-B3, CA5-B6, CA5-L1 y CA5-P3 (ruta plana), con el doble del modelo y Supabase local | `ia-pipeline` | Alta (opus) | T8, T9, T11 |
+| T14 | C | **Prompts v1 de la ruta plana y conjunto de evaluación**: imágenes de prueba propias o de dominio público, sin marcas ni personas (logotipos simples, ilustraciones y objetos genéricos), al menos 15 imágenes hostiles, casos del rechazo de personas de la decisión 10 (descritos o sintéticos, nunca fotos de personas reales), respuestas grabadas para `FakeModelClient` y un **script de evaluación** que corre `runStage` con el cliente real y un libro de presupuesto en memoria con su propio tope (R5-22). `experto-tejido` revisa los textos del redactor. **Aceptación**: CA5-S1 en la CI; el script corre en seco sin clave y se detiene al llegar a su tope | `ia-pipeline` con `experto-tejido` | Alta (opus) | T1, T8 |
 | T15 | C | **Edge Function `ia-mantenimiento`**: purga de Storage, vencimiento de trabajos y liquidación de lo pendiente, alertas por correo con Resend y sus detecciones, programada con pg_cron y pg_net. **Aceptación**: CA5-U4, CA5-B5 y CA5-B7 (vencidas) | `backend-supabase` | Media (sonnet) | T9 |
-| T16 | D | **Flujo "Crear desde una imagen"** (pantallas de arriba): recorte local, reducción y JPEG en el lienzo, aviso de derechos, subida, parámetros con vista previa en vivo con `image-chart` sobre el raster descargado, cuota y cupo antes de subir, progreso, cancelar, resultado y "Borrar la foto". Instrumentación `param-to-preview`. **Aceptación**: CA5-P1, CA5-P2, CA5-B4 (la parte de la interfaz), CA5-B8 (la parte de la interfaz) y CA5-U3 (la parte de la interfaz) | `frontend-editor` | Media (sonnet) | T7, T11, T12 |
-| T17 | D | **Etiqueta y supuestos en la interfaz**: insignia en los dos estudios, `/disenos` y "Tejiendo"; "Aproximación"; panel de supuestos; "Duplicar" para los diseños de IA; borrador con advertencias y "Tejer" bloqueado; "Detalles" con modelo y costo. **Aceptación**: CA5-L3, CA5-V5 (la parte de la interfaz) y CA5-L4 (la parte de la interfaz) | `frontend-editor` | Media (sonnet) | T6b, T10, T12 |
+| T16 | D | **Flujo "Crear desde una imagen"**, solo con la ruta "gráfico de colores" (la opción amigurumi no se muestra hasta el hito 2): recorte local, reducción y JPEG en el lienzo, aviso de derechos, subida, parámetros con vista previa en vivo con `image-chart` sobre el raster descargado, cuota y cupo antes de subir, progreso, cancelar, resultado y "Borrar la foto". Instrumentación `param-to-preview`. **Aceptación**: CA5-P1, CA5-P2, CA5-B4 (la parte de la interfaz), CA5-B8 (la parte de la interfaz) y CA5-U3 (la parte de la interfaz) | `frontend-editor` | Media (sonnet) | T7, T11, T12 |
+| T17 | D | **Etiqueta y supuestos en la interfaz**: insignia en los dos estudios, `/disenos` y "Tejiendo"; panel de supuestos; "Duplicar" para los diseños de IA (visible solo con la bandera de T10); borrador con advertencias y "Tejer" bloqueado (decisión 9); "Detalles" con modelo y costo. "Aproximación" va en T16-3D. **Aceptación**: CA5-L3 (sin "Aproximación"), CA5-V5 (la parte de la interfaz) y CA5-L4 (la parte de la interfaz) | `frontend-editor` | Media (sonnet) | T6b, T10, T12 |
 | T18 | D | **Accesibilidad** del flujo: recorte con teclado, anuncios de progreso, 390 px, 200 % y contraste. **Aceptación**: CA5-A1 | `ux-accesibilidad` | Media (sonnet) | T16, T17 |
-| T19 | D | **Textos**: aviso de derechos (de T4), etapas, cuota, pausa por presupuesto, motivos de rechazo neutrales (sin acusar), "Notas generadas sin IA", supuestos, "Aproximación", errores de subida y "Borrar la foto", con el glosario (`term`) y lo de T1 marcado "validar con tejedora". **Aceptación**: los textos viven en un módulo y no hay cadenas sueltas en los componentes del flujo | `documentador` | Baja (haiku) | T1, T4 |
-| T20 | E | **QA**: propiedades IA-P1 a IA-P6; casos F5; E2E con sesión y el doble del modelo (las dos rutas, cuota, presupuesto, cancelar, expirar, borrador); CA5-P1 a CA5-P4; matriz CA5-* en `docs/qa-fase-5.md`. Revisión con opus de T6, T7, T8, T9, T11, T12 y T13 (complejidad alta). **Aceptación**: la matriz tiene evidencia por criterio y los bugs tienen ID | `qa-tester` | Alta (opus) | T12 a T19 |
-| T21 | E | **Seguridad (obligatoria)**: subidas (tipos, políglotas, bombas, EXIF y códecs), inyección (conjunto de T14), secretos, CORS y `Origin`, RLS y funciones nuevas, concurrencia de las reservas, registros sin datos personales, purga, procedencia de las dependencias y lo que se envía al proveedor. Con opus, porque el código revisado es de complejidad alta. **Aceptación**: CA5-S1 a CA5-S6 y la sección "Revisión final de la fase 5" en `docs/seguridad.md` | `revisor-seguridad` | Alta (opus) | T20 |
-| T22 | E | **Revisión de dominio** de los resultados: capturas de al menos 10 gráficos y 5 amigurumis generados, de los supuestos, de los textos del redactor y de las reglas de T1 aplicadas. La parte 3D se hace **antes** de activar T13 (decisión 2). **Aceptación**: CA5-D2 y CA5-D3; aprobación o condiciones; lo pendiente va a T1b | `experto-tejido` | Media (sonnet) | T12, T13 |
-| T23 | E | **Prueba con el modelo real** (la usuaria pone el crédito y la clave en los secretos de las funciones del proyecto real, con `ai_settings.enabled` solo para su cuenta): el conjunto de T14 con un tope de USD 2, cifras reales de tokens, costo y latencia, y CA5-S1 y CA5-P5. **Aceptación**: informe en `docs/qa-fase-5.md`; enmienda del ADR 0014 con las cifras medidas y los topes ajustados | `ia-pipeline` con la usuaria | Media (sonnet) | T21, T22 |
-| T24 | E | **Cierre**: README de `ai-router`, `image-chart` y `supabase/functions`; `docs/agentes-runtime.md` (triaje en una llamada, ruta elegida por la usuaria, redactor sin imagen); fila M3 de `docs/seguridad.md`; este roadmap y las enmiendas de los ADR 0012 a 0014 por la implementación. **Aceptación**: ningún documento contradice a los ADR aceptados | `arquitecto` con `documentador` | Baja (haiku) | T23 |
+| T19 | D | **Textos** de la ruta plana: aviso de derechos (de T4), etapas, cuota ("Te quedan N de 2 hoy y M de 10 este mes"), pausa por presupuesto, motivos de rechazo neutrales (sin acusar), también el de personas (decisión 10), "Notas generadas sin IA", supuestos, errores de subida, la explicación de por qué no hubo patrón y que el intento se devolvió (decisión 9), y "Borrar la foto", con el glosario (`term`) y lo de T1 marcado "validar con tejedora". **Aceptación**: los textos viven en un módulo y no hay cadenas sueltas en los componentes del flujo | `documentador` | Baja (haiku) | T1, T4 |
+| T20 | E | **QA del hito 1**: propiedades IA-P1, IA-P3, IA-P5 e IA-P6; casos F5 de la ruta plana; E2E con sesión y el doble del modelo (ruta plana, ruta 3D apagada con `route_disabled`, cuota, presupuesto con los valores de la decisión 3, cancelar, expirar, borrador); CA5-P1 a CA5-P4 (ruta plana); matriz CA5-* en `docs/qa-fase-5.md`. Revisión con opus de T7, T8, T9, T11 y T12 (complejidad alta). **Aceptación**: la matriz tiene evidencia por criterio del hito 1 y los bugs tienen ID | `qa-tester` | Alta (opus) | T12, T14 a T19 |
+| T21 | E | **Seguridad del hito 1 (obligatoria)**: subidas (tipos, políglotas, bombas, EXIF y códecs), inyección (conjunto de T14), rechazo de personas, secretos, CORS y `Origin`, RLS y funciones nuevas (también las que ya sirven a la ruta 3D), concurrencia de las reservas, registros sin datos personales, purga, bandera de duplicar, procedencia de las dependencias y lo que se envía al proveedor. Con opus, porque el código revisado es de complejidad alta. **Aceptación**: CA5-S1 a CA5-S6 y la sección "Revisión de la fase 5, hito 1" en `docs/seguridad.md` | `revisor-seguridad` | Alta (opus) | T20 |
+| T22 | E | **Revisión de dominio de la ruta plana**: capturas de al menos 10 gráficos generados, de los supuestos, de los textos del redactor y de las reglas de T1 aplicadas. **Aceptación**: CA5-D2 (la parte de los gráficos) y CA5-D3; aprobación o condiciones; lo pendiente va a T1b | `experto-tejido` | Media (sonnet) | T12, T14 |
+| T23 | E | **Prueba con el modelo real, corrida de la ruta plana.** Es la única prueba real de la fase (decisión 7), con un **tope total de USD 2** para sus dos corridas: esta usa a lo más **USD 0,50** y T23-3D el resto. La usuaria pone el crédito y la clave en los secretos de las funciones del proyecto real, con `ai_settings.enabled` y la lista permitida solo con su cuenta. El conjunto de T14 corre con el script (R5-22), y unos pocos trabajos pasan por el producto real dentro de la cuota. Cifras reales de tokens (incluido el pensamiento), costo y latencia; CA5-S1 y CA5-P5 de la ruta plana. **Aceptación**: informe en `docs/qa-fase-5.md`; enmienda del ADR 0014 con las cifras medidas y, si hace falta, los `maxOutputTokens` o el esfuerzo ajustados | `ia-pipeline` con la usuaria | Media (sonnet) | T21, T22 |
+| T24 | E | **Cierre del hito 1 y PR**: README de `ai-router`, `image-chart` y `supabase/functions`; `docs/agentes-runtime.md` (triaje en una llamada, ruta elegida por la usuaria, redactor sin imagen); fila M3 de `docs/seguridad.md`; este roadmap y las enmiendas de los ADR 0012 a 0014 por la implementación. **Aceptación**: los criterios de salida del hito 1; ningún documento contradice a los ADR aceptados | `arquitecto` con `documentador` | Baja (haiku) | T23 |
+
+#### Hito 2: ruta 3D
+
+Empieza después del PR del hito 1. T1-3D puede adelantarse si `experto-tejido` está libre, porque no bloquea al hito 1. La ruta 3D queda apagada en el servidor (`route_disabled`) y oculta en la interfaz hasta que T21-3D y T22-3D aprueban.
+
+| # | Grupo | Tarea | Agente | Complejidad (modelo) | Depende de |
+|---|---|---|---|---|---|
+| T1-3D | F | **Qué se puede generar de forma honesta en la ruta 3D**, con la parte "Ruta 3D" de "Qué depende de `experto-tejido` o de T1b": el conjunto de primitivas con sus rangos y reglas de forma, lo que queda fuera, ojos y bordados solo en `assembly`, el límite de partes, el texto de "Aproximación", lo que dice el redactor del armado, y si `maxRoundItems = 200` basta. Amplía `docs/casos-dominio-fase-5.md`. **Aceptación**: lo mismo que T1, para la ruta 3D; `arquitecto` registra las correcciones como enmiendas del ADR 0012 | `experto-tejido` | Media (sonnet) | T0 (no bloquea el hito 1) |
+| T5 | F | `LIMITS.maxRoundItems = 200` y `PARSE_LIMITS.maxLineLength = 4.000` (enmienda del ADR 0011). Medir de nuevo la peor vuelta en los tres dialectos y la peor línea hostil, con RT1 en el borde (`t20-topes.test.ts`). **Aceptación**: la peor vuelta de 200 nodos cabe en 4.000 caracteres en `es`, `us` y `uk`; la línea hostil de 4.000 caracteres se lee en < 5 ms; `pnpm test` en verde | `motor-patrones` | Media (sonnet) | T1-3D (confirmación de 200) |
+| T6 | F | **Primitivas → vueltas** (`primitives.ts`): `validatePrimitivePlan` y `planToWritten` con las reglas de T1-3D, las anclas de `layout` calculadas y los supuestos deterministas; IA-P2 e IA-P4; casos F5 de la ruta 3D. **Aceptación**: CA5-V3 (la parte de las primitivas) y CA5-D1 (la parte 3D); cada plan válido da un documento `valid` dentro de los límites recomendados, o con su aviso | `motor-patrones` | Alta (opus) | T1-3D, T5, T6b |
+| T8-3D | F | **`ai-router` para la ruta 3D**: esquema `DecomposerOutput` con el conjunto de primitivas de T1-3D, validación de la propuesta (ciclos de `attach`, `main`, rangos de `aspect`), el redactor del armado en Sonnet, y las etapas `decompose` y `plan_compute` de `runStage`. **Aceptación**: CA5-V1, CA5-V2 y CA5-R1 a CA5-R4 con la ruta 3D | `ia-pipeline` | Alta (opus) | T1-3D, T8 |
+| T13 | F | **Ruta 3D** en `ia-trabajo`: descomponedor → `validatePrimitivePlan` → `planToWritten` → validación → redactor del armado. Se quita `route_disabled` solo después de T21-3D y T22-3D. **Aceptación**: lo mismo que T12 para la ruta 3D y CA5-P3 (ruta 3D) | `ia-pipeline` | Alta (opus) | T6, T8-3D, T12 |
+| T14-3D | F | **Prompts v1 de la ruta 3D y su conjunto de evaluación**: descomponedor y redactor del armado; peluches y objetos genéricos sin marcas ni personas; casos hostiles propios del descomponedor; respuestas grabadas. **Aceptación**: CA5-S1 con la ruta 3D en la CI | `ia-pipeline` con `experto-tejido` | Alta (opus) | T1-3D, T8-3D |
+| T16-3D | F | **Interfaz de la ruta 3D**: la opción amigurumi en el flujo, el paso del alto objetivo y la lana o el grosor, "Aproximación" en el estudio amigurumi y en el resultado, los textos de la ruta 3D (de T1-3D) y la accesibilidad de los pasos nuevos, con `documentador` y `ux-accesibilidad`. **Aceptación**: CA5-L3 completo y CA5-A1 en los pasos nuevos | `frontend-editor` | Media (sonnet) | T13 |
+| T20-3D | G | **QA del hito 2**: IA-P2 e IA-P4, casos F5 de la ruta 3D, E2E de la ruta 3D con el doble del modelo, CA5-P3 (ruta 3D) y la matriz completa. Revisión con opus de T6, T8-3D y T13. **Aceptación**: la matriz tiene evidencia de todos los criterios de la fase | `qa-tester` | Alta (opus) | T13, T14-3D, T16-3D |
+| T21-3D | G | **Seguridad del hito 2 (obligatoria)**: inyección por la imagen en el descomponedor (conjunto de T14-3D), textos del armado (filtro de cifras), topes de costo de la ruta 3D. Con opus. **Aceptación**: CA5-S1 con la ruta 3D y la sección "Revisión final de la fase 5" en `docs/seguridad.md` | `revisor-seguridad` | Alta (opus) | T20-3D |
+| T22-3D | G | **Revisión de dominio de la ruta 3D, antes de activarla** (decisión 2): capturas de al menos 5 amigurumis generados, del armado, de "Aproximación" y de las reglas de T1-3D aplicadas. **Aceptación**: CA5-D2 (la parte 3D) y CA5-D3; aprobación o condiciones. Sin aprobación, la ruta 3D sigue apagada | `experto-tejido` | Media (sonnet) | T13, T14-3D |
+| T23-3D | G | **Prueba con el modelo real, corrida de la ruta 3D**, con lo que quede del tope total de USD 2 de T23 (al menos USD 1,50). CA5-S1 y CA5-P5 de la ruta 3D. **Aceptación**: informe en `docs/qa-fase-5.md` y enmienda del ADR 0014 con las cifras 3D | `ia-pipeline` con la usuaria | Media (sonnet) | T21-3D, T22-3D |
+| T24-3D | G | **Cierre de la fase**: lo de T24 para la ruta 3D, este roadmap y las enmiendas finales de los ADR 0012 a 0014. **Aceptación**: los criterios de salida de la fase | `arquitecto` con `documentador` | Baja (haiku) | T23-3D |
 
 ### Criterios de salida de la fase 5
 
-- CA5-V1 a CA5-V5, CA5-R1 a CA5-R4, CA5-B1 a CA5-B8, CA5-L1 a CA5-L4 (CA5-L4 solo con B3), CA5-S1 a CA5-S6, CA5-U1 a CA5-U6, CA5-P1 a CA5-P5, CA5-D1 a CA5-D3 y CA5-A1 cumplidos, con la evidencia en el PR.
+**Hito 1 (ruta plana, PR propio):**
+
+- CA5-V1, CA5-V2, CA5-V3 (la parte de `image-chart`), CA5-V4, CA5-V5, CA5-R1 a CA5-R4, CA5-B1 a CA5-B9, CA5-L1, CA5-L2, CA5-L3 (sin "Aproximación"), CA5-L4 (con la bandera encendida en local), CA5-S1 a CA5-S6, CA5-U1 a CA5-U6, CA5-P1, CA5-P2, CA5-P3 y CA5-P5 de la ruta plana, CA5-P4, CA5-D1 y CA5-D2 de la ruta plana, CA5-D3 y CA5-A1 cumplidos, con la evidencia en el PR.
+- La ruta 3D responde `route_disabled` y no aparece en la interfaz.
 - Ninguna salida de IA se muestra sin validar. Los reintentos escalan según el router y quedan registrados. La etiqueta de IA no se puede quitar. El presupuesto diario y el mensual cortan antes de llamar al modelo.
-- `revisor-seguridad` aprueba (inyección por texto en la imagen, EXIF, tamaño, tipo real del archivo, secretos y RLS). `experto-tejido` aprueba o deja condiciones, y lo que es "validar con tejedora" va a T1b.
+- `revisor-seguridad` aprueba (inyección por texto en la imagen, EXIF, tamaño, tipo real del archivo, secretos y RLS). `experto-tejido` aprueba los gráficos o deja condiciones, y lo que es "validar con tejedora" va a T1b.
 - `pnpm test` y `pnpm typecheck` en verde, incluidos `image-chart` y `ai-router`. La CI corre las E2E del flujo con el doble del modelo y Supabase local, **sin cuenta de Anthropic**.
-- T23 hecha, con las cifras reales registradas en el ADR 0014.
-- Los ADR 0012 a 0014 están aceptados y llevan las enmiendas de la implementación.
+- T23 hecha, con las cifras reales de la ruta plana registradas en el ADR 0014.
+
+**Hito 2 (ruta 3D):**
+
+- Los criterios que quedaron fuera del hito 1: CA5-V3 (primitivas), CA5-D1 y CA5-D2 (ruta 3D), CA5-L3 con "Aproximación" y CA5-P3 y CA5-P5 (ruta 3D); y los demás vuelven a pasar con la ruta 3D encendida.
+- `experto-tejido` aprueba los amigurumis (T22-3D) y `revisor-seguridad` aprueba la ruta 3D (T21-3D) antes de quitar `route_disabled`.
+- T23-3D hecha, dentro del tope total de USD 2.
+- Los ADR 0012 a 0014 llevan las enmiendas de la implementación de los dos hitos.
 
 ---
 
@@ -1788,58 +1826,98 @@ Cada punto conserva sus opciones como registro; la línea **Resolución** dice l
       - **Guardia**: contadores (0 `buildPartMesh`, 0 `colorizePartMesh`, 0 atributos subidos al cambiar aspectos), programas de shader constantes, A/B con `E2E_FLAT_COLORS`, `hover-to-paint-3d` y 30 fps con el aspecto activado (CA4-P3, CA4-P4, CA4-P10, CA4-V8).
       - **Tareas**: T3b (prototipo y medición), T10 (`SurfaceLook`), T11 (material y conexión), **T11c nueva** (calibración con `catalogo-lanas` y `experto-tejido`), T12, T18 y T1b (parecido con lanas reales).
 
-### Decisiones de la fase 5 (propuestas)
+### Decisiones de la fase 5 (aprobadas el 2026-11-16)
 
-Propuestas de `arquitecto` (2026-11-16), pendientes de respuesta de la usuaria (T0). En cada una, la opción **recomendada** está marcada. Las cifras de dinero usan precios **no verificados** del repositorio (ver el límite de esta planificación en [Fase 5 en detalle](#fase-5-en-detalle)); T3 los confirma y, si cambian, se recalculan los topes, no las decisiones.
+Propuestas de `arquitecto` (2026-11-16). La usuaria las respondió el 2026-11-16 (T0 hecha). Las cifras de dinero usan los precios que el orquestador verificó el 2026-11-16 con el skill `claude-api` (decisión 6). Resumen de lo elegido:
+
+| # | Tema | Elegida | Notas de la usuaria |
+|---|---|---|---|
+| 1 | ADR 0012 a 0014, `schemaVersion: 3` mínima | (a), la recomendada | — |
+| 2 | Alcance | (c), la recomendada | Ruta plana primero, entregable sola; la 3D como hito siguiente, con su propia revisión de dominio |
+| 3 | Presupuesto y cuota | **(a)**, no la recomendada | USD 5 al mes. Preguntó si el costo era por usuaria o suyo: lo paga ella, como dueña, en su cuenta de Anthropic |
+| 4 | Retención de las imágenes | (b), la recomendada | — |
+| 5 | Dónde corre el procesamiento | (a), la recomendada | Sujeto a la puerta T2 |
+| 6 | Modelos por etapa | (a), la recomendada | Fable 5.2 queda fuera |
+| 7 | Pruebas sin cuentas externas | (a), la recomendada | — |
+| 8 | Aviso de derechos | (a), la recomendada | — |
+| 9 | Cuando no valida | (a), la recomendada | — |
+| 10 | Personas en la imagen | (b), la recomendada | — |
+| 11 | Quién usa la IA | (a), la recomendada | — |
+| 12 | Duplicar diseños de IA | (a), la recomendada | — |
+
+Cada punto conserva sus opciones como registro; la línea **Resolución** dice lo elegido y dónde quedó.
 
 1. **Aprobar los ADR 0012, 0013 y 0014.**
    - (a) Aprobar los tres, incluida la `schemaVersion: 3` mínima con `origin.assumptions` (**recomendada**). Los supuestos de la IA viajan con el diseño (versiones, duplicar, PDF), y la migración es trivial.
    - (b) Aprobarlos, pero guardar los supuestos en `notes`, sin v3. No hay migración, pero se mezclan con las notas de la usuaria y se pierden al editarlas.
    - (c) Volver a planificar alguno, indicando cuál y por qué.
+   - **Resolución: (a).** Los ADR 0012, 0013 y 0014 quedan "aceptado (2026-11-16, T0)", con las enmiendas T0-n de cada uno. La v3 lleva solo `origin.assumptions` (ADR 0012, sección 6); la implementa T6b.
 2. **Alcance de la v1 de la fase 5.**
    - (a) Solo la ruta plana (colorwork). Es lo más acotado, pero deja la fase 4 sin su continuación.
    - (b) Las dos rutas a la vez. Es más trabajo en paralelo, y la ruta 3D depende de un algoritmo nuevo del motor y de reglas de T1 que todavía no existen.
    - (c) La ruta plana primero y la 3D como **segundo hito** de la misma fase, con su propia puerta: la parte 3D de T22 se hace antes de activarla (**recomendada**). La plana usa piezas que ya existen (gráfico, paleta, estudio, "Tejiendo"); la 3D se muestra solo cuando `experto-tejido` aprueba que el resultado es una aproximación honesta.
+   - **Resolución: (c).** La fase se parte en dos hitos ([desglose de tareas de la fase 5](#desglose-de-tareas-3) y criterios de salida por hito):
+     - **Hito 1, la ruta plana** (grupos A a E): se cierra sola, con su QA (T20), su seguridad (T21), su revisión de dominio (T22), su corrida real (T23) y su PR (T24). Lo común a las dos rutas se construye aquí: la migración con todos los estados de `ai_jobs` (también los 3D, para no migrar de nuevo), `JOB_TRANSITIONS` completa, `jobCapUSD` de las dos rutas, las subidas, el flujo y la etiqueta. La ruta 3D queda apagada: `iniciar` responde `route_disabled` sin cobrar cupo, y la interfaz no la ofrece.
+     - **Hito 2, la ruta 3D** (grupos F y G, tareas "-3D"): empieza con su propia revisión de dominio (T1-3D), sigue con T5, T6, T8-3D, T13, T14-3D y T16-3D, y se activa solo cuando T21-3D y T22-3D aprueban.
+     - T1 se partió en T1 (ruta plana y redactor) y T1-3D; `maxRoundItems = 200` (T5) pasó al hito 2 porque solo lo usan los patrones escritos.
 3. **Presupuesto mensual de IA y cuota por usuaria.** El corte es interno (atómico, antes de cada llamada) y externo (crédito prepagado sin recarga automática).
    - (a) USD 5 al mes, USD 0,25 al día, 2 trabajos por día y 10 cada 30 días.
    - (b) USD 10 al mes, USD 0,50 al día, 3 trabajos por día y 20 cada 30 días, uno a la vez (**recomendada**). Con las cifras del repositorio cubre unos 250 trabajos típicos de la ruta 3D o unos 6.600 de la plana. Una beta de 20 tejedoras con 3 trabajos por semana gastaría unos USD 3,4 al mes. El peor día de una usuaria cuesta USD 0,45.
    - (c) USD 25 al mes, USD 1 al día, 5 por día y 40 cada 30 días. Solo tiene sentido con muchas usuarias activas.
 
    Topes por trabajo, en todas las opciones: USD 0,05 en la ruta plana y USD 0,15 en la 3D. Se recalculan con los precios de T3.
+   - **Resolución: (a), no la recomendada.** USD 5 al mes y USD 0,25 al día, 2 trabajos por día y 10 cada 30 días por usuaria, uno a la vez. Tope por trabajo de USD 0,05 (plana) y USD 0,15 (3D). Crédito prepagado sin recarga automática. Quedó en el ADR 0014 (enmienda T0-3, secciones 3, 4, 6 y 7) y en los valores iniciales de `ai_settings` (T9).
+     - **Quién paga**: la usuaria preguntó si el costo era por usuaria o del desarrollador. Lo paga ella, como dueña de la plataforma, en su propia cuenta de Anthropic. Las tejedoras no pagan ni necesitan una cuenta de Anthropic; la cuota por usuaria solo reparte ese presupuesto entre ellas. Está aclarado en el ADR 0014.
+     - **Alertas por correo**: 50 % del mes = USD 2,50; 80 % = USD 4,00; 100 % = USD 5,00, con corte. 100 % del día = USD 0,25, con corte. El modo ahorro empieza al 80 % del día (USD 0,20).
+     - **Cuántos trabajos caben** (cifras del ADR 0014, sección 6, sin el pensamiento, que mide T3): en el mes, unos 3.300 planos típicos, 125 3D típicos, 100 planos en el peor caso o 34 3D en el peor caso; en el día, unos 160 planos típicos, 6 3D típicos, 4 3D con complejidad ≥ 4, 5 planos en el peor caso o **1 3D en el peor caso**.
+     - **Por usuaria**: el peor día cuesta 2 × 0,15 = USD 0,30, más que el tope diario, así que el segundo trabajo 3D en el peor caso se corta (`budget`, con el cupo devuelto). El peor mes cuesta 10 × 0,15 = USD 1,50, el 30 % del presupuesto. Con solo su cuenta en la lista, el tope mensual no se alcanza.
+     - **¿Pasa un trabajo 3D en el peor caso?** Sí: en un día sin gasto previo, 0,15 ≤ 0,25, con USD 0,10 de margen; un plano y un 3D en el peor caso también caben (0,20). Dos 3D en el peor caso, no. **Condición**: que `jobCapUSD("amigurumi")` siga en 0,15 con el pensamiento incluido. El peor caso estimado (0,144) deja solo USD 0,006 dentro del tope del trabajo, y el pensamiento de Opus 5.5 no se puede apagar y se cobra como salida. Si T3 mide que no cabe, se bajan los `maxOutputTokens` o el esfuerzo del descomponedor en Opus. Subir el tope 3D lo decide la usuaria; el máximo que todavía deja pasar un 3D en el peor caso en el día es USD 0,25. Se verifica con CA5-B9.
+     - **Riesgos nuevos**: el tope diario es global, no por usuaria (R5-21), y la corrida real no cabe en la cuota del producto (R5-22). El crédito prepagado no se renueva solo: para T23 conviene cargar los USD 2 aparte, para que el corte externo no quede por debajo del interno.
 4. **Retención de las imágenes.**
    - (a) Borrar al terminar el trabajo. Es lo más privado, pero para probar otros parámetros hay que volver a subir la foto.
    - (b) Borrar 24 horas después del último trabajo que la usó, nunca más de 7 días desde la subida, y "Borrar la foto" al instante (**recomendada**). Permite volver a generar el mismo día, y el plazo es corto y fácil de declarar en `/privacidad`.
    - (c) Conservar hasta que la usuaria la borre. Acumula fotos personales sin necesidad: el patrón no depende de ellas.
+   - **Resolución: (b).** 24 h desde el último uso, nunca más de 7 días desde la subida, y "Borrar la foto" al instante. Sin cambios al ADR 0013, sección 5; lo declara T4 en `/privacidad` y lo prueba CA5-U4.
 5. **Proveedor y lugar del procesamiento.**
    - (a) Supabase Edge Functions para las subidas y el pipeline, invocadas desde el navegador; el Worker no cambia (**recomendada**). Está dentro de los planes gratuitos actuales, la clave de IA queda fuera del Worker y WebAssembly corre en Deno. Depende de la puerta T2.
    - (b) Route Handler en el Worker con el *binding* de Cloudflare Images. No se verificó si es gratis ni su cuota, y suma un tercero que ve las fotos.
    - (c) Mover el hosting a Vercel Hobby (Node) y mantener `sharp`. Funciona sin cambios en la subida, pero el plan es de uso no comercial y obliga a deshacer el plan de despliegue en Workers.
    - (d) Todo en el navegador. Expone la clave y no re-codifica en el servidor (M3). Descartada.
+   - **Resolución: (a), sujeta a la puerta T2.** Subidas y pipeline en Supabase Edge Functions; el Worker no cambia (ADR 0012, sección 7; ADR 0013, sección 2). Si T2 falla, se vuelve a la usuaria con las cifras para elegir entre N/R y la variante con el procesamiento en el navegador.
 6. **Modelos por etapa** (precios verificados el 2026-11-16 con el skill `claude-api`: coinciden con los del repositorio).
    - (a) Triaje en Haiku 5.5 (techo Sonnet 5.5); asistente de paleta en Haiku (techo Sonnet); descomponedor en Sonnet 5.5 (techo Opus 5.5); redactor en Haiku en la ruta plana y Sonnet en la 3D (techo Sonnet). Fable 5.2 no entra hasta que T3 confirme su ID, su precio y su disponibilidad en la API (**recomendada**). Es el router actual con un ajuste: el redactor de la ruta plana solo resume un gráfico, y Haiku basta.
    - (b) Sonnet en todas las etapas. Es más simple, pero la ruta plana cuesta unas 10 veces más.
    - (c) Igual que (a), con Fable 5.2 como techo del descomponedor si T3 lo confirma. Se decide con datos, en T3.
+   - **Resolución: (a).** Triaje y asistente de paleta en Haiku 5.5, con Sonnet 5.5 como techo; descomponedor en Sonnet 5.5, con Opus 5.5 como techo; redactor en Haiku 5.5 en la ruta plana y en Sonnet 5.5 en la 3D, con Sonnet como techo. **Fable 5.2 queda fuera** de la escalera, aunque existe en la API. Quedó en el ADR 0012 (enmienda T0-6) y en `AGENT_POLICIES` (T8).
+     - **Precios verificados** por el orquestador el 2026-11-16 con el skill `claude-api`, en USD por millón de tokens de entrada y de salida: Haiku 5.5 (`claude-haiku-5-5`) 0,10 / 0,50 con prompts de hasta 100 K (0,50 / 2,50 por encima); Sonnet 5.5 (`claude-sonnet-5-5`) 2 / 10; Opus 5.5 (`claude-opus-5-5`) 4 / 20; Fable 5.2 (`claude-fable-5-2`) 8 / 40. Coinciden con `PRICE_PER_MTOK`; se quitaron los rótulos de "sin verificar" de los ADR y de este roadmap.
+     - **API**: Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado, así que la salida estructurada va por `output_config.format`. El pensamiento no se puede desactivar en Opus 5.5 ni en Haiku 5.5; en Sonnet 5.5 se usa `between_tools`. El esfuerzo por defecto es `medium` en Opus 5.5 y Haiku 5.5. T3 sigue verificando la regla de tokens de imagen, la caché y cuánto pensamiento gasta cada etapa.
 7. **Probar sin cuentas externas.**
    - (a) Sí: el desarrollo y la CI usan `FakeModelClient` con respuestas grabadas, Supabase local y `supabase functions serve`. La única prueba con el modelo real es T23, con un tope de USD 2 y solo para la cuenta de la usuaria (**recomendada**). La CI no necesita secretos de Anthropic y el costo de desarrollo es casi cero.
    - (b) Usar la clave real desde el principio, también en la CI. Pone un secreto con costo en la CI y gasta en cada corrida.
    - (c) No probar nunca con el modelo real antes de abrir la IA. Las cifras de costo y latencia quedarían sin medir.
+   - **Resolución: (a).** La CI y el desarrollo usan `FakeModelClient` con respuestas grabadas, Supabase local y `supabase functions serve`. Hay una sola prueba real, T23, con un tope total de USD 2. Con los dos hitos, esa prueba se hace en dos corridas que comparten el tope: T23 (ruta plana, a lo más USD 0,50) y T23-3D (el resto). Cómo cabe en la cuota del producto: R5-22.
 8. **Aviso de derechos.**
    - (a) Casilla obligatoria, sin marcar, en cada subida, con el texto versionado (`rights-v1`) guardado en la fila (**recomendada**). Es la confirmación que pide `docs/seguridad.md` y queda como evidencia por imagen.
    - (b) Una sola vez por cuenta. Es más cómodo, pero no queda constancia por imagen.
    - (c) Solo un texto informativo. No cumple "confirmación obligatoria".
+   - **Resolución: (a).** Casilla obligatoria, sin marcar, en cada subida, con la versión del texto (`rights-v1`) y la hora guardadas en `uploads` (ADR 0013, sección 7; CA5-U3).
 9. **Qué pasa cuando no valida** después de los reintentos.
    - (a) Si el documento es `savable`, se entrega como borrador con las advertencias, etiquetado, y "Tejer" queda bloqueado hasta que sea `valid`. Si no es `savable`, no se crea el patrón, se devuelve el cupo y se dice qué cambiar. Si solo falla el redactor, se usan notas deterministas (**recomendada**). No se pierde el trabajo útil y nunca se muestra algo sin validar.
    - (b) Entregar solo documentos `valid`. Es más estricto, pero se pierden gráficos que con un par de casillas editadas serían válidos.
    - (c) Entregar siempre lo que haya. Contradice la regla de oro 3. Descartada.
+   - **Resolución: (a).** Si el documento es `savable`, se entrega como borrador con las advertencias, etiquetado, y "Tejer" queda bloqueado hasta que sea `valid`. Si no, no hay patrón: se devuelve el cupo y se explica qué cambiar. Si solo falla el redactor, notas deterministas con "Notas generadas sin IA". ADR 0012, sección 4 (enmienda T0-9); CA5-V5 y CA5-R3.
 10. **Personas en la imagen.**
     - (a) Permitirlas, con el aviso de derechos y moderación del contenido explícito.
     - (b) En la v1, el triaje rechaza las imágenes en que una persona identificable es el tema principal, hasta la revisión legal (**recomendada**). Evita tratar datos personales de terceros (Ley 21.719) con poca pérdida para el producto: logotipos, ilustraciones, mascotas y peluches siguen funcionando.
+    - **Resolución: (b).** En la v1, el triaje rechaza las imágenes cuyo tema principal es una persona identificable (`reasons: ["identifiable_person"]`, resultado `rejected`/`moderation`), hasta la revisión legal. ADR 0012, sección 1, y ADR 0013, sección 7 (enmiendas T0-10); textos en T19 y T4.
 11. **Quién puede usar la IA hasta la revisión legal.**
     - (a) Solo las cuentas de `ai_allowlist`, al principio solo la de la usuaria, hasta que la revisión legal (T1c, con los textos de T4) apruebe declarar a Anthropic como encargado y la transferencia internacional (**recomendada**). Permite terminar y medir la fase sin abrir un tratamiento nuevo de datos a terceras personas.
     - (b) Abrirla a la beta junto con el resto, cuando T1c termine.
+    - **Resolución: (a).** Solo las cuentas de `ai_allowlist`, al principio solo la de la usuaria (`allowlist_only = true`). Abrir la lista es una decisión aparte, después de T1c, y obliga a revisar el presupuesto diario, que es global (R5-21).
 12. **Duplicar diseños de IA** (ADR 0006, E11).
     - (a) Implementarlo en la fase 5 (T10), detrás de una bandera que se activa cuando la revisión B3 lo apruebe (**recomendada**). El código y el check quedan listos, y la activación solo depende de lo legal.
     - (b) Dejarlo para la fase 7, con publicar.
+    - **Resolución: (a).** T10 en el hito 1, detrás de la bandera `LOOPITA_AI_DUPLICATE_ENABLED`, apagada en el proyecto real hasta B3 (ADR 0012, sección 6, enmienda T0-12; CA5-L4).
 
 ---
 

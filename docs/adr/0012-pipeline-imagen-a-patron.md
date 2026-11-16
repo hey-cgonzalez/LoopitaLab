@@ -1,12 +1,14 @@
 # ADR 0012: Pipeline imagen → patrón
 
-- Estado: **propuesto** (2026-11-16, agente `arquitecto`). Lo aprueba la usuaria en T0 de la fase 5 (ver [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-propuestas)). La sección 7 (dónde corre cada parte) queda además sujeta a la puerta de viabilidad T2.
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). La sección 7 (dónde corre cada parte) queda sujeta a la puerta de viabilidad T2.
 - Fecha: 2026-11-16
 - Paquetes: `packages/ai-router`, `packages/image-chart` (nuevo), `packages/pattern-core`, `packages/yarn-catalog`, `packages/pattern-render`, `supabase/functions` (nuevo), `supabase/migrations`, `apps/web`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md) (origen), [ADR 0002](0002-nucleo-sin-dependencias.md), [ADR 0003](0003-colorwork-en-esquema-v1.md), [ADR 0006](0006-guardado-de-disenos.md) (E11: duplicar diseños de IA), [ADR 0010](0010-geometria-3d-amigurumi.md), [ADR 0011](0011-posicion-de-partes-y-editor-escrito.md) (v2, topes T20, `maxRoundItems`), [ADR 0013](0013-subidas-y-storage.md) (subidas), [ADR 0014](0014-costos-y-cuotas-de-ia.md) (costos y cuotas), [docs/agentes-runtime.md](../agentes-runtime.md), [docs/seguridad.md](../seguridad.md), [docs/despliegue-publico.md](../despliegue-publico.md)
 
 
 > **Verificación de precios y modelos (2026-11-16, orquestador, skill `claude-api`, tabla de modelos del 2026-11-03):** Haiku 5.5 (`claude-haiku-5-5`) USD 0,10 / 0,50 por millón de tokens (prompts de hasta 100 K; 0,50 / 2,50 por encima), Sonnet 5.5 (`claude-sonnet-5-5`) 2 / 10, Opus 5.5 (`claude-opus-5-5`) 4 / 20, Fable 5.2 (`claude-fable-5-2`) 8 / 40. Coinciden con `PRICE_PER_MTOK`, así que las estimaciones de este documento quedan confirmadas. Los cuatro aceptan imágenes y salidas estructuradas (`output_config.format`). Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado (`any`/`tool`): la salida JSON va por salidas estructuradas, no forzando una herramienta. T3 sigue confirmando la regla de tokens de imagen y la caché antes de escribir código.
+>
+> **Comportamiento de la API que afecta al pipeline** (misma verificación): el pensamiento **no se puede desactivar** en Opus 5.5 ni en Haiku 5.5; en Sonnet 5.5 se usa `between_tools`. El esfuerzo por defecto es `medium` en Opus 5.5 y en Haiku 5.5. Ver la sección 3 y la [enmienda T0-6](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16).
 
 ## Contexto
 
@@ -15,7 +17,7 @@ La fase 5 abre la modalidad 5 de `CLAUDE.md`: de una foto a un gráfico de color
 - **Reglas de oro 2, 3, 4 y 6.** Los LLM nunca calculan conteos de puntos. Toda salida de IA pasa por el validador. Todo lo generado o modificado con IA queda etiquetado. No se inventan datos: si falta algo, se pide o se marca como supuesto visible.
 - **Hosting.** La web corre en Cloudflare Workers Free con vinext ([despliegue-publico.md](../despliegue-publico.md), D1). El límite duro es **10 ms de CPU por petición**, sin contar las esperas de red. Decodificar una foto, re-codificarla o cuantizarla no cabe en 10 ms. Esperar la respuesta de la API de Anthropic sí cabe, porque es espera de red, pero la validación del documento resultante más el armado del prompt ya rozan el límite: `validatePattern` con `yarnUsage` tarda unos 14 ms en un motivo de 200 × 200.
 - **Subidas hoy.** `POST /api/subidas` existe y está apagada (`LOOPITA_UPLOADS_ENABLED`). Usa `sharp` con `runtime = "nodejs"`. `sharp` usa binarios nativos de libvips, y workerd no ejecuta módulos nativos, así que esa ruta no puede correr en el hosting elegido. Las subidas se deciden en el ADR 0013.
-- **`packages/ai-router`.** Ya es paquete del workspace (`package.json`, `src/index.ts`, `src/router.config.ts` y `test/router.test.ts`; el resumen de la fase 5 del roadmap estaba desactualizado). Tiene la escalera Haiku → Sonnet → Opus de la familia 5.5, políticas por agente, `selectModel`, `estimateCostUSD` y precios de "fuente secundaria" sin verificar. No tiene esquemas de salida, prompts, cliente de API ni orquestador. `selectModel` escala en el **primer** fallo; `docs/agentes-runtime.md` dice que se escala cuando la salida no valida contra el esquema **dos** veces, o cuando el motor la rechaza.
+- **`packages/ai-router`.** Ya es paquete del workspace (`package.json`, `src/index.ts`, `src/router.config.ts` y `test/router.test.ts`; el resumen de la fase 5 del roadmap estaba desactualizado). Tiene la escalera Haiku → Sonnet → Opus de la familia 5.5, políticas por agente, `selectModel`, `estimateCostUSD` y precios que el código rotula de "fuente secundaria" (verificados después, el 2026-11-16: ver la nota del inicio). No tiene esquemas de salida, prompts, cliente de API ni orquestador. `selectModel` escala en el **primer** fallo; `docs/agentes-runtime.md` dice que se escala cuando la salida no valida contra el esquema **dos** veces, o cuando el motor la rechaza.
 - **Base.** `ai_jobs` existe (estado `queued | running | succeeded | failed | cancelled`, modelo, tokens y costo en una sola fila) y la usuaria solo la lee. `patterns.origin` (`manual | ai | ai_edited`) está protegido por el disparador `patterns_guard_origin` (M1): el cliente no crea patrones de IA ni les quita la etiqueta, y editarlos los marca `ai_edited`. `rate_events` y `begin_operation` cobran los intentos antes de procesar.
 - **Topes del motor.** T20-A1 y T20-M1 están corregidos (`cd6c02a`): un documento `valid` tiene acotado el trabajo de expansión (`LIMITS.maxExpansionWork`) y el costo del validador. Era requisito para aceptar documentos generados por IA. `LIMITS.maxRoundItems` es 100, y T21 pidió subirlo a 200, con `PARSE_LIMITS.maxLineLength` en 4.000, antes de la fase 5.
 - **Modelo canónico.** `Origin` es `{ kind, model?, promptVersion? }`. El documento es cerrado (ADR 0003, E16): no hay dónde guardar los supuestos que introduce la generación, como el tamaño objetivo o los colores fusionados.
@@ -65,7 +67,7 @@ Ninguna salida de un modelo contiene un número que termine siendo un conteo de 
 | Preparación (navegador) | Nada | Recorte elegido por la usuaria, reducción a ≤ 2048 px, aviso de derechos, ruta elegida por la usuaria |
 | Subida | Nada | Tipo real, límites, decodificación, re-codificación sin metadatos, raster de trabajo (ADR 0013) |
 | Parámetros | Nada | Ancho en puntos o cm, muestra (o la muestra supuesta del grosor, marcada), colores máximos, vista previa en vivo con `image-chart` |
-| Triaje | Modera y clasifica: si se permite, motivos, si hay texto incrustado, si hay personas, si la imagen sirve para la ruta elegida, complejidad 1–5 | Rechaza, avisa o sigue según reglas fijas; la complejidad solo elige el modelo, acotada por el tope por trabajo |
+| Triaje | Modera y clasifica: si se permite, motivos, si hay texto incrustado, si hay personas, si la imagen sirve para la ruta elegida, complejidad 1–5 | Rechaza, avisa o sigue según reglas fijas; la complejidad solo elige el modelo, acotada por el tope por trabajo. En la v1, `identifiable_person` en `reasons` siempre rechaza (decisión 10, enmienda T0-10) |
 | Ruta plana: procesamiento | Nada | `rasterToChart`: remuestreo con la proporción de la muestra, cuantización determinista en CIELAB, color más cercano de la paleta (`nearestPaletteColor`), detección de motivo + repeticiones si es exacta |
 | Ruta plana: asistente de paleta | Propone fusiones de colores, color de fondo, y grosor y fibras **solo si la usuaria no los eligió** | Acepta una fusión solo si ΔE2000 entre los dos colores es menor que `MERGE_MAX_DELTA_E` (lo fija `catalogo-lanas`). Grosor de 0 a 7 y fibras de `FIBER_IDS`, con la composición validada. Lo aceptado queda como supuesto |
 | Ruta 3D: descomposición | Describe el objeto como primitivas del conjunto que fije T1: tipo, proporción alto/ancho, ancho relativo a la pieza principal, lana, uniones y región de unión, copias | `validatePrimitivePlan` y `planToWritten`: vueltas, aumentos y disminuciones con fórmulas geométricas deterministas según la muestra y el alto objetivo que da la usuaria. Anclas de `layout` calculadas por el motor |
@@ -98,7 +100,13 @@ navegador: elegir ruta → elegir archivo → recortar → aviso de derechos →
 ### 3. Salidas estructuradas
 
 - **Esquemas propios, sin dependencias.** `packages/ai-router/src/schema.ts` es un mini-lenguaje de esquemas, del que salen dos cosas: el validador local y el JSON Schema que se envía a la API. No hay dos definiciones que puedan divergir. Sigue la línea del ADR 0002, aunque `ai-router` no es núcleo.
-- **Mecanismo en la API.** Herramienta única forzada (`tool_choice` con el nombre de la herramienta, `input_schema` = el esquema del agente) o la salida estructurada nativa, si T3 confirma con el skill `claude-api` que existe y es estable para la familia 5.5. **En los dos casos manda la validación local**: una garantía del proveedor nunca reemplaza al validador. Un `stop_reason` de corte por tokens o de rechazo cuenta como fallo de esquema.
+- **Mecanismo en la API: salida estructurada nativa, `output_config.format`**, con el JSON Schema del agente (enmienda T0-6). No se usa una herramienta forzada: Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado (`any`/`tool`), y conviene un solo mecanismo para toda la escalera. La petición no lleva herramientas. **Manda la validación local**: una garantía del proveedor nunca reemplaza al validador. Un `stop_reason` de corte por tokens o de rechazo cuenta como fallo de esquema.
+- **Pensamiento y esfuerzo.** El pensamiento no se puede desactivar en Opus 5.5 ni en Haiku 5.5, y en Sonnet 5.5 se usa `between_tools`. El esfuerzo por defecto es `medium` en Opus 5.5 y en Haiku 5.5. Consecuencias:
+  - el pensamiento se cobra como salida, así que `maxOutputTokens` de cada agente debe cubrir el pensamiento más la respuesta, y la reserva del ADR 0014 se calcula con ese valor;
+  - si el pensamiento agota `max_tokens`, la respuesta llega cortada y cuenta como fallo de forma;
+  - el pensamiento nunca se registra ni se muestra: solo vale la salida estructurada;
+  - T3 mide cuánto piensa cada etapa con el esfuerzo por defecto y con uno menor, y propone el `effort` y los `maxOutputTokens` por agente para que `jobCapUSD` quede dentro de los topes aprobados (ADR 0014, sección 6).
+- **Lo que sigue verificando T3**: la regla de tokens de imagen, la caché y `stop_reason` con `output_config.format`.
 - **Forma de los esquemas.** Enumeraciones cerradas, números con rango, identificadores que se comprueban contra los datos del trabajo, arreglos con tope, textos con tope de largo, `additionalProperties: false`. Ninguno tiene campos de conteo.
 
 ```ts
@@ -155,7 +163,7 @@ Política (la implementa `selectModel` en T8, que corrige el escalamiento al pri
 - **Fallo de forma** (niveles 1 y 2): un reintento con el mismo modelo, con los códigos del validador como corrección. Si vuelve a fallar, sube un peldaño.
 - **Rechazo del motor** (nivel 3): sube un peldaño directamente.
 - **Topes**: 3 intentos por etapa (2 para el redactor), `MAX_ESCALATIONS_PER_JOB = 2` (sin cambios) y el **tope de costo por trabajo** del ADR 0014. Una complejidad de 4 o más sube un peldaño desde el inicio, pero no se salta el tope de costo, y así un texto incrustado que infle la complejidad no puede disparar el gasto.
-- **Agotado**: qué se entrega lo fija la decisión 9 de la fase 5. La recomendada es esta:
+- **Agotado**: qué se entrega lo fija la decisión 9 de la fase 5, aprobada en su opción (a) (enmienda T0-9):
   - si el documento es `savable` pero no `valid`, se entrega como **borrador con advertencias**, etiquetado, y "Tejer" queda bloqueado hasta que sea `valid` (ADR 0006, E10);
   - si no es `savable`, o la etapa que falló es el triaje o la descomposición, no hay patrón: se devuelve el cupo a la usuaria y se le dice qué cambiar (menos colores, otro recorte, la otra ruta).
 - **El redactor nunca bloquea la entrega**: si se agota, las notas salen de `pattern-render` (`describeWritten` o el resumen del gráfico) con el aviso "Notas generadas sin IA".
@@ -179,7 +187,7 @@ Política (la implementa `selectModel` en T8, que corrige el escalamiento al pri
 - `origin.promptVersion` es la versión del conjunto de prompts del pipeline, por ejemplo `"img2chart/1.0.0"` o `"img2amigurumi/1.0.0"`, dentro de `LIMITS.maxOriginFieldLength`. Cada versión de prompt es un archivo inmutable en `packages/ai-router/prompts/`; cambiar un prompt es subir la versión.
 - **`schemaVersion: 3` mínima (S1).** Agrega solo `Origin.assumptions?: string[]` (≤ 20 × 200 caracteres, revisados por `checkText`), y nada más. La migración v2 → v3 es la identidad más el número; la regla de compatibilidad y las propiedades M1 a M4 son las del ADR 0011, sección 5. `motor-patrones` la implementa en T6b. Despliegue en dos pasos si ya hubo puesta en público (ADR 0011, sección 5). Los supuestos deterministas (muestra supuesta, tamaño objetivo, fusiones aceptadas, grosor y fibras sugeridos) los escribe el código, no el redactor.
 - **Interfaz**: insignia "Generado con IA" (o "Generado con IA y editado") que no se puede cerrar, en el estudio, en `/disenos`, en "Tejiendo" y, en la fase 7, en el PDF y en la vista pública. En la ruta 3D, además, "Aproximación". Hay un panel "Supuestos" con `origin.assumptions`, y se recuerda tejer una muestra (regla de oro 8).
-- **Duplicar un patrón de IA** (ADR 0006, E11): una función `duplicate_ai_pattern(p_owner, p_pattern)` (`security definer`, que solo ejecuta `service_role`) copia el documento con `origin.kind = "ai_edited"`, el modelo, la versión de prompt y los supuestos. La llama una Server Action con el cliente admin; en el Worker es solo espera de red. Hasta T10, `AI_DUPLICATE_UNSUPPORTED` se mantiene.
+- **Duplicar un patrón de IA** (ADR 0006, E11): una función `duplicate_ai_pattern(p_owner, p_pattern)` (`security definer`, que solo ejecuta `service_role`) copia el documento con `origin.kind = "ai_edited"`, el modelo, la versión de prompt y los supuestos. La llama una Server Action con el cliente admin; en el Worker es solo espera de red. Queda detrás de la bandera `LOOPITA_AI_DUPLICATE_ENABLED`, apagada en el proyecto real hasta que la revisión legal B3 lo apruebe (decisión 12, enmienda T0-12). Con la bandera apagada, `AI_DUPLICATE_UNSUPPORTED` se mantiene.
 
 ### 7. Dónde corre cada parte
 
@@ -214,8 +222,10 @@ export interface ModelRequest {
   agent: AgentName; model: ModelId; system: string; promptVersion: string;
   image?: { mediaType: "image/png"; base64: string; widthPx: number; heightPx: number };
   input: unknown;                     // JSON armado por código
-  outputSchema: JsonSchema;           // derivado de schema.ts
-  maxOutputTokens: number; timeoutMs: number;
+  outputSchema: JsonSchema;           // derivado de schema.ts; va en output_config.format
+  maxOutputTokens: number;            // pensamiento + respuesta (enmienda T0-6)
+  effort?: "low" | "medium" | "high"; // por agente; los valores admitidos y los elegidos los fija T3
+  timeoutMs: number;
 }
 export interface ModelResponse {
   ok: boolean; output?: unknown;      // sin validar: lo valida runStage
@@ -306,8 +316,29 @@ export function planToWritten(plan: PrimitivePlan, opts: PrimitiveBuildOptions):
 |---|---|---|
 | R5-1 | Los límites del plan gratuito de Edge Functions (CPU, reloj, cuerpo de la petición, tareas de fondo) no son los que asume este ADR | Puerta T2 con mediciones; sin T2 en verde no empieza T11 ni T12 |
 | R5-2 | Deno no resuelve los imports del monorepo (`.ts` fuera de `supabase/functions`, JSON con atributos) al desplegar | T2 lo prueba con `supabase functions deploy` en un proyecto desechable. Alternativa: un paso de *bundle* en la CI que copie los paquetes |
-| R5-3 | Los precios, los ID de modelo, la regla de tokens de imagen y la salida estructurada de la familia 5.5 no están verificados: en esta planificación no hubo acceso al skill `claude-api` | T3 los verifica con el skill antes de T8, y cualquier diferencia es una enmienda del ADR 0014. Los topes se calculan desde `PRICE_PER_MTOK`, no a mano |
+| R5-3 | Los precios, los ID y la salida estructurada quedaron verificados el 2026-11-16. Quedan la regla de tokens de imagen, la caché y cuánto pensamiento gasta cada etapa, que no se puede apagar en Haiku 5.5 ni en Opus 5.5 | T3 los verifica con el skill antes de T8, y cualquier diferencia es una enmienda del ADR 0014. Los topes se calculan desde `PRICE_PER_MTOK` y `maxOutputTokens` con el pensamiento, no a mano |
 | R5-4 | El descomponedor propone formas que el motor no puede tejer de forma honesta | Conjunto de primitivas y rangos fijados por T1; `validatePrimitivePlan` rechaza lo demás; "Aproximación" visible |
 | R5-5 | El filtro de cifras rechaza textos legítimos o deja pasar cifras con otra forma | Lista sacada de `glossary` en los tres dialectos; conjunto de casos en T14; respaldo determinista |
 | R5-6 | La moderación es probabilística | Aviso de derechos obligatorio (ADR 0013), denuncias de la fase 7 y registro de `reasons` |
 | R5-7 | La usuaria cierra la pestaña a mitad y pierde el trabajo | El trabajo se retoma si vuelve antes de 15 minutos; se devuelve el cupo; la interfaz lo avisa al empezar |
+
+## Enmiendas por las decisiones de la usuaria (2026-11-16)
+
+La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16)). Cambios al texto propuesto:
+
+- **T0-1 (decisión 1, opción a).** Se aprueba S1: `schemaVersion: 3` con solo `origin.assumptions` (sección 6). Sin cambios.
+- **T0-2 (decisión 2, opción c): dos hitos.**
+  - El **hito 1** es la ruta plana y se entrega sola, con su PR. Incluye todo lo común: la tabla `JOB_TRANSITIONS` completa (con los estados 3D), `jobCapUSD` de las dos rutas, las subidas, `ia-trabajo` y la etiqueta. La ruta 3D queda **apagada en el servidor**: `iniciar` con `route = "amigurumi"` responde `route_disabled`, sin cobrar cupo; la interfaz no la ofrece.
+  - El **hito 2** es la ruta 3D: `primitives.ts` (T6), el esquema `DecomposerOutput` y las etapas 3D de `runStage` (T8-3D), y la ruta en `ia-trabajo` (T13). Empieza con su propia revisión de dominio (T1-3D), que fija `PrimitiveKind` y los rangos de la sección 3, y se activa solo con la aprobación de T22-3D y T21-3D.
+  - Los contratos de la sección 8 no cambian; solo se reparte su implementación.
+- **T0-5 (decisión 5, opción a).** Se confirma E (Supabase Edge Functions), sujeta a la puerta T2 (sección 7).
+- **T0-6 (decisión 6, opción a).** Triaje y asistente de paleta en Haiku 5.5 (techo Sonnet 5.5); descomponedor en Sonnet 5.5 (techo Opus 5.5); redactor en Haiku 5.5 en la ruta plana y en Sonnet 5.5 en la 3D (techo Sonnet 5.5). Fable 5.2 queda fuera. Además:
+  - los precios y los ID quedan verificados (nota del inicio; R5-3 actualizado);
+  - **la salida estructurada va por `output_config.format`**, porque Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado: se quita la alternativa de la herramienta forzada de la sección 3;
+  - **el pensamiento no se puede desactivar en Opus 5.5 ni en Haiku 5.5** (en Sonnet 5.5, `between_tools`), y el esfuerzo por defecto es `medium` en Opus 5.5 y Haiku 5.5: `maxOutputTokens` lo incluye y `ModelRequest` lleva `effort` (secciones 3 y 8);
+  - T3 sigue verificando la regla de tokens de imagen, la caché y el pensamiento por etapa.
+- **T0-7 (decisión 7, opción a).** `FakeModelClient` en la CI y en el desarrollo; una sola prueba real con un tope total de USD 2, en dos corridas (T23 y T23-3D; ADR 0014, sección 6).
+- **T0-9 (decisión 9, opción a).** Lo que se entrega al agotar los reintentos queda como estaba en la sección 4.
+- **T0-10 (decisión 10, opción b).** En la v1, el triaje rechaza las imágenes cuyo tema principal es una persona identificable: `identifiable_person` en `reasons` lleva a `rejected`/`moderation` por regla fija, sin importar `allowed`. Hasta la revisión legal (sección 1).
+- **T0-11 (decisión 11, opción a).** Solo la lista permitida, al principio solo la cuenta de la usuaria (ADR 0014).
+- **T0-12 (decisión 12, opción a).** Duplicar en la fase 5 (T10), detrás de la bandera `LOOPITA_AI_DUPLICATE_ENABLED`, que se enciende con la revisión legal B3 (sección 6).

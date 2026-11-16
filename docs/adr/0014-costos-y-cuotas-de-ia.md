@@ -1,12 +1,14 @@
 # ADR 0014: Costos, cuotas y estados de los trabajos de IA
 
-- Estado: **propuesto** (2026-11-16, agente `arquitecto`). Lo aprueba la usuaria en T0 de la fase 5 (decisiones 3 y 6). Las cifras de la sección 6 se recalculan en T3, con datos verificados, y en T23, con un trabajo real.
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), con un presupuesto de USD 5 al mes (decisión 3, opción a, no la recomendada). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). Las cifras de la sección 6 se ajustan en T3, con los tokens de pensamiento medidos, y en T23, con trabajos reales.
 - Fecha: 2026-11-16
 - Paquetes: `supabase/migrations`, `supabase/functions`, `packages/ai-router`, `apps/web`
 - Relacionado: [ADR 0012](0012-pipeline-imagen-a-patron.md), [ADR 0013](0013-subidas-y-storage.md), [docs/agentes-runtime.md](../agentes-runtime.md), [docs/seguridad.md](../seguridad.md) (T15 B-2: cupo de patrones), `packages/ai-router/src/router.config.ts`
 
 
 > **Verificación de precios y modelos (2026-11-16, orquestador, skill `claude-api`, tabla de modelos del 2026-11-03):** Haiku 5.5 (`claude-haiku-5-5`) USD 0,10 / 0,50 por millón de tokens (prompts de hasta 100 K; 0,50 / 2,50 por encima), Sonnet 5.5 (`claude-sonnet-5-5`) 2 / 10, Opus 5.5 (`claude-opus-5-5`) 4 / 20, Fable 5.2 (`claude-fable-5-2`) 8 / 40. Coinciden con `PRICE_PER_MTOK`, así que las estimaciones de este documento quedan confirmadas. Los cuatro aceptan imágenes y salidas estructuradas (`output_config.format`). Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado (`any`/`tool`): la salida JSON va por salidas estructuradas, no forzando una herramienta. T3 sigue confirmando la regla de tokens de imagen y la caché antes de escribir código.
+
+> **Quién paga la IA.** El costo de la API de Anthropic lo paga la dueña de la plataforma (la usuaria de este proyecto), en su propia cuenta de Anthropic y con crédito prepagado. No es un costo por tejedora: las usuarias de LoopitaLab no pagan nada ni necesitan una cuenta de Anthropic. La cuota por usuaria de la sección 3 (2 trabajos por día y 10 cada 30 días) solo reparte ese presupuesto entre ellas para que nadie lo agote; no es un cobro. La usuaria lo preguntó al aprobar este ADR (decisión 3).
 
 ## Contexto
 
@@ -15,7 +17,7 @@
 - `rate_events` es una bitácora de solo inserción, que ni `service_role` edita ni borra; la purga diaria la vacía a los 30 días. `begin_operation` cobra el intento y toma el candado `operation_locks`, pero hoy solo conoce `upload` y `export`.
 - `selectModel` lanza un error con `budgetUsed >= 1` y baja al modelo base desde el 80 %. Pero nadie calcula `budgetUsed`, y el tope no es atómico entre invocaciones simultáneas.
 - Los patrones que crea `service_role` también cuentan para el tope de 500 por usuaria (T15 B-2).
-- **Precios.** `PRICE_PER_MTOK` del repositorio dice "fuente secundaria, noviembre de 2026; confirmar". En esta planificación **no hubo acceso al skill `claude-api`**, así que esas cifras no se pudieron verificar. Se usan aquí solo para dimensionar, y T3 las confirma.
+- **Precios.** Los de `PRICE_PER_MTOK` del repositorio quedaron verificados por el orquestador el 2026-11-16 con el skill `claude-api` (nota del inicio). T3 actualiza el comentario de fuente en `router.config.ts`.
 
 ## Opciones
 
@@ -131,7 +133,7 @@ create table public.ai_alerts (
   5. el presupuesto del día por encima de `saving_threshold` se informa (no se rechaza);
   6. inserta el `rate_events` `ai_job` y la fila de `ai_jobs` con `job_cap_usd` de la ruta.
 - **Devolver el cupo** es insertar `ai_job_refund`, nunca borrar: `rate_events` sigue siendo de solo inserción.
-- **Valores recomendados** (decisión 3): 3 trabajos por día y 20 cada 30 días, de cualquiera de las dos rutas, con uno a la vez. La ventana de 30 días coincide con la purga de `rate_events`.
+- **Valores aprobados** (decisión 3, opción a; enmienda T0-3): **2 trabajos por día y 10 cada 30 días**, de cualquiera de las dos rutas, con uno a la vez. La ventana de 30 días coincide con la purga de `rate_events`.
 
 ### 4. Presupuesto con corte automático (K1)
 
@@ -145,7 +147,7 @@ create table public.ai_alerts (
 - **La reserva de cada llamada** = `entrada estimada × precio de entrada + maxOutputTokens × precio de salida`. La entrada estimada es la del sistema y el esquema (medida una vez por versión de prompt), más la imagen (por la regla de tokens que confirme T3) y la entrada JSON.
 - **Modo ahorro**: con `budgetUsed ≥ saving_threshold` del día (la función devuelve la fracción), `selectModel` usa el modelo base y no sube por complejidad. Sí sube por reintento, dentro del tope del trabajo (regla actual del router).
 - **Tope por trabajo** (`job_cap_*`): es la cota que impide que un texto incrustado o una cadena de reintentos gaste de más. Se fija con la cifra del peor caso de la sección 6, redondeada hacia arriba.
-- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic **sin recarga automática**, por el monto mensual decidido. Además, si T3 confirma que existe, un límite de gasto del espacio de trabajo. Se usa una clave de API exclusiva de producción en un espacio de trabajo propio. Si el corte interno fallara, el proveedor corta igual.
+- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic de la usuaria, **sin recarga automática**, por el monto mensual decidido (USD 5). El crédito no se renueva cada mes: la usuaria lo recarga a mano, así que el corte mensual lo hace el interno (`monthly_cap_usd`), y el crédito es la red de seguridad. Además, si T3 confirma que existe, un límite de gasto del espacio de trabajo. Se usa una clave de API exclusiva de producción en un espacio de trabajo propio. Si el corte interno fallara, el proveedor corta igual.
 - **Interruptor**: `ai_settings.enabled` (lo cambia la usuaria con SQL desde el panel) y el secreto `LOOPITA_AI_ENABLED` de las funciones. La interfaz oculta "Crear desde una imagen" si cualquiera de los dos está apagado (lo lee una Server Action).
 
 ### 5. Registro y alertas
@@ -165,9 +167,10 @@ create table public.ai_alerts (
 
 **Supuestos, a medir en T23.**
 
-- **Precios**: `PRICE_PER_MTOK` del repositorio, en USD por millón de tokens de entrada y de salida: Haiku 5.5 a 0,1 y 0,5; Sonnet 5.5 a 2 y 10; Opus 5.5 a 4 y 20. Son de **fuente secundaria y no verificados** (R5-3).
+- **Precios**: `PRICE_PER_MTOK` del repositorio, en USD por millón de tokens de entrada y de salida, verificados el 2026-11-16 (nota del inicio): Haiku 5.5 a 0,1 y 0,5; Sonnet 5.5 a 2 y 10; Opus 5.5 a 4 y 20. Ninguna llamada pasa de 100 K tokens de prompt, así que el recargo de Haiku no aplica.
 - **Tokens de imagen**: alrededor de ancho × alto / 750, la regla publicada para las familias anteriores; T3 la confirma para la 5.5. Eso da unos 600 tokens para 768 × 576 y unos 1.050 para 1024 × 768.
 - **Tokens de texto**: estimados por agente (sistema, esquema y entrada).
+- **Pensamiento: no está incluido en la tabla.** No se puede apagar en Haiku 5.5 ni en Opus 5.5, y se cobra como salida; en Sonnet 5.5 se usa `between_tools`. T3 lo mide por etapa (enmienda T0-6).
 
 | Llamada | Modelo | Entrada | Salida | Costo (USD) |
 |---|---|---|---|---|
@@ -188,21 +191,30 @@ create table public.ai_alerts (
 | Ruta 3D, complejidad ≥ 4 | Triaje + descomponedor Opus + redactor Sonnet | **≈ 0,061** |
 | Ruta 3D, peor caso | Triaje ×2, descomponedor Sonnet + Opus ×2, redactor Sonnet ×2 | **≈ 0,144** → tope por trabajo **0,15** |
 
-**Lo que cubre un presupuesto mensual de USD 10** (recomendado, decisión 3):
+**Lo que cubre el presupuesto aprobado** (decisión 3, opción a: USD 5 al mes y USD 0,25 al día; enmienda T0-3):
 
-- unos 6.600 trabajos típicos de la ruta plana;
-- unos 250 típicos de la ruta 3D;
-- unos 69 de la ruta 3D en el peor caso.
+| Trabajo | Costo (USD) | En el mes (USD 5) | En el día (USD 0,25) |
+|---|---|---|---|
+| Ruta plana, típico | 0,0015 | unos 3.300 | unos 160 |
+| Ruta plana, peor caso (tope 0,05) | 0,049 | unos 100 | 5 |
+| Ruta 3D, típico | 0,040 | unos 125 | 6 |
+| Ruta 3D, complejidad ≥ 4 | 0,061 | unos 80 | 4 |
+| Ruta 3D, peor caso (tope 0,15) | 0,144 | unos 34 | **1** |
 
-Una beta de 20 tejedoras con 3 trabajos por semana cada una (unos 260 al mes, 30 % de la ruta 3D) gastaría unos USD 3,4 al mes con estas cifras: 182 × 0,0015 + 78 × 0,040. **Tope diario recomendado: USD 0,50.** Así un día de abuso no consume más del 5 % del mes, y el peor caso de una sola usuaria es de 3 × 0,15 = USD 0,45 al día.
+- **Alertas** (sección 5): 50 % del mes = USD 2,50; 80 % = USD 4,00; 100 % = USD 5,00, con corte. 100 % del día = USD 0,25, con corte. El modo ahorro empieza al 80 % del día (USD 0,20).
+- **El tope diario deja pasar un trabajo 3D en el peor caso**: en un día sin gasto previo, 0,15 ≤ 0,25, con USD 0,10 de margen, porque la reserva de un trabajo nunca pasa de su `job_cap_usd`. También caben un plano y un 3D en el peor caso el mismo día (0,20). **No caben dos 3D en el peor caso** (0,30): el segundo se corta con `failed`/`budget` y se devuelve el cupo (R5-15). Dos 3D típicos (0,08) o uno típico y uno en el peor caso (0,184) sí caben.
+- **Por usuaria**: el peor día, con la cuota de 2, cuesta USD 0,30 y se corta en el tope diario (USD 0,25, el 5 % del mes). El peor mes, con la cuota de 10, cuesta 10 × 0,15 = USD 1,50, el 30 % del presupuesto. Con solo la cuenta de la usuaria en la lista permitida (decisión 11), el tope mensual no se alcanza con el uso del producto.
+- **Con más cuentas**: una beta de 20 tejedoras con la cuota completa (200 trabajos al mes, 30 % de la ruta 3D) gastaría unos USD 2,61 al mes (140 × 0,0015 + 60 × 0,040), dentro del mes. Pero **el tope diario es global**: con 0,25 al día caben unos 6 trabajos 3D típicos o 1 en el peor caso entre todas, y la IA quedaría "en pausa hasta mañana" con frecuencia (riesgo R5-21 del roadmap). Abrir la lista exige revisar el tope diario con las cifras de T23.
 
-**Sensibilidad.** Si los precios reales de Haiku fueran 10 veces los del repositorio, el trabajo típico de la ruta plana costaría unos USD 0,015, y los 10 dólares seguirían cubriendo unos 660. Por eso los topes por trabajo **no se escriben a mano**: `ai-router` exporta `jobCapUSD(route)`, que calcula el peor caso desde `PRICE_PER_MTOK` y `AGENT_POLICIES`, y la migración de T9 escribe el valor que da T3. Cambiar un precio es una enmienda de este ADR.
+**Sensibilidad y pensamiento.** Los topes por trabajo **no se escriben a mano**: `ai-router` exporta `jobCapUSD(route)`, que calcula el peor caso desde `PRICE_PER_MTOK` y `AGENT_POLICIES` (con `maxOutputTokens`, que **incluye el pensamiento**), y la migración de T9 escribe los valores aprobados. El peor caso estimado deja muy poco margen dentro de cada tope: USD 0,001 en la ruta plana (0,049 de 0,05) y USD 0,006 en la 3D (0,144 de 0,15). Por ejemplo, 1.000 tokens de pensamiento por llamada suman 0,0005 por llamada de Haiku y 0,02 por llamada de Opus: con dos intentos de Opus, el peor caso 3D pasaría a unos 0,18. Si T3 mide que el pensamiento no cabe, **se ajustan los `maxOutputTokens` o el esfuerzo por agente** (por ejemplo, el del descomponedor en Opus), no los topes. Subir un tope por trabajo lo decide la usuaria; el de la ruta 3D no puede pasar de USD 0,25 sin dejar de caber en el tope diario. Una llamada cortada por `max_tokens` cuenta como fallo de forma (ADR 0012, sección 3). CA5-B9 lo verifica.
+
+**La prueba real (T23 y T23-3D) va aparte.** Tiene su propio tope total de USD 2, en un script de evaluación con un libro de presupuesto en memoria (roadmap, R5-22): con 2 trabajos al día, el conjunto de evaluación no cabría en la cuota del producto. Ese gasto no pasa por `ai_reserve`, pero sí por el crédito prepagado. Para que el corte externo no quede por debajo del interno, conviene cargar esos USD 2 aparte.
 
 **Caché de prompts: apagada en la v1.** Con el volumen previsto (unos pocos trabajos por hora como mucho), casi ninguna llamada encontraría la caché vigente, y escribir en caché cuesta más que una entrada normal según la documentación de las familias anteriores (a confirmar en T3). Se registran `cache_read_tokens` y `cache_write_tokens` desde el inicio, y se reevalúa con datos (más de 30 trabajos por hora). Tampoco se usa el procesamiento por lotes: el flujo es interactivo.
 
 ### 7. Interfaz de cuota y presupuesto
 
-- Antes de subir la foto se ve "Te quedan N de 3 hoy y M de 20 este mes", y el cupo de patrones (T15 B-2).
+- Antes de subir la foto se ve "Te quedan N de 2 hoy y M de 10 este mes", y el cupo de patrones (T15 B-2).
 - Si el presupuesto del día se agotó: "La creación con IA está en pausa hasta mañana (00:00 UTC, las HH:MM en Chile)". No se sube nada.
 - Durante el trabajo, la etapa actual en texto ("Revisando la imagen", "Armando el gráfico", "Redactando las notas"), con un anuncio `aria-live` educado y "Cancelar".
 - Al terminar, en "Detalles", el modelo y el costo aproximado del trabajo, desde las filas propias de `ai_job_calls`.
@@ -216,7 +228,16 @@ Una beta de 20 tejedoras con 3 trabajos por semana cada una (unos 260 al mes, 30
 
 | ID | Riesgo | Mitigación |
 |---|---|---|
-| R5-12 | Los precios reales difieren de los del repositorio | T3 con el skill `claude-api`; topes calculados por `jobCapUSD`; crédito prepagado como corte externo |
-| R5-13 | La cuenta del proveedor no permite crédito prepagado sin recarga ni límite de gasto | Queda solo el corte interno, que es atómico; la usuaria revisa la consola en T23 |
+| R5-12 | Los precios quedaron verificados (2026-11-16), pero los tokens de pensamiento, que no se pueden apagar en Haiku 5.5 ni en Opus 5.5, pueden llevar el peor caso por encima de los topes por trabajo | T3 mide el pensamiento por etapa; `jobCapUSD` con `maxOutputTokens` que lo incluye; se ajustan los `maxOutputTokens` o el esfuerzo, no los topes (CA5-B9); crédito prepagado como corte externo || R5-13 | La cuenta del proveedor no permite crédito prepagado sin recarga ni límite de gasto | Queda solo el corte interno, que es atómico; la usuaria revisa la consola en T23 |
 | R5-14 | Una invocación muere después de que el proveedor cobró y antes de liquidar | Liquidación por lo reservado al vencer (cota superior); `request_id` para conciliar con la consola |
 | R5-15 | El 100 % del día corta a una usuaria a mitad de un trabajo | La reserva se hace por llamada; el redactor tiene respaldo determinista; las otras etapas devuelven el cupo con un mensaje claro |
+
+## Enmiendas por las decisiones de la usuaria (2026-11-16)
+
+La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16)). Cambios al texto propuesto:
+
+- **T0-3 (decisión 3, opción a, no la recomendada).** USD 5 al mes y USD 0,25 al día; 2 trabajos por día y 10 cada 30 días por usuaria, uno a la vez; tope por trabajo de USD 0,05 (plana) y USD 0,15 (3D); crédito prepagado sin recarga automática. Cambian la sección 3 (valores de la cuota), la 4 (corte externo), la 6 (lo que cubre el presupuesto, alertas y la comprobación del peor caso 3D) y la 7 (texto de la cuota). Se agrega la nota "Quién paga la IA" al inicio. Valores iniciales de `ai_settings` para T9: `daily_cap_usd = 0.25`, `monthly_cap_usd = 5`, `job_cap_chart_usd = 0.05`, `job_cap_amigurumi_usd = 0.15`, `jobs_per_day = 2`, `jobs_per_30d = 10`, `saving_threshold = 0.80` y `allowlist_only = true`. Criterio nuevo CA5-B9 en el roadmap.
+- **T0-6 (decisión 6, opción a).** Los precios quedan verificados (nota del inicio); se quitan los rótulos de "no verificado" del contexto y de la sección 6. Se agrega a la sección 6 que el pensamiento no está en la tabla, porque no se puede apagar en Haiku 5.5 ni en Opus 5.5, y se cobra como salida. `jobCapUSD` lo incluye por `maxOutputTokens`, y T3 lo mide. Fable 5.2 queda fuera.
+- **T0-7 (decisión 7, opción a).** La prueba real se hace en dos corridas (T23 y T23-3D), con un tope total de USD 2 fuera del libro del producto (sección 6).
+- **T0-11 (decisión 11, opción a).** `allowlist_only = true`, con solo la cuenta de la usuaria. El tope diario es global, así que abrir la lista obliga a revisarlo.
+- **Decisión 2 (dos hitos).** La migración de T9 crea todos los estados de `stage`, también los de la ruta 3D, en el hito 1; el hito 2 no necesita otra migración. Hasta el hito 2, `ai_job_begin` (o `iniciar`) rechaza `p_kind = 'amigurumi'` con el detalle `route_disabled`, **antes** de insertar el `rate_events`, así que no cobra cupo.

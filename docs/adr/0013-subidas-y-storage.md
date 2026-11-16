@@ -1,6 +1,6 @@
 # ADR 0013: Subidas de imágenes y Storage
 
-- Estado: **propuesto** (2026-11-16, agente `arquitecto`). Lo aprueba la usuaria en T0 de la fase 5. Las dependencias de la sección 8 quedan sujetas a la puerta de viabilidad T2. Pasa por `revisor-seguridad` (T21).
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). Las dependencias de la sección 8 quedan sujetas a la puerta de viabilidad T2. Pasa por `revisor-seguridad` (T21).
 - Fecha: 2026-11-16
 - Paquetes: `supabase/functions` (nuevo), `supabase/migrations`, `packages/image-chart` (nuevo), `apps/web`
 - Relacionado: [ADR 0012](0012-pipeline-imagen-a-patron.md) (pipeline), [ADR 0014](0014-costos-y-cuotas-de-ia.md) (cuotas), [docs/seguridad.md](../seguridad.md) (M3, F2-M1, F2-M2, BAJO-3, BAJO-4), [docs/despliegue-publico.md](../despliegue-publico.md) (D1, Workers Free)
@@ -47,7 +47,7 @@ En este orden. Lo que falle después del paso 4 cuenta como intento (F2-M2).
 1. `LOOPITA_UPLOADS_ENABLED` (secreto de la función) apagado: responde 404.
 2. `Origin` en la lista permitida (ADR 0012, sección 7); si no, 403 `cross_site`.
 3. JWT verificado y `auth.getUser()`; si no, 401.
-4. `begin_operation(uid, 'upload')`: una subida a la vez, más los topes. **Cambio**: 30 intentos y **10 imágenes guardadas cada 24 h**. Con una cuota de 3 trabajos de IA al día (ADR 0014), 30 imágenes no tienen uso.
+4. `begin_operation(uid, 'upload')`: una subida a la vez, más los topes. **Cambio**: 30 intentos y **10 imágenes guardadas cada 24 h**. Con una cuota de 2 trabajos de IA al día (ADR 0014, decisión 3), 30 imágenes no tienen uso; 10 dejan margen para recortar de nuevo sin gastar intentos de IA.
 5. Cuerpo de **≤ 6 MB** en ≤ 30 s (un JPEG de 2048 × 2048 con calidad 0,9 pesa típicamente de 1 a 2 MB). Si no, 413 o 408.
 6. `rightsAck` igual a la versión vigente del aviso; si no, 400 `rights_required`.
 7. **Tipo real**: `sniffImageHeader` (puro, en `image-chart`) lee los bytes mágicos y las **dimensiones del encabezado sin decodificar**: SOF0 a SOF2 en JPEG, IHDR en PNG, y VP8, VP8L o VP8X en WebP. Solo JPEG, PNG o WebP; si no, 415 `unsupported_type`. Si el lado mayor pasa de 2048 px, los píxeles pasan de 4.194.304 o el lado menor baja de 64 px, 413 `dimensions_out_of_range`. **Antes de decodificar**: así una bomba de descompresión nunca llega al códec.
@@ -85,7 +85,7 @@ Columnas nuevas en `uploads`:
 
 La Edge Function las escribe con `service_role`, y el cliente solo las lee.
 
-**Plazo** (decisión 4 de la fase 5; recomendado): la imagen vence **24 horas después del último trabajo que la usó** (`last_used_at`), y **nunca pasa de 7 días** desde la subida (`expires_at`). Así la usuaria puede volver a generar con otros parámetros el mismo día sin volver a subirla.
+**Plazo** (decisión 4 de la fase 5, aprobada en su opción b): la imagen vence **24 horas después del último trabajo que la usó** (`last_used_at`), y **nunca pasa de 7 días** desde la subida (`expires_at`). Así la usuaria puede volver a generar con otros parámetros el mismo día sin volver a subirla.
 
 - **"Borrar la foto"** está siempre a la vista en el flujo y en el resultado, y borra al instante.
 - **Purga**: `ia-mantenimiento` (Edge Function, invocada cada hora por pg_cron con pg_net) busca las filas vencidas y borra primero el objeto por la API de Storage y después la fila. Nunca borra con un `DELETE` sobre `storage.objects`, porque eso no borra el archivo. Registra los conteos sin identificadores. Si el borrado del objeto falla, la fila queda para el próximo ciclo.
@@ -97,14 +97,14 @@ La Edge Function las escribe con `service_role`, y el cliente solo las lee.
 
 La exportación de la cuenta (`api/cuenta/exportar`) incluye las filas de `uploads`, `ai_jobs` y `ai_job_calls`, sin los bytes de las imágenes. Se agrega a la prueba de exportación.
 
-### 7. Aviso de derechos (decisión 8 de la fase 5; recomendado)
+### 7. Aviso de derechos (decisión 8 de la fase 5, aprobada en su opción a)
 
 Es una **casilla obligatoria, sin marcar, en cada subida**, con un texto versionado. El servidor rechaza la subida sin la versión vigente y guarda la versión y la hora en `uploads`. Borrador para la revisión legal (T4; lo redacta `documentador`):
 
 > Confirmo que esta imagen es mía o que tengo permiso para usarla, y que no muestra a otras personas sin su consentimiento. Entiendo que una versión reducida se envía a un proveedor de inteligencia artificial (Anthropic) solo para analizarla, y que la foto se borra a más tardar en 7 días.
 
 - **Versión**: `rights-v1`. Cambiar el texto sube la versión y vuelve a pedir la casilla.
-- **Personas en la imagen**: lo fija la decisión 10 de la fase 5. Lo recomendado es que, en la v1, el triaje rechace las imágenes en que una persona identificable es el tema principal (`reasons: ["identifiable_person"]`), hasta la revisión legal.
+- **Personas en la imagen** (decisión 10 de la fase 5, aprobada en su opción b): en la v1, el triaje rechaza las imágenes en que una persona identificable es el tema principal (`reasons: ["identifiable_person"]`), hasta la revisión legal. El texto del aviso ya pide no mostrar a otras personas sin su consentimiento; T4 agrega que esas fotos se rechazan.
 
 ### 8. Dependencias de imagen (justificación para el PR de T11)
 
@@ -143,3 +143,14 @@ Es una **casilla obligatoria, sin marcar, en cada subida**, con un texto version
 | R5-9 | Un códec WebAssembly con una vulnerabilidad de memoria | El tamaño y las dimensiones se acotan antes de decodificar. La invocación está aislada y sin secretos en memoria salvo los de la función. Se fija la versión y se actualiza con edad mínima. `revisor-seguridad` revisa la procedencia en T21 |
 | R5-10 | pg_net o pg_cron dejan de llamar a la purga y las fotos superan los 7 días | `ia-mantenimiento` registra la última corrida; una alerta (ADR 0014) avisa si pasan 2 horas sin purga; `/privacidad` promete el plazo solo después de que T20 lo verifique |
 | R5-11 | La revisión legal pide otro texto o prohíbe enviar fotos a un tercero fuera de Chile | El aviso está versionado; la IA arranca solo para la cuenta de la usuaria hasta T4 (decisión 11) |
+
+## Enmiendas por las decisiones de la usuaria (2026-11-16)
+
+La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16)). Cambios al texto propuesto:
+
+- **T0-3 (decisión 3).** La cuota de IA baja a 2 trabajos por día; el tope de 10 imágenes guardadas cada 24 h y 30 intentos se mantiene (sección 2, paso 4).
+- **T0-4 (decisión 4, opción b).** Retención de 24 h desde el último trabajo que usó la imagen, nunca más de 7 días desde la subida, con "Borrar la foto" al instante (sección 5). Sin cambios.
+- **T0-5 (decisión 5, opción a).** Se confirma E, la Edge Function `subir-imagen`, sujeta a la puerta T2. R sigue siendo la alternativa solo si T2 falla, con una nueva decisión de la usuaria.
+- **T0-8 (decisión 8, opción a).** Casilla obligatoria en cada subida, con la versión del texto guardada (sección 7). Sin cambios.
+- **T0-10 (decisión 10, opción b).** Rechazo de las imágenes cuyo tema principal es una persona identificable en la v1, hasta la revisión legal (sección 7).
+- **Decisión 2 (dos hitos).** Este ADR se implementa entero en el hito 1 (T9 y T11), porque las subidas sirven a las dos rutas. En el hito 1, `route` solo acepta `chart`; `amigurumi` se rechaza con `route_disabled` hasta el hito 2.
