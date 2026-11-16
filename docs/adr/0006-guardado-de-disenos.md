@@ -1,6 +1,6 @@
 # ADR 0006: Guardado de diseños del estudio
 
-- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido; [E11](#enmienda-e11-2026-11-06-revisión-de-t4): revisión de T4, tope de tamaño y patrones de IA). Enmendado el 2026-11-13 ([E12](#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4): borradores de patrones escritos, T4 de la fase 4, commit `e4db73e`)
+- Estado: aceptado (aprobado por la usuaria el 2026-11-05). Enmendado el 2026-11-06 ([E10](#enmienda-e10-2026-11-06-guardar-borradores-con-errores-de-tejido): se guardan borradores con errores de tejido; [E11](#enmienda-e11-2026-11-06-revisión-de-t4): revisión de T4, tope de tamaño y patrones de IA). Enmendado el 2026-11-13 ([E12](#enmienda-e12-2026-11-13-borradores-de-patrones-escritos-fase-4-t4): borradores de patrones escritos, T4 de la fase 4, commit `e4db73e`). Enmendado el 2026-11-16 ([E13](#enmienda-e13-2026-11-16-topes-de-t20-fase-4-grupo-e): topes de T20 que acotan lo que se guarda, commits `cd6c02a` y `f99e397`)
 - Fecha: 2026-11-05
 - Paquetes: `apps/web`, `supabase/`
 - Relacionado: [ADR 0001](0001-modelo-canonico.md), [ADR 0003](0003-colorwork-en-esquema-v1.md), [docs/seguridad.md](../seguridad.md)
@@ -175,3 +175,23 @@ Pendiente desde la planificación de la fase 4 ([ADR 0011](0011-posicion-de-part
 - **Siguen siendo estructurales** `STITCH_UNKNOWN`, `COLOR_UNKNOWN_YARN`, `ITEM_COUNT`, `GROUP_*`, `SHAPE`, `LIMIT`, `UNKNOWN_KEY`, `PART_COPIES` y los `LAYOUT_*` de error.
 - **Endurecimiento que afecta lo que se guarda** (ADR 0011, enmienda T4-4): una vuelta que trabaja sobre más de `LIMITS.maxRoundStitches` puntos es `LIMIT`. Un documento hostil que antes era `savable` deja de serlo. La base real no tiene patrones escritos ([auditoría T2](../auditoria-base-fase-4.md)), así que ningún dato existente cambia.
 - **Nombre de la función**: el servidor usa `createChartPattern` para gráficos. La creación de diseños escritos (T13) sigue la misma regla (`savable`, sin opciones).
+
+## Enmienda E13 (2026-11-16): topes de T20 (fase 4, grupo E)
+
+Viene de la revisión de seguridad T20 ([docs/seguridad.md](../seguridad.md), "Revisión final de la fase 4"). Está implementada en `cd6c02a` (núcleo) y `f99e397` (web), y la verificó `arquitecto` contra `packages/pattern-core/src/validate.ts`, `limits.ts` y `apps/web/src/lib/designs/prepare.ts`. El detalle está en el [ADR 0011, enmiendas T20-1 a T20-5 y T20-8](0011-posicion-de-partes-y-editor-escrito.md#enmiendas-por-la-implementación-del-grupo-e-2026-11-16).
+
+**Qué cambia en el guardado.** Lo que se guarda queda más acotado:
+
+- `savePattern`, `createWrittenPattern` y duplicar siguen decidiendo por `savable`, sin opciones.
+- `savable` exige además los topes estructurales nuevos (`LIMIT`):
+  - el trabajo de expansión por vuelta (50.000) y por documento (`LIMITS.maxExpansionWork = 2.000.000`);
+  - `expected` y `start.count` hasta `LIMITS.maxRoundStitches`;
+  - `LIMITS.maxRoundItems = 100` nodos por vuelta;
+  - el texto canónico de cada parte hasta `PARSE_LIMITS.maxTextLength`.
+- Un documento hostil de menos de 750 KB que antes se guardaba y tardaba segundos en validarse ahora se rechaza en milisegundos (T20-M1).
+
+**Respuesta de la acción.** `prepareDocument` devuelve a lo más 100 errores (`MAX_RETURNED_ISSUES`). El validador guarda hasta 20 problemas por código y por parte, con `data.omitted` en el último, así que la respuesta de una Server Action no crece con el documento (T20-B5).
+
+**Documentos reales.** Ninguno cambia: la base no tiene patrones escritos ([auditoría T2](../auditoria-base-fase-4.md)), y los gráficos de colorwork no pasan por estos topes. No hace falta una migración SQL. Es el mismo caso que T4-4 en E12.
+
+**Riesgo abierto.** Si un patrón escrito llega a la base real antes del despliegue de `cd6c02a` y pasa alguno de los topes, después no se podrá volver a guardar sin corregirlo. Hay que repetir la consulta de la auditoría T2 antes del despliegue si pasa tiempo entre los dos.

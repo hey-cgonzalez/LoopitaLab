@@ -1,17 +1,15 @@
-import { partProfile, shapeMetrics, type GaugeStitch, type Part, type PartProfile, type ShapeMetrics, type WrittenPattern } from "@loopitalab/pattern-core";
+import { partProfile, shapeMetrics, type Part, type PartProfile, type ShapeMetrics, type WrittenPattern } from "@loopitalab/pattern-core";
 import { profileToSvg } from "@loopitalab/viewer-3d";
-import { suggestedGauge } from "@loopitalab/yarn-catalog";
+import { assumedGaugeOfPart } from "@/lib/amigurumi/assumed-gauge.ts";
 
 /*
  * Muestra de cada parte para la forma 3D (ADR 0010, sección 1; enmiendas C-3 y T5-1). La resuelve la aplicación:
  * - la del documento, leída como punto bajo;
- * - si falta, la sugerida para crochet por el grosor de la lana inicial de la parte (`suggestedGauge`), marcada
+ * - si falta, la sugerida para crochet por el grosor de la lana inicial de la parte (`assumedGaugeOfPart`), marcada
  *   como supuesta, con `assumption` traducido (`crochet-pa` → `dc`, si no `sc`);
  * - si la lana no tiene un grosor conocido, la del grosor 4 (medio), también supuesta (regla de oro 6: se marca,
  *   no se esconde).
  */
-
-const FALLBACK_WEIGHT = 4;
 
 export function metricsResolver(pattern: WrittenPattern): (part: Part) => ShapeMetrics {
   if (pattern.gauge) {
@@ -19,18 +17,12 @@ export function metricsResolver(pattern: WrittenPattern): (part: Part) => ShapeM
     return () => m;
   }
   const byWeight = new Map<number, ShapeMetrics>();
-  const weightOf = (part: Part): number => {
-    const y = pattern.yarns.find((x) => x.id === part.startYarn) ?? pattern.yarns[0];
-    return typeof y?.weight === "number" ? y.weight : FALLBACK_WEIGHT;
-  };
   return (part) => {
-    const w = weightOf(part);
-    let m = byWeight.get(w);
+    const g = assumedGaugeOfPart(pattern, part);
+    let m = byWeight.get(g.weight);
     if (!m) {
-      const s = suggestedGauge(w, "crochet") ?? suggestedGauge(FALLBACK_WEIGHT, "crochet")!;
-      const gaugeStitch: GaugeStitch = s.assumption === "crochet-pa" ? "dc" : "sc";
-      m = shapeMetrics({ stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm }, { assumed: true, gaugeStitch });
-      byWeight.set(w, m);
+      m = shapeMetrics({ stitchesPer10cm: g.stitchesPer10cm, rowsPer10cm: g.rowsPer10cm }, { assumed: true, gaugeStitch: g.gaugeStitch });
+      byWeight.set(g.weight, m);
     }
     return m;
   };

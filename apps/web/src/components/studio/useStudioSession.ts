@@ -5,6 +5,7 @@ import { useCallback, useEffect, useState, useSyncExternalStore } from "react";
 import { savePattern } from "@/app/disenos/actions";
 import { browserProgressStorage, pruneProgressQueues } from "@/lib/projects/progress-queue.ts";
 import { Autosave, pruneBackups, readBackup, type AutosaveDeps, type AutosaveStore, type EnumerableStorage, type SaveStatus } from "@/lib/studio/autosave.ts";
+import { SIGN_OUT_EVENT } from "@/lib/studio/backup.ts";
 import { decideRecovery, type Recovery } from "@/lib/studio/backup-recovery.ts";
 import { DocumentStore } from "@/lib/studio/store.ts";
 
@@ -19,6 +20,8 @@ export interface DesignSession<P extends Pattern, S extends SessionStore<P>> {
   store: S;
   autosave: Autosave<P>;
   status: SaveStatus;
+  /** El texto sin leer no cupo en el respaldo local y quedó fuera (T20-B6). */
+  pendingDropped: boolean;
   recovery: Recovery<P> | null;
   acceptRecovery(): void;
   dismissRecovery(): void;
@@ -62,6 +65,7 @@ export function useDesignSession<P extends Pattern, S extends SessionStore<P>>(o
 
   // Sin suscripción al documento entero: cada componente lee su parte con selectores (T10).
   const status = useSyncExternalStore(autosave.subscribe, autosave.getStatus, autosave.getStatus);
+  const pendingDropped = useSyncExternalStore(autosave.subscribeNotice, autosave.getPendingDropped, () => false);
   const [recovery, setRecovery] = useState<Recovery<P> | null>(null);
 
   useEffect(() => {
@@ -75,6 +79,12 @@ export function useDesignSession<P extends Pattern, S extends SessionStore<P>>(o
       autosave.writeBackupNow();
       if (autosave.hasUnsaved) e.preventDefault(); // el navegador pregunta antes de cerrar
     };
+    // T20-M2: cerrando sesión no se escribe nada más en el respaldo.
+    const onSignOut = () => {
+      autosave.stop();
+      autosave.holdBackup(true);
+    };
+    window.addEventListener(SIGN_OUT_EVENT, onSignOut);
     window.addEventListener("online", onOnline);
     window.addEventListener("pagehide", onHide);
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -96,6 +106,7 @@ export function useDesignSession<P extends Pattern, S extends SessionStore<P>>(o
     }
 
     return () => {
+      window.removeEventListener(SIGN_OUT_EVENT, onSignOut);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("pagehide", onHide);
       window.removeEventListener("beforeunload", onBeforeUnload);
@@ -125,7 +136,7 @@ export function useDesignSession<P extends Pattern, S extends SessionStore<P>>(o
     setRecovery(null);
   }, [autosave]);
 
-  return { store, autosave, status, recovery, acceptRecovery, dismissRecovery };
+  return { store, autosave, status, pendingDropped, recovery, acceptRecovery, dismissRecovery };
 }
 
 /**

@@ -15,7 +15,7 @@ const MISSING_COLUMN: DbError = { code: "42703", message: "column profiles.mirro
 const TIMEOUT: DbError = { code: "57014", message: "canceling statement due to statement timeout", details: null, hint: null };
 const JWT_EXPIRED: DbError = { code: "PGRST301", message: "JWT expired", details: null, hint: null };
 
-const row = { display_name: "Ana", terminology: "es", units: "metric", dominant_hand: "left" };
+const row = { display_name: "Ana", units: "metric", dominant_hand: "left" };
 const state: {
   full: { data: unknown; error: DbError | null };
   base: { data: unknown; error: DbError | null };
@@ -75,8 +75,8 @@ describe("requireUser: lectura de mirror_knitting", () => {
     const { profile } = await requireUser("/cuenta");
     expect(profile).toEqual({ ...row, mirror_knitting: false });
     expect(selects).toEqual([
-      "display_name, terminology, units, dominant_hand, mirror_knitting",
-      "display_name, terminology, units, dominant_hand",
+      "display_name, units, dominant_hand, mirror_knitting",
+      "display_name, units, dominant_hand",
     ]);
   });
 
@@ -118,7 +118,7 @@ describe("updateProfile sin la columna mirror_knitting", () => {
   it("si la migración no está aplicada, guarda el resto de las preferencias sin mirror_knitting (QA O1)", async () => {
     state.updateError = { code: "PGRST204", message: "Could not find the 'mirror_knitting' column of 'profiles' in the schema cache", details: null, hint: null };
     const f = new FormData();
-    for (const [k, v] of Object.entries({ display_name: "Ana", terminology: "es", units: "metric", dominant_hand: "right" })) f.set(k, v);
+    for (const [k, v] of Object.entries({ display_name: "Ana", units: "metric", dominant_hand: "right" })) f.set(k, v);
     await updateProfile({}, f);
     expect(update).toHaveBeenCalledTimes(2);
     expect(update).toHaveBeenNthCalledWith(1, expect.objectContaining({ mirror_knitting: false }));
@@ -128,7 +128,7 @@ describe("updateProfile sin la columna mirror_knitting", () => {
   it("otro error al guardar no reintenta sin la columna", async () => {
     state.updateError = { code: "57014", message: "timeout", details: null, hint: null };
     const f = new FormData();
-    for (const [k, v] of Object.entries({ display_name: "Ana", terminology: "es", units: "metric", dominant_hand: "right" })) f.set(k, v);
+    for (const [k, v] of Object.entries({ display_name: "Ana", units: "metric", dominant_hand: "right" })) f.set(k, v);
     const res = await updateProfile({}, f);
     expect(res.error).toMatch(/No pudimos guardar/);
     expect(update).toHaveBeenCalledTimes(1);

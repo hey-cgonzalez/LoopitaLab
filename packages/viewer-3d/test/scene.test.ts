@@ -7,6 +7,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { shapeMetrics, type Part, type Placement, type WrittenPattern } from "@loopitalab/pattern-core";
 import { AUTO_PLACEMENT_GAP_CM, buildPartMesh, buildScene, surfaceFrame, type SceneInstance } from "../src/index.ts";
+import { SHAPE_INTENDED, roundsZone } from "../src/scene.ts";
 import { METRICS, assertMeshEqual, fixtureAPart, profileOf, readPart, roundPieceText, withYarns } from "./support/fixtures.ts";
 
 const metrics = () => METRICS;
@@ -188,6 +189,45 @@ describe("avisos de la escena", () => {
     const r = s.notes.find((n) => n.code === "SHAPE_RUFFLES");
     assert.ok(r && Array.isArray(r.data?.rounds) && (r.data.rounds as number[]).includes(4));
     assert.ok(!s.notes.some((n) => n.code === "SHAPE_GATHERS"));
+  });
+
+  it("C3 (T21): la muestra supuesta pide comprobar con la lana y el ganchillo, no con la aguja", () => {
+    const s = buildScene({ pattern: withYarns([fixtureAPart()]), metrics: () => ({ ...METRICS, assumed: true }) });
+    const g = s.notes.find((n) => n.code === "GAUGE_ASSUMED");
+    assert.equal(g?.message, "Las medidas y la forma usan una muestra supuesta. Teje una muestra con tu lana y tu ganchillo para comprobarlas.");
+    assert.ok(!/aguja/.test(g!.message));
+  });
+
+  it("C4 (T21): la zona agrupa las vueltas con aviso en tramos contiguos", () => {
+    assert.equal(roundsZone([4]), "en la vuelta 4");
+    assert.equal(roundsZone([3, 4, 5]), "entre la vuelta 3 y la 5");
+    assert.equal(roundsZone([3, 5]), "en las vueltas 3 y 5");
+    assert.equal(roundsZone([3, 4, 6]), "en las vueltas 3 a 4 y 6");
+    assert.equal(roundsZone([2, 3, 4, 7, 9, 10]), "en las vueltas 2 a 4, 7 y 9 a 10");
+    assert.equal(roundsZone([5, 3, 3]), "en las vueltas 3 y 5", "ordena y no repite");
+    assert.equal(roundsZone([1, 3, 5, 7, 9, 11]), "en las vueltas 1, 3, 5, 7 y 2 tramos más");
+    assert.equal(roundsZone([1, 3, 5, 7, 9]), "en las vueltas 1, 3, 5, 7 y 1 tramo más");
+    assert.equal(roundsZone([]), "");
+  });
+
+  it("C4 (T21): dos zonas que ondulan separadas por una meseta no se nombran como un solo tramo, y los dos avisos cierran con «ignora este aviso»", () => {
+    const lines = ["Parte: Volado", "Inicio: AM", "Construcción: espiral", "Lana: A", "V1: 6 pb (6)", "V2: aum x6 (12)", "V3: aum x12 (24)", "V4-9: 24 pb (24)", "V10: aum x24 (48)", "V11-16: 48 pb (48)"];
+    const s = buildScene({ pattern: withYarns([readPart(lines.join("\n"), "volado")]), metrics });
+    const r = s.notes.find((n) => n.code === "SHAPE_RUFFLES")!;
+    const rounds = r.data!.rounds as number[];
+    assert.ok(rounds.includes(3) && rounds.includes(10));
+    assert.ok(rounds.some((x, i) => i > 0 && x !== rounds[i - 1]! + 1), `se esperaban vueltas no contiguas: ${rounds}`);
+    assert.ok(r.message.startsWith(`Volado, ${roundsZone(rounds)}: `));
+    assert.ok(r.message.includes("en las vueltas "), r.message);
+    assert.ok(!r.message.includes("entre la vuelta"), r.message);
+    assert.ok(r.message.endsWith(` ${SHAPE_INTENDED}`));
+    assert.equal(SHAPE_INTENDED, "Si es lo que buscas (volante, pétalo, remate), ignora este aviso.");
+
+    const close = readPart(["Parte: Remate", "Inicio: AM", "Construcción: espiral", "Lana: A", "V1: 6 pb (6)", "V2: aum x6 (12)", "V3: [pb, aum] x6 (18)", "V4: dism x9 (9)"].join("\n"), "remate");
+    const g = buildScene({ pattern: withYarns([close]), metrics }).notes.find((n) => n.code === "SHAPE_GATHERS")!;
+    assert.ok(g, "dism x9 sobre 18 frunce");
+    assert.ok(g.message.startsWith("Remate, en la vuelta 4: "), g.message);
+    assert.ok(g.message.endsWith(` ${SHAPE_INTENDED}`));
   });
 
   it("el fixture A no da avisos de forma", () => {

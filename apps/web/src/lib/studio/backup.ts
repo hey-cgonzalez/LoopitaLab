@@ -43,10 +43,16 @@ const NS = "loopitalab:";
 export const LEGACY_BACKUP_PREFIX = `${NS}diseno:`;
 export const BACKUP_TTL_MS = 14 * 24 * 60 * 60 * 1000;
 /**
- * Tope del texto del respaldo. El documento admite `MAX_DOCUMENT_BYTES` bytes; en caracteres de JavaScript nunca
- * mide más que en bytes UTF-8, y el sobre (`v`, `ownerId`, fechas) agrega menos de 1 KB.
+ * Tope total del texto sin leer de un respaldo, sumadas todas las partes (T20-B6). Sin él, 50 partes de 100.000
+ * caracteres harían que el respaldo no cupiera y se perdieran también los cambios del documento.
  */
-export const MAX_BACKUP_CHARS = MAX_DOCUMENT_BYTES + 1024;
+export const MAX_PENDING_TOTAL = 200_000;
+/**
+ * Tope del texto del respaldo. El documento admite `MAX_DOCUMENT_BYTES` bytes; en caracteres de JavaScript nunca
+ * mide más que en bytes UTF-8; el texto sin leer tiene su propio tope total (`MAX_PENDING_TOTAL`) y el sobre
+ * (`v`, `ownerId`, fechas) agrega menos de 1 KB. (T20-B6)
+ */
+export const MAX_BACKUP_CHARS = MAX_DOCUMENT_BYTES + MAX_PENDING_TOTAL + 1024;
 
 /** `<uid>` sin `:` (así la clave se separa sin ambigüedad). */
 const OWNER_RE = /^[A-Za-z0-9-]{1,64}$/;
@@ -105,8 +111,18 @@ export const MAX_PENDING_PARTS = 50;
 /** Tope de cada texto sin leer (`PARSE_LIMITS.maxTextLength` del lector: 100.000 unidades UTF-16). */
 export const MAX_PENDING_TEXT = 100_000;
 
-/** `pendingText` bien formado (objeto plano de textos acotados) o null. No valida contra el documento. */
-export function pendingTextOf(v: unknown): Record<string, string> | null {
+/** Suma de caracteres del texto sin leer. */
+export function pendingTextSize(map: Readonly<Record<string, string>>): number {
+  let n = 0;
+  for (const t of Object.values(map)) n += t.length;
+  return n;
+}
+
+/**
+ * `pendingText` bien formado (objeto plano de textos acotados, de a lo más `MAX_PENDING_TOTAL` caracteres en total) o
+ * null. No valida contra el documento.
+ */
+export function pendingTextOf(v: unknown, opts: { total?: boolean } = {}): Record<string, string> | null {
   if (typeof v !== "object" || v === null || Array.isArray(v)) return null;
   const entries = Object.entries(v as Record<string, unknown>);
   if (entries.length === 0 || entries.length > MAX_PENDING_PARTS) return null;
@@ -116,7 +132,7 @@ export function pendingTextOf(v: unknown): Record<string, string> | null {
     if (k.length === 0 || k.length > 64 || k === "__proto__" || typeof t !== "string" || t.length > MAX_PENDING_TEXT) return null;
     out[k] = t;
   }
-  return out;
+  return opts.total !== false && pendingTextSize(out) > MAX_PENDING_TOTAL ? null : out;
 }
 
 /** Interpreta el texto de un respaldo de `ownerId`; null si no sirve (grande, dañado, de otra cuenta, caducado). */
@@ -179,3 +195,28 @@ export function clearBackup(storage: BackupStorage | null | undefined, ownerId: 
   }
 }
 
+
+/*
+ * Señal de cierre de sesión (T20-M2). `SignOutForm` la emite antes de borrar; los `Autosave` vivos dejan de escribir
+ * respaldos (`beforeunload` y `pagehide` de la navegación del formulario los reescribirían). Es una bandera del
+ * módulo más un evento, para cubrir también a los `Autosave` que se creen después.
+ */
+export const SIGN_OUT_EVENT = "loopitalab:salir";
+let signingOut = false;
+
+export const isSigningOut = (): boolean => signingOut;
+
+/** Marca el cierre de sesión y avisa a los estudios abiertos de esta pestaña. Nunca lanza. */
+export function announceSignOut(): void {
+  signingOut = true;
+  try {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event(SIGN_OUT_EVENT));
+  } catch {
+    /* sin window o sin permiso: la bandera ya basta */
+  }
+}
+
+/** Solo para pruebas. */
+export function resetSignOutForTests(): void {
+  signingOut = false;
+}

@@ -254,7 +254,12 @@ describe("G9: surfaceFrame", () => {
         let d = Math.abs(angle(mid) - angle(f.position));
         if (d > Math.PI) d = 2 * Math.PI - d;
         assert.ok(d < 1e-5, `ángulo del ancla ${angle(f.position)} frente a ${angle(mid)}`);
-        assert.ok(Math.abs(Math.hypot(f.position[0], f.position[1]) - ring.radiusCm) < 1e-9);
+        // En espiral el radio va del anillo anterior al suyo a lo largo de la vuelta (hélice continua, T21); en vueltas unidas, el del anillo.
+        const rf = Math.hypot(f.position[0], f.position[1]);
+        if (profile.spiral) {
+          const prev = profile.rings[c]!.radiusCm;
+          assert.ok(rf >= Math.min(prev, ring.radiusCm) - 1e-9 && rf <= Math.max(prev, ring.radiusCm) + 1e-9, `radio ${rf} fuera de [${prev}, ${ring.radiusCm}]`);
+        } else assert.ok(Math.abs(rf - ring.radiusCm) < 1e-9);
         assert.ok(Math.abs(f.position[2] - mid[2]!) <= ring.heightCm, "a la altura del tope (± el alto de una vuelta en espiral)");
       }
     }

@@ -1,7 +1,7 @@
 import { validatePattern, type ChartPattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
 import type { DesignErrorCode } from "@/lib/designs/messages.ts";
 import type { SaveDesignResult } from "@/lib/designs/types.ts";
-import { backupKey, clearBackup, isValidOwnerId, MAX_BACKUP_CHARS, pendingTextOf, type BackupStorage, type LocalBackup } from "./backup.ts";
+import { backupKey, clearBackup, isSigningOut, isValidOwnerId, MAX_BACKUP_CHARS, MAX_PENDING_TOTAL, pendingTextOf, pendingTextSize, type BackupStorage, type LocalBackup } from "./backup.ts";
 import { paintGate } from "./paint-gate.ts";
 import { perfSpan } from "./perf.ts";
 
@@ -24,7 +24,10 @@ export {
   clearBrowserBackups,
   isBackupKey,
   LEGACY_BACKUP_PREFIX,
+  announceSignOut,
+  isSigningOut,
   MAX_BACKUP_CHARS,
+  MAX_PENDING_TOTAL,
   pendingTextOf,
   pruneBackups,
   readBackup,
@@ -99,6 +102,9 @@ export class Autosave<P extends Pattern = ChartPattern> {
   /** Texto sin leer por parte (estudio amigurumi): va en el respaldo, nunca en el documento. */
   #pendingText: Record<string, string> | null = null;
   #pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  /** El texto sin leer no cupo en el respaldo y se dejó fuera de él (T20-B6): el estudio lo avisa. */
+  #pendingDropped = false;
+  #noticeListeners = new Set<Listener>();
   #store: AutosaveStore<P>;
   #status: SaveStatus;
   #updatedAt: string;
@@ -132,6 +138,16 @@ export class Autosave<P extends Pattern = ChartPattern> {
     this.#listeners.add(l);
     return () => {
       this.#listeners.delete(l);
+    };
+  };
+
+  /** ¿El texto sin leer quedó fuera del respaldo por no caber? (T20-B6) */
+  getPendingDropped = (): boolean => this.#pendingDropped;
+
+  subscribeNotice = (l: Listener): (() => void) => {
+    this.#noticeListeners.add(l);
+    return () => {
+      this.#noticeListeners.delete(l);
     };
   };
 
@@ -210,7 +226,8 @@ export class Autosave<P extends Pattern = ChartPattern> {
    * solo se conserva en el respaldo local, que se escribe poco después (no en cada tecla). `null` o `{}` lo quitan.
    */
   setPendingText(map: Readonly<Record<string, string>> | null): void {
-    const next = map && Object.keys(map).length > 0 ? pendingTextOf(map) : null;
+    // Sin el tope total: en memoria se conserva todo; `#writeBackup` decide si cabe en el respaldo (T20-B6).
+    const next = map && Object.keys(map).length > 0 ? pendingTextOf(map, { total: false }) : null;
     if (JSON.stringify(next) === JSON.stringify(this.#pendingText)) return;
     this.#pendingText = next;
     if (this.#disposed) return;
@@ -359,16 +376,34 @@ export class Autosave<P extends Pattern = ChartPattern> {
     if (!storage || this.#backupHeld) return;
     const { ownerId, patternId } = this.#deps;
     if (!isValidOwnerId(ownerId)) return; // sin dueña conocida no se respalda
+    if (isSigningOut()) return; // T20-M2: cerrando sesión, nada se respalda
     const backup: LocalBackup = { v: 2, ownerId, baseUpdatedAt: this.#updatedAt, savedAt: this.#deps.now(), document: doc };
-    if (this.#pendingText) backup.pendingText = this.#pendingText;
+    // T20-B6: el texto sin leer tiene tope propio; si no cabe se quita primero él y se conserva el documento.
+    const pending = this.#pendingText;
+    const pendingFits = pending !== null && pendingTextSize(pending) <= MAX_PENDING_TOTAL;
+    if (pending && pendingFits) backup.pendingText = pending;
     try {
-      const text = JSON.stringify(backup);
-      // Un respaldo que no se podría leer de vuelta no se escribe (y no se deja uno viejo que lo contradiga).
+      let text = JSON.stringify(backup);
+      let dropped = pending !== null && !pendingFits;
+      if (text.length > MAX_BACKUP_CHARS && backup.pendingText) {
+        delete backup.pendingText;
+        text = JSON.stringify(backup);
+        dropped = true;
+      }
+      this.#setPendingDropped(dropped);
+      // Solo si ni el documento solo cabe (no debería pasar: el servidor lo rechaza antes) se quita el respaldo: uno que
+      // no se podría leer de vuelta no se escribe, y no se deja uno viejo que lo contradiga.
       if (text.length > MAX_BACKUP_CHARS) storage.removeItem(backupKey(ownerId, patternId));
       else storage.setItem(backupKey(ownerId, patternId), text);
     } catch {
       /* cuota llena o modo privado: el respaldo es solo una red de seguridad */
     }
+  }
+
+  #setPendingDropped(v: boolean): void {
+    if (this.#pendingDropped === v) return;
+    this.#pendingDropped = v;
+    for (const l of [...this.#noticeListeners]) l();
   }
 
   #clearPendingTimer(): void {

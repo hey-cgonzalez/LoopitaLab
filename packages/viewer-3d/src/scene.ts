@@ -9,7 +9,7 @@
  * - **Posiciones**: `FreeAt` en el mundo; `SurfaceAt` con `surfaceFrame` del anfitrión; las
  *   copias sin posición, en fila sobre +x, separadas, en el orden de `parts`.
  */
-import { LIMITS, partProfile, type Part, type PartProfile, type Placement, type ShapeMetrics, type SurfaceAt } from "@loopitalab/pattern-core";
+import { LIMITS, exceedsExpansionLimits, partExpansionWork, partProfile, type Part, type PartProfile, type Placement, type ShapeMetrics, type SurfaceAt } from "@loopitalab/pattern-core";
 import { surfaceFrame } from "./frame.ts";
 import { basis, eulerXYZ, finiteOr, identity, multiply, rotationX, rotationY, rotationZ, transformPoint, translation, type Mat4 } from "./mat4.ts";
 import { buildPartMesh, colorizePartMesh, reusedRoundsOf, shapeSignature } from "./mesh.ts";
@@ -25,7 +25,12 @@ interface Entry {
   signature: string | null;
   profile: PartProfile;
   mesh: PartMesh;
+  /** true si la parte pasa los topes de expansión y se armó vacía (T20-A1). */
+  tooLarge: boolean;
 }
+
+/** Firma de una parte armada vacía: nunca coincide con la de una parte real, así que no se recolorea. */
+const TOO_LARGE_SIGNATURE = "\u0000too-large";
 
 const STATE = new WeakMap<SceneCache, Map<string, Entry>>();
 
@@ -61,27 +66,46 @@ export function buildScene(input: SceneInput): SceneResult {
   const assumed: string[] = [];
 
   // 1. Una malla por parte (con caché).
+  // Defensa ante la bomba de expansión (T20-A1): una parte que pasa los topes del validador
+  // (trabajo de una vuelta sobre `maxRoundStitches`, o el del documento sobre
+  // `maxExpansionWork`) se arma vacía y con un aviso. Un documento `savable` nunca llega aquí;
+  // un documento dañado, hostil o sin validar no cuelga la vista. Cuesta lo que el texto.
+  let budget: number = LIMITS.maxExpansionWork;
   const entries: Entry[] = parts.map((part) => {
     const metrics = input.metrics(part);
     if (metrics?.assumed) assumed.push(part.id);
     const mKey = metricsKey(metrics);
     const duplicate = next.has(part.id);
     const old = duplicate ? undefined : previous?.get(part.id);
+    const work = partExpansionWork(part);
+    const tooLarge = exceedsExpansionLimits(part) || !(work <= budget);
+    if (!tooLarge) budget -= work;
     let entry: Entry;
-    if (old && old.part === part && old.metricsKey === mKey && old.yarnKey === yarnKey) {
+    if (tooLarge) {
+      const empty: Part = { ...part, rounds: [] };
+      const profile = partProfile(empty, metrics);
+      entry = { part, metricsKey: mKey, yarnKey, signature: TOO_LARGE_SIGNATURE, profile, mesh: buildPartMesh(empty, yarnIds, profile), tooLarge };
+      updates.push({ partId: part.id, kind: "built", reusedRounds: 0 });
+      notes.push({
+        code: "PART_TOO_LARGE",
+        message: `${part.name}: sus repeticiones se despliegan en más pasos de los que el motor acepta, así que el 3D no la dibuja. La revisión del patrón indica qué vuelta cambiar.`,
+        partId: part.id,
+        data: { work, max: LIMITS.maxExpansionWork },
+      });
+    } else if (old && !old.tooLarge && old.part === part && old.metricsKey === mKey && old.yarnKey === yarnKey) {
       entry = old;
       updates.push({ partId: part.id, kind: "kept" });
     } else {
       const signature = shapeSignature(part);
       if (old && old.metricsKey === mKey && (old.signature ?? shapeSignature(old.part)) === signature) {
         const range = colorizePartMesh(old.mesh, part, yarnIds);
-        entry = { part, metricsKey: mKey, yarnKey, signature, profile: old.profile, mesh: old.mesh };
+        entry = { part, metricsKey: mKey, yarnKey, signature, profile: old.profile, mesh: old.mesh, tooLarge: false };
         updates.push({ partId: part.id, kind: "recolored", from: range.from, to: range.to });
       } else {
         const profile = partProfile(part, metrics);
         const reuse = old && old.metricsKey === mKey ? { reuse: { mesh: old.mesh, fromRound: Number.MAX_SAFE_INTEGER } } : {};
         const mesh = buildPartMesh(part, yarnIds, profile, reuse);
-        entry = { part, metricsKey: mKey, yarnKey, signature, profile, mesh };
+        entry = { part, metricsKey: mKey, yarnKey, signature, profile, mesh, tooLarge: false };
         updates.push({ partId: part.id, kind: "built", reusedRounds: reusedRoundsOf(mesh) });
       }
     }
@@ -90,7 +114,7 @@ export function buildScene(input: SceneInput): SceneResult {
     return entry;
   });
   if (assumed.length > 0) {
-    notes.unshift({ code: "GAUGE_ASSUMED", message: "Las medidas y la forma usan una muestra supuesta. Teje una muestra con tu lana y tu aguja para comprobarlas.", data: { partIds: assumed } });
+    notes.unshift({ code: "GAUGE_ASSUMED", message: "Las medidas y la forma usan una muestra supuesta. Teje una muestra con tu lana y tu ganchillo para comprobarlas.", data: { partIds: assumed } });
   }
 
   // 2. Una ranura por copia, con su posición del documento si la tiene.
@@ -200,6 +224,40 @@ function worldMaxX(m: Mat4, mesh: PartMesh): number {
 
 const STRAIN_EPS = 1e-9;
 
+/** Cierre de `SHAPE_RUFFLES` y `SHAPE_GATHERS` (F4-77, F4-78; T21, C4): un cierre habitual (`dism x9` sobre 18) no es un error. */
+export const SHAPE_INTENDED = "Si es lo que buscas (volante, pétalo, remate), ignora este aviso.";
+
+/** Cuántos tramos se nombran como máximo; el resto se resume ("y 3 tramos más"). */
+const MAX_ZONE_RUNS = 4;
+
+/**
+ * Zona de un aviso de forma, a partir de las vueltas con aviso (T21, C4). Agrupa en tramos
+ * contiguos para no incluir vueltas sin aviso:
+ * - [4] → "en la vuelta 4";
+ * - [3, 4, 5] → "entre la vuelta 3 y la 5";
+ * - [3, 5] → "en las vueltas 3 y 5";
+ * - [2, 3, 4, 7, 9, 10] → "en las vueltas 2 a 4, 7 y 9 a 10".
+ * Vueltas repetidas o desordenadas (un rango escrito dos veces) se ordenan y se cuentan una vez.
+ */
+export function roundsZone(rounds: readonly number[]): string {
+  const sorted = [...new Set(rounds)].sort((a, b) => a - b);
+  if (sorted.length === 0) return "";
+  const runs: Array<[number, number]> = [];
+  for (const r of sorted) {
+    const last = runs[runs.length - 1];
+    if (last && r === last[1] + 1) last[1] = r;
+    else runs.push([r, r]);
+  }
+  if (runs.length === 1) {
+    const [a, b] = runs[0]!;
+    return a === b ? `en la vuelta ${a}` : `entre la vuelta ${a} y la ${b}`;
+  }
+  const shown = runs.slice(0, MAX_ZONE_RUNS).map(([a, b]) => (a === b ? `${a}` : `${a} a ${b}`));
+  const rest = runs.length - shown.length;
+  if (rest > 0) return `en las vueltas ${shown.join(", ")} y ${rest === 1 ? "1 tramo más" : `${rest} tramos más`}`;
+  return `en las vueltas ${shown.slice(0, -1).join(", ")} y ${shown[shown.length - 1]}`;
+}
+
 function strainNotes(part: Part, profile: Extract<PartProfile, { kind: "revolution" }>, notes: SceneNote[]): void {
   const ruffled: number[] = [];
   const gathered: number[] = [];
@@ -207,13 +265,12 @@ function strainNotes(part: Part, profile: Extract<PartProfile, { kind: "revoluti
     if (ring.strain > 1 + STRAIN_EPS) ruffled.push(ring.round);
     else if (ring.strain < 1 - STRAIN_EPS) gathered.push(ring.round);
   }
-  // Una sola frase por zona (T18): el detalle vuelta por vuelta lo da el validador del patrón, y esta nota no lo repite.
-  // Textos de las notas del 3D: validar con tejedora (T1b, sección "Textos de T18").
-  const zone = (r: number[]) => (r[0] === r[r.length - 1] ? `en la vuelta ${r[0]}` : `entre la vuelta ${r[0]} y la ${r[r.length - 1]}`);
+  // Una sola frase por aviso (T18): el detalle vuelta por vuelta lo da el validador del patrón, y esta nota no lo repite.
+  // Las vueltas se agrupan en tramos contiguos (T21, C4). Textos de las notas del 3D: validar con tejedora (T1b, sección "Textos de T18").
   if (ruffled.length > 0) {
-    notes.push({ code: "SHAPE_RUFFLES", message: `${part.name}, ${zone(ruffled)}: la pieza aumenta más de lo que la tela puede abrir en plano. El 3D la dibuja lisa; tejida, puede ondularse. Las vueltas con aviso están en la revisión del patrón.`, partId: part.id, data: { rounds: ruffled } });
+    notes.push({ code: "SHAPE_RUFFLES", message: `${part.name}, ${roundsZone(ruffled)}: la pieza aumenta más de lo que la tela puede abrir en plano. El 3D la dibuja lisa; tejida, puede ondularse. Las vueltas con aviso están en la revisión del patrón. ${SHAPE_INTENDED}`, partId: part.id, data: { rounds: ruffled } });
   }
   if (gathered.length > 0) {
-    notes.push({ code: "SHAPE_GATHERS", message: `${part.name}, ${zone(gathered)}: la pieza disminuye más de lo que puede cerrarse en curva. El 3D la dibuja lisa; tejida, puede fruncirse. Las vueltas con aviso están en la revisión del patrón.`, partId: part.id, data: { rounds: gathered } });
+    notes.push({ code: "SHAPE_GATHERS", message: `${part.name}, ${roundsZone(gathered)}: la pieza disminuye más de lo que puede cerrarse en curva. El 3D la dibuja lisa; tejida, puede fruncirse. Las vueltas con aviso están en la revisión del patrón. ${SHAPE_INTENDED}`, partId: part.id, data: { rounds: gathered } });
   }
 }

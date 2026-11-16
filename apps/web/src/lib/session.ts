@@ -4,7 +4,6 @@ import { weightLabel } from "@/lib/yarn";
 
 export interface Profile {
   display_name: string | null;
-  terminology: "es" | "us" | "uk";
   units: "metric" | "imperial";
   dominant_hand: "right" | "left";
   mirror_knitting: boolean;
@@ -28,7 +27,7 @@ export async function requireUser(nextPath: string) {
   // no se inventa un false que luego se guardaría encima del valor real (QA F1).
   const full = await supabase
     .from("profiles")
-    .select("display_name, terminology, units, dominant_hand, mirror_knitting")
+    .select("display_name, units, dominant_hand, mirror_knitting")
     .eq("id", user.id)
     .maybeSingle<Profile>();
   let profile: Profile | null = full.data;
@@ -36,7 +35,7 @@ export async function requireUser(nextPath: string) {
     if (isMissingColumn(full.error)) {
       const base = await supabase
         .from("profiles")
-        .select("display_name, terminology, units, dominant_hand")
+        .select("display_name, units, dominant_hand")
         .eq("id", user.id)
         .maybeSingle<Omit<Profile, "mirror_knitting">>();
       if (base.error) console.error("perfil: no se pudo releer sin mirror_knitting", base.error.code ?? "sin código");

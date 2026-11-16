@@ -16,8 +16,8 @@
  * Con un desajuste de consumo (borradores), las posiciones de abajo se reparten en proporción
  * a lo consumido: la malla siempre cierra y el validador informa el error.
  */
-import { STITCHES, concreteRounds, expandRound, type ExpandedStitch, type Item, type Part, type PartProfile, type Round } from "@loopitalab/pattern-core";
-import { TWO_PI, panelGeometry, panelX, revolutionGeometry, ringZ, type PanelGeometry, type RingGeometry } from "./geometry.ts";
+import { STITCHES, concreteRounds, exceedsExpansionLimits, expandRound, type ConcreteRound, type ExpandedStitch, type Item, type Part, type PartProfile, type Round } from "@loopitalab/pattern-core";
+import { panelGeometry, panelX, revolutionGeometry, ringPoint, ringTurn, type PanelGeometry, type RingGeometry, type RingPoint } from "./geometry.ts";
 import { LOOP_BACK, LOOP_BOTH, LOOP_FRONT, type PartMesh, type PartMeshOptions, type Vec3 } from "./types.ts";
 
 // ------------------------------------------------------------------ topología
@@ -144,12 +144,37 @@ interface RoundPlan {
 }
 
 /**
+ * Vueltas concretas de la parte, o ninguna si pasa los topes de expansión del motor (T20-A1:
+ * un documento `savable` nunca los pasa). Defensa para quien llame sin validar.
+ */
+function drawableRounds(part: Part): ConcreteRound[] {
+  return exceedsExpansionLimits(part) ? [] : concreteRounds(part);
+}
+
+/**
+ * Puntos expandidos de cada vuelta concreta. Una vuelta escrita se expande a lo más una vez
+ * por lana inicial (dos en un rango: la primera vuelta y el resto, T20-M1); las vueltas de un
+ * rango que empiezan con la misma lana comparten la lista, que es de solo lectura.
+ */
+function expandConcrete(concrete: readonly ConcreteRound[]): ExpandedStitch[][] {
+  const cache = new Map<Round, Map<string, ExpandedStitch[]>>();
+  return concrete.map((c) => {
+    let byYarn = cache.get(c.round);
+    if (!byYarn) cache.set(c.round, (byYarn = new Map()));
+    let stitches = byYarn.get(c.startYarn);
+    if (!stitches) byYarn.set(c.startYarn, (stitches = expandRound(c.round, c.startYarn).stitches));
+    return stitches;
+  });
+}
+
+/**
  * Malla de una parte a partir de su perfil (`partProfile` de `pattern-core`). Funciona con todo
  * documento `savable`, también con vueltas que no cuadran, y nunca lanza (G10).
  */
 export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: PartProfile, opts: PartMeshOptions = {}): PartMesh {
-  const concrete = concreteRounds(part);
-  const plans: RoundPlan[] = concrete.map((c) => ({ stitches: expandRound(c.round, c.startYarn).stitches, consumed: c.count.consumed, produced: c.count.produced }));
+  const concrete = drawableRounds(part);
+  const expanded = expandConcrete(concrete);
+  const plans: RoundPlan[] = concrete.map((c, i) => ({ stitches: expanded[i]!, consumed: c.count.consumed, produced: c.count.produced }));
   const R = plans.length;
 
   // Corte (fase 6): en `roundStart[roundsDone] + stitchesDone`, en puntos producidos.
@@ -286,23 +311,22 @@ export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: P
   let global = roundStart[firstRound]!;
   const ringLast = rg ? rg.count - 1 : pg!.count - 1;
 
+  const scratch: RingPoint = { r: 0, angle: 0, z: 0, nr: 0, nz: 0 };
   const putRing = (j: number, f: number, u: number, w: number, y: number, lp: number): number => {
     const k3 = v * 3;
     if (ringLast < 0) {
       normals[k3 + 2] = 1;
     } else {
       const jj = j > ringLast ? ringLast : j;
-      const g = rg!;
-      const angle = TWO_PI * (f + (ringPhase[j] ?? 0));
-      const cs = Math.cos(angle);
-      const sn = Math.sin(angle);
-      const r = g.r[jj]!;
-      positions[k3] = r * cs;
-      positions[k3 + 1] = r * sn;
-      positions[k3 + 2] = ringZ(g, jj, f);
-      normals[k3] = g.nr[jj]! * cs;
-      normals[k3 + 1] = g.nr[jj]! * sn;
-      normals[k3 + 2] = g.nz[jj]!;
+      const p = ringPoint(rg!, ringPhase, jj, f, scratch);
+      const cs = Math.cos(p.angle);
+      const sn = Math.sin(p.angle);
+      positions[k3] = p.r * cs;
+      positions[k3 + 1] = p.r * sn;
+      positions[k3 + 2] = p.z;
+      normals[k3] = p.nr * cs;
+      normals[k3 + 1] = p.nr * sn;
+      normals[k3 + 2] = p.nz;
     }
     uvs[v * 2] = u;
     uvs[v * 2 + 1] = w;
@@ -373,8 +397,34 @@ export function buildPartMesh(part: Part, yarnIds: readonly string[], profile: P
         }
         const t0 = revolution ? putRing(c + 1, tf0, 0, 1, y, lp) : putRow(c, 1, tf0, 0, 1, y, lp);
         const t1 = revolution ? putRing(c + 1, tf1, 1, 1, y, lp) : putRow(c, 1, tf1, 1, 1, y, lp);
-        // Abanico desde el vértice de arriba a la izquierda (antihorario visto desde afuera).
+        // Abanico (antihorario visto desde afuera) desde el vértice de arriba a la izquierda, o desde el de la
+        // derecha si la base del punto quedó corrida hacia adelante respecto del tope (aumentos o disminuciones
+        // juntos, T21): así la diagonal es la corta y el triángulo largo no se da vuelta. Mismos triángulos por punto.
         const m = t0 - base - 1;
+        if (revolution && ringLast >= 0 && m >= 0) {
+          const jb = c > ringLast ? ringLast : c;
+          const jt = c + 1 > ringLast ? ringLast : c + 1;
+          const fb = a > 0 && C > 0 ? (lo + hi) / 2 / C : (tf0 + tf1) / 2;
+          let shear = ringTurn(rg!, ringPhase, jb, fb) - ringTurn(rg!, ringPhase, jt, (tf0 + tf1) / 2);
+          shear -= Math.round(shear);
+          if (shear > 0) {
+            indices[ix] = t1;
+            indices[ix + 1] = t0;
+            indices[ix + 2] = base;
+            faceStitch[ix / 3] = global;
+            ix += 3;
+            for (let k = 0; k < m; k++) {
+              indices[ix] = t1;
+              indices[ix + 1] = base + k;
+              indices[ix + 2] = base + k + 1;
+              faceStitch[ix / 3] = global;
+              ix += 3;
+            }
+            global++;
+            local++;
+            continue;
+          }
+        }
         for (let k = 0; k <= m; k++) {
           const p = base + k;
           const q = k < m ? base + k + 1 : t1;
@@ -442,11 +492,11 @@ export function colorizePartMesh(mesh: PartMesh, part: Part, yarnIds: readonly s
   let to = 0;
   let g = 0;
   let v = 0;
-  const concrete = concreteRounds(part);
+  const concrete = drawableRounds(part);
   const rounds = Math.min(concrete.length, mesh.roundStart.length - 1);
+  const expanded = expandConcrete(concrete.slice(0, rounds));
   done: for (let c = 0; c < rounds; c++) {
-    const cr = concrete[c]!;
-    for (const s of expandRound(cr.round, cr.startYarn).stitches) {
+    for (const s of expanded[c]!) {
       if (!hasStitch(s.stitch)) continue;
       const { consumes: a, produces: b } = STITCHES[s.stitch];
       const y = yarnOf(s.yarn);

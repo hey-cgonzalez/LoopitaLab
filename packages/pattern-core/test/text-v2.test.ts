@@ -166,6 +166,7 @@ describe("comentarios # (CA4-E5)", () => {
 
 describe('encabezado "Cantidad" (C-14, F4-61)', () => {
   it('escribe "Cantidad: N" solo si N > 1 y lee "Hacer", "Piezas" y "Tejer", con o sin dos puntos', () => {
+    // validar con tejedora: "Cantidad: 2" es la propuesta del ADR 0011; "Hacer 2" es lo más usual (F4-61).
     for (const line of ["Cantidad: 2", "cantidad 2", "Hacer 2", "Hacer: 2", "HACER:2", "Piezas 2", "Piezas: 2", "Tejer 2", "Tejer: 2", "Make 2"]) {
       const p = okPart(`${line}\nV1: 6 pb`);
       assert.equal(p.copies, 2, line);
@@ -436,6 +437,17 @@ describe("dialectos y modos de lectura (ADR 0011, sección 8; C-15, C-16; CA4-G2
     assert.equal(formatRound(r, "uk"), "R1: 3 ss");
   });
 
+  it("T21 (C6): invdec, sk y skip se leen igual en es-us y es-uk; UK sigue escribiendo miss", () => {
+    for (const [t, code] of [["invdec", "dec"], ["sk", "sk"], ["skip", "sk"]] as const) {
+      assert.equal(lookupStitch(t, "es-us"), code, t);
+      assert.equal(lookupStitch(t, "es-uk"), code, t);
+    }
+    const r: Round = { number: 1, items: [{ type: "stitch", stitch: "sk", count: 2 }, { type: "stitch", stitch: "dec", count: 3 }] };
+    assert.equal(formatRound(r, "uk"), "R1: 2 miss, 3 dec");
+    assert.deepEqual(okRound("R1: 2 skip, 3 invdec", "es-uk"), r);
+    assert.deepEqual(okRound("R1: 2 sk, 3 invdec", "es-uk"), okRound("R1: 2 sk, 3 invdec", "es-us"));
+  });
+
   it("F4-67 / RT5: en cada modo, ningún alias corresponde a dos puntos (ni a punto y hebra)", () => {
     for (const mode of READING_MODES) {
       const seen = new Map<string, string>();
@@ -471,6 +483,7 @@ describe("dialectos y modos de lectura (ADR 0011, sección 8; C-15, C-16; CA4-G2
   });
 
   it("F4-69: sin variantes regionales del español sin respaldo (medio punto, pma, punto raso, pr, punto bajísimo)", () => {
+    // validar con tejedora: no se agregan alias regionales hasta que T1b los respalde.
     for (const mode of READING_MODES) {
       for (const t of ["medio punto", "pma", "punto raso", "pr", "punto pasado", "punto bajisimo", "punto bajísimo", "p bjs", "pbjs"]) {
         assert.equal(lookupStitch(t, mode), undefined, `${mode}: ${t}`);

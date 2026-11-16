@@ -3,7 +3,7 @@
  * `SurfaceAt`). Usa la misma geometría que `buildPartMesh`, así que el ancla cae sobre la malla.
  */
 import type { PartProfile } from "@loopitalab/pattern-core";
-import { TWO_PI, panelGeometry, panelX, revolutionGeometry, ringZ } from "./geometry.ts";
+import { panelGeometry, panelX, revolutionGeometry, ringPoint } from "./geometry.ts";
 import type { Frame, PartMesh, Vec3 } from "./types.ts";
 
 /** Índice del anillo o fila con ese número visible; si no existe, el más cercano (acotado). */
@@ -62,21 +62,26 @@ export function surfaceFrame(profile: PartProfile, round: number, stitch: number
   const n = rings[j]!.stitches;
   const s = pickStitch(stitch, n);
   const f = n > 0 ? (s.stitch + 0.5) / n : 0;
-  const phase = opts?.mesh?.ringPhase?.[j];
-  const angle = TWO_PI * (f + (typeof phase === "number" && Number.isFinite(phase) ? phase : 0));
+  // La misma hélice que la malla (`ringPoint`): en espiral, radio, altura y giro van del anillo anterior al suyo.
+  // El ángulo es el del centro del borde de arriba del punto en la malla (promedio de sus dos vértices de
+  // tope): en espiral el radio cambia a lo largo de la vuelta y ese centro no cae justo en el ángulo de `f`.
+  const phase = opts?.mesh?.ringPhase;
+  const p = ringPoint(g, phase, j, f);
+  const a = n > 0 ? ringPoint(g, phase, j, s.stitch / n) : p;
+  const b = n > 0 ? ringPoint(g, phase, j, (s.stitch + 1) / n) : p;
+  const mx = a.r * Math.cos(a.angle) + b.r * Math.cos(b.angle);
+  const my = a.r * Math.sin(a.angle) + b.r * Math.sin(b.angle);
+  const angle = Math.hypot(mx, my) > 1e-12 ? Math.atan2(my, mx) : p.angle;
   const cs = Math.cos(angle);
   const sn = Math.sin(angle);
-  const r = g.r[j]!;
-  const nr = g.nr[j]!;
-  const nz = g.nz[j]!;
   // Meridiano: la tangente del perfil (nz, −nr rotada) hacia las vueltas siguientes.
-  const mr = -nz;
-  const mz = nr;
-  const normal: Vec3 = [nr * cs, nr * sn, nz];
+  const mr = -p.nz;
+  const mz = p.nr;
+  const normal: Vec3 = [p.nr * cs, p.nr * sn, p.nz];
   const tangent: Vec3 = [-sn, cs, 0];
   const meridian: Vec3 = [mr * cs, mr * sn, mz];
   return {
-    position: [r * cs, r * sn, ringZ(g, j, f)],
+    position: [p.r * cs, p.r * sn, p.z],
     normal,
     tangent,
     meridian,

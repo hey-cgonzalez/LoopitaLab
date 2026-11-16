@@ -82,8 +82,8 @@ export function LimitsMeter({ limits }: { limits: LimitSummary }) {
  * Diálogo "Seguir igual" o "Cancelar" al superar un límite recomendado con una acción puntual (ADR 0011, sección 3b).
  * `<dialog>` modal: lleva el foco adentro, Esc cancela y el foco vuelve a donde estaba.
  */
-export function LimitDialog({ usage, onConfirm, onCancel }: { usage: LimitUsage | null; onConfirm(): void; onCancel(): void }) {
-  const ref = useModalDialog(usage !== null);
+export function LimitDialog({ usages, onConfirm, onCancel }: { usages: readonly LimitUsage[] | null; onConfirm(): void; onCancel(): void }) {
+  const ref = useModalDialog(usages !== null && usages.length > 0);
   const uid = useId();
   return (
     <dialog
@@ -97,13 +97,13 @@ export function LimitDialog({ usage, onConfirm, onCancel }: { usage: LimitUsage 
       className="m-auto max-w-md rounded-2xl border-2 border-marino bg-superficie p-5 backdrop:bg-black/40"
       data-testid="limit-dialog"
     >
-      {usage ? (
+      {usages && usages.length > 0 ? (
         <div className="grid gap-4">
           <h2 id={`${uid}-t`} className="font-display text-lg font-bold">
             {T.dialogoTitulo}
           </h2>
-          <p id={`${uid}-d`} data-limit={usage.limit}>
-            {T.dialogo(usage.limit, usage.value)}
+          <p id={`${uid}-d`} data-limit={usages.map((u) => u.limit).join(" ")}>
+            {T.dialogoVarios(usages)}
           </p>
           <div className="flex flex-wrap justify-end gap-2">
             <button type="button" onClick={onCancel} className="rounded-full border-2 border-marino px-4 py-1.5 font-bold hover:bg-marino hover:text-white" data-dialog-initial data-testid="limit-cancel">

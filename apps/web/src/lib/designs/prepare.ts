@@ -8,6 +8,9 @@ import { MAX_DOCUMENT_BYTES } from "./limits.ts";
 /** Tope del documento serializado (ver `limits.ts`; también lo usa el respaldo local del navegador). */
 export { MAX_DOCUMENT_BYTES };
 
+/** Tope de errores que `prepareDocument` devuelve al cliente (T20-B5): un documento hostil no debe inflar la respuesta. */
+export const MAX_RETURNED_ISSUES = 100;
+
 /** Etiqueta de una versión, igual que `pattern_versions.label`. */
 export const MAX_VERSION_LABEL = 80;
 
@@ -47,11 +50,11 @@ export function prepareDocument(raw: unknown): Prepared {
   if (bytes > MAX_DOCUMENT_BYTES) return failure("TOO_LARGE");
 
   const migrated = migratePattern(raw);
-  if (!migrated.ok) return failure("NOT_SAVABLE", { issues: migrated.issues });
+  if (!migrated.ok) return failure("NOT_SAVABLE", { issues: migrated.issues.slice(0, MAX_RETURNED_ISSUES) });
 
   const result = validatePattern(migrated.document);
   if (!result.savable) {
-    return failure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error") });
+    return failure("NOT_SAVABLE", { issues: result.issues.filter((i) => i.severity === "error").slice(0, MAX_RETURNED_ISSUES) });
   }
   return { ok: true, document: migrated.document as Pattern, valid: result.valid, issues: result.issues };
 }

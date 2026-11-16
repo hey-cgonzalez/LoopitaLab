@@ -22,7 +22,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     if (r.code === "NOT_FOUND") notFound();
     return (
       <>
-        <AppHeader name={name} />
+        <AppHeader name={name} ownerId={user.id} />
         <main className="mx-auto grid max-w-3xl gap-4 px-6 py-10">
           <h1 className="font-display text-3xl font-bold tracking-tight">{PROJECT_TEXTS.tejiendo.noSePudoAbrir}</h1>
           <p className="text-tinta-suave">{r.code === "NOT_SAVABLE" ? PROJECT_TEXTS.proyectos.noSavable : r.error}</p>
@@ -45,7 +45,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
-      <AppHeader name={name} wide />
+      <AppHeader name={name} ownerId={user.id} wide />
       <KnitScreen
         project={r.project}
         document={r.document}

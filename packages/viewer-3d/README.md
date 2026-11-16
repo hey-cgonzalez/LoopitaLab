@@ -51,10 +51,10 @@ Se recorre `expandRound` de cada vuelta concreta con un cursor sobre lo consumid
 | `sk` | 1 → 0 | Sin geometría: deja un hueco (F4-28) |
 
 - **Desajuste de consumo** (borradores): las posiciones de abajo se reparten en proporción a lo consumido. La malla siempre cierra; el validador informa el error.
-- **Espiral**: el anillo es una hélice continua que sube `Δz × k / n` dentro de la vuelta. **Vueltas unidas**: anillos planos. Mismos conteos y mismo perfil en las dos (F4-10).
-- **Giro por anillo** (`ringPhase`): cada anillo gira lo necesario para que, en promedio, la base y el tope de los puntos de la vuelta queden alineados. Sin eso, una vuelta con los aumentos juntos ("aum x5, 8 pb", fixture B) se tuerce: el 1,6 % del área del fixture B quedaba invertida, y con el giro queda en 5·10⁻⁶. Como en la tela, el inicio de vuelta se corre.
+- **Espiral**: el anillo es una hélice continua que sube `Δz × k / n` dentro de la vuelta. Desde la V2 también el radio, el giro y la normal van del anillo anterior al suyo (`ringPoint`, T21), así que el final de cada vuelta se toca con el inicio de la siguiente. Antes solo subía la altura: en la línea de inicio de vuelta quedaba una ranura de ancho |Δr| por vuelta (1 cm en el fixture B), que en el cierre de la esfera se veía como una "lengüeta" plana. **Vueltas unidas**: anillos planos. Mismos conteos y mismo perfil en las dos (F4-10).
+- **Giro por anillo** (`ringPhase`): cada anillo gira lo necesario para que, en promedio, la base y el tope de los puntos de la vuelta queden alineados. Sin eso, una vuelta con los aumentos juntos ("aum x5, 8 pb", fixture B) se tuerce: el 1,6 % del área del fixture B quedaba invertida, y con el giro queda en 5·10⁻⁶. Como en la tela, el inicio de vuelta se corre. El abanico de cada punto parte del vértice de arriba a la izquierda, o del de la derecha si la base quedó corrida hacia adelante (T21): con eso no queda área invertida en los fixtures A y B.
 - **Hebra trasera o delantera**: no cambia la forma (C-7). `loop` la marca por vértice para que el backend dibuje la línea de borde en el relieve.
-- **Remate**: la última vuelta queda abierta. Sin relleno ni óvalo (C-13).
+- **Remate**: la última vuelta queda abierta (F4-35: el cierre va en `finish`, que la malla no dibuja). En espiral es una rampa que sube del anillo anterior al suyo y termina en un escalón del alto de esa vuelta. Sin relleno ni óvalo (C-13).
 - **Hileras**: panel en el plano x–z que mira hacia −y. Las filas impares (índice 0-based) van de derecha a izquierda, para que el color quede donde se tejió. La base de la fila 1 es la propia fila 1.
 
 ## Escena
@@ -65,7 +65,9 @@ Se recorre `expandRound` de cada vuelta concreta con un cursor sobre lo consumid
   - `SurfaceAt`: `anfitrión · T(posición + normal × offsetCm) · [tangente, meridiano, normal] · giro · unión`. El giro `rotationDeg` es `[sobre la normal, sobre la tangente, sobre el meridiano]`, aplicado en ese orden. Con `attach: "start"`, el inicio de la parte va en el ancla y la pieza crece por la normal. Con `"end"`, el borde abierto (centro de la última vuelta) va en el ancla y la pieza sale hacia afuera.
   - Sin posición: en fila sobre +x, en el orden de `parts` y de las copias, separadas por `AUTO_PLACEMENT_GAP_CM`, a la derecha de las piezas libres.
   - Anclas que no se resuelven (anfitrión inexistente, ciclo o cadena de más de `LIMITS.maxLayoutDepth`; solo en documentos que no son `savable`): ubicación automática y aviso.
-- **Avisos** (`notes`, nunca errores): `ANCHOR_CLAMPED`, `ANCHOR_UNRESOLVED`, `GAUGE_ASSUMED`, `SHAPE_RUFFLES` y `SHAPE_GATHERS` (anillos con `strain` distinto de 1). Mensajes provisionales; la redacción final es de `documentador`.
+- **Avisos** (`notes`, nunca errores): `ANCHOR_CLAMPED`, `ANCHOR_UNRESOLVED`, `GAUGE_ASSUMED`, `SHAPE_RUFFLES`, `SHAPE_GATHERS` (anillos con `strain` distinto de 1) y `PART_TOO_LARGE`. En los de forma, la zona agrupa las vueltas en tramos contiguos (`roundsZone`: "entre la vuelta 3 y la 5", "en las vueltas 3 y 5") y el texto cierra con "Si es lo que buscas (volante, pétalo, remate), ignora este aviso." (T21, C4). Mensajes provisionales; la redacción final es de `documentador`.
+- **Topes de expansión** (T20-A1): una parte que pasa los topes del validador (`exceedsExpansionLimits`, o el trabajo acumulado del documento sobre `LIMITS.maxExpansionWork`) se arma **vacía** con el aviso `PART_TOO_LARGE`. Solo pasa con documentos que no son `savable` (dañados, hostiles o sin validar): la vista no se cuelga. Cuesta lo que el texto de la parte. Al corregirla se vuelve a armar (nunca se recolorea ni se conserva la malla vacía).
+- **Expansión** (T20-M1): `buildPartMesh` y `colorizePartMesh` expanden cada vuelta escrita a lo más una vez por lana inicial (dos en un rango); las vueltas de un rango comparten la lista de puntos.
 - `copies` se lee como en `recommendedLimitUsage` (omitido o inválido = 1), acotado a `LIMITS.maxCopies`.
 
 ## Backend `three` (`@loopitalab/viewer-3d/three`)
@@ -111,9 +113,11 @@ SEED=99999 node --test "test/**/*.test.ts"
 
 - `mesh.test.ts`: topología, F4-10, F4-28, C-7, hileras, borradores, `colorizePartMesh` y `shapeSignature`.
 - `property.test.ts`: G4 a G13 con los documentos v2 al azar del generador de `pattern-core` y muestras al azar. G12 exige que la copia del prefijo se aplique en al menos un cuarto de los casos.
-- `scene.test.ts`: F4-58, anclas, ubicación automática, caché (CA4-P6) y avisos.
+- `scene.test.ts`: F4-58, anclas, ubicación automática, caché (CA4-P6) y avisos (con C3 y C4 de T21: "ganchillo", zonas por tramos contiguos y "ignora este aviso").
+- `t21-espiral.test.ts`: hélice continua (sin ranura en la línea de inicio de vuelta), sin área invertida en los fixtures y borde de la última vuelta sin triángulos degenerados ni cruces, también con piezas redondas al azar.
 - `svg.test.ts`: siluetas.
 - `three.test.ts`: backend `three` sin GPU (política, capacidad, atributos en el lugar, tabla por lana, parche del material, relieve procedural, límites entre paquetes).
+- `t20-hostiles.test.ts`: `buildScene` con los documentos hostiles de la revisión T20 (`pattern-core/test/support/hostile.ts`) en menos de 50 ms (100 en CI; `T20_TIME_FACTOR`), `PART_TOO_LARGE` por parte y por documento, y "un rango da la misma malla que sus vueltas escritas una por una".
 - `perf.test.ts`: guardia CA4-P6. Falla si `partProfile`, `buildPartMesh` (fixture A) o `buildScene` (escenario de referencia, completa y con una parte editada) superan 3 veces la referencia (6 en CI; `VIEWER_3D_PERF_FACTOR` la cambia).
 
 ### Referencia de rendimiento (R4-19)
@@ -132,6 +136,7 @@ Medida el 2026-11-14 en un Apple M1 (8 núcleos, 8 GB) con Node 24.16. Son media
 - Superficie de revolución: un hocico o una barriga con aumentos de un solo lado se ven simétricos. No hay relleno ni aplanado, y una oreja "sin rellenar" se ve como un tubo abierto.
 - Vueltas con puntos de distinto alto no deforman el anillo (sección 1 del ADR).
 - `surfaceFrame` sin `{ mesh }` no conoce `ringPhase`: queda sobre la superficie, pero no necesariamente sobre el punto pedido. `buildScene` siempre pasa la malla del anfitrión.
-- Con un desajuste grande de consumo o con aumentos muy concentrados en vueltas empinadas, puede quedar alguna astilla de triángulo casi degenerada con la cara invertida (fixture B: 5·10⁻⁶ del área).
+- Con un desajuste grande de consumo, o con aumentos o disminuciones extremos (la tela ondula o frunce y el perfil se acota), la superficie de revolución se pliega y parte del área queda invertida. En los fixtures A y B no queda nada invertido.
+- La última vuelta abierta de un cierre de 6 puntos sube casi recta (el perfil de `pattern-core` mantiene el alto de la vuelta con poco cambio de radio): se ve como un cuello corto sobre el remate.
 - **Backend `three`**: `pick` devuelve la vuelta concreta (0-based), no el número visible; la aplicación lo traduce con `concreteRounds`. La captura (`snapshot`) dibuja el lienzo actual escalado (no un render a otra resolución). El resaltado cubre el rango de vértices de la vuelta. El costo con GPU real lo confirma T12 en el equipo de referencia.
 - `limit` es por parte. Armar una escena parcial (piezas terminadas, la actual a medias y las siguientes ocultas) queda para la fase 6.

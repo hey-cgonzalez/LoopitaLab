@@ -36,6 +36,17 @@ export interface DescribeWrittenOptions {
    * muestra del documento, no hay medidas (regla de oro 6).
    */
   assumedGauge?: AssumedGauge;
+  /**
+   * Muestra supuesta por parte (revisión T21, C1; BUG-QA4-1): la aplicación la deriva del
+   * grosor de la lana de la muestra de la parte (`gaugeWeightOf` de `pattern-core`: la lana
+   * inicial, o `yarns[0]`), con la misma regla que el validador (`ValidateOptions.assumedGaugeOf`)
+   * y la forma 3D. `index` es la posición de la parte en `parts`.
+   *
+   * Prioridad: la muestra del documento; después `assumedGaugeOf` (si devuelve una muestra
+   * válida para esa parte); después `assumedGauge`. Con `undefined`, una muestra inválida o
+   * una excepción, esa parte usa `assumedGauge` o queda sin medidas.
+   */
+  assumedGaugeOf?: (part: Part, index: number) => AssumedGauge | undefined;
   /** Incluir cada vuelta en el texto. Por omisión `true`. */
   includeRounds?: boolean;
 }
@@ -124,9 +135,30 @@ function copyLabel(name: string, copies: number, copy: number): string {
   return copies > 1 ? `${name} (${copy + 1} de ${copies})` : name;
 }
 
-function describeMeasures(part: Part, pattern: WrittenPattern, opts: DescribeWrittenOptions): WrittenMeasures {
+const positive = (v: unknown): boolean => typeof v === "number" && Number.isFinite(v) && v > 0;
+
+/** Muestra supuesta de la parte `index` (sin la del documento): `assumedGaugeOf`, después `assumedGauge`. */
+function assumedGaugeFor(part: Part, index: number, opts: DescribeWrittenOptions): AssumedGauge | undefined {
+  if (typeof opts.assumedGaugeOf === "function") {
+    try {
+      const g: unknown = opts.assumedGaugeOf(part, index);
+      if (typeof g === "object" && g !== null) {
+        const { stitchesPer10cm, rowsPer10cm, gaugeStitch } = g as Partial<AssumedGauge>;
+        if (positive(stitchesPer10cm) && positive(rowsPer10cm)) {
+          const st: GaugeStitch = gaugeStitch === "hdc" || gaugeStitch === "dc" || gaugeStitch === "tr" ? gaugeStitch : "sc";
+          return { stitchesPer10cm: stitchesPer10cm as number, rowsPer10cm: rowsPer10cm as number, gaugeStitch: st };
+        }
+      }
+    } catch {
+      // Una opción que falla equivale a no darla: se describe igual.
+    }
+  }
+  return opts.assumedGauge;
+}
+
+function describeMeasures(part: Part, index: number, pattern: WrittenPattern, opts: DescribeWrittenOptions): WrittenMeasures {
   const doc = pattern.gauge;
-  const assumed = !doc && opts.assumedGauge ? opts.assumedGauge : undefined;
+  const assumed = !doc ? assumedGaugeFor(part, index, opts) : undefined;
   const gauge = doc ?? assumed;
   if (!gauge) {
     return { status: "missing", text: "Sin muestra: no se pueden dar medidas en cm. Indica la muestra para verlas." };
@@ -173,7 +205,7 @@ function describePart(part: Part, index: number, pattern: WrittenPattern, opts: 
     if (r.round.expected !== undefined) out.expected = r.round.expected;
     return out;
   });
-  const measures = describeMeasures(part, pattern, opts);
+  const measures = describeMeasures(part, index, pattern, opts);
   const copyLabels = Array.from({ length: copies }, (_, i) => copyLabel(name, copies, i));
   const word = part.construction === "flat" ? ["hilera", "hileras"] : ["vuelta", "vueltas"];
   const lines = [
@@ -245,8 +277,9 @@ export function describeWritten(pattern: WrittenPattern, options: DescribeWritte
     if (!validatePattern(pattern).savable) {
       return empty("No se puede describir el patrón: el documento tiene errores que impiden leerlo. Corrígelos en el editor.");
     }
-    const gaugeStatus = pattern.gauge ? "document" : opts.assumedGauge ? "assumed" : "missing";
     const parts = pattern.parts.map((p, i) => describePart(p, i, pattern, opts, dialect));
+    // "assumed" si hay una muestra supuesta global o si alguna parte tuvo la suya (`assumedGaugeOf`).
+    const gaugeStatus = pattern.gauge ? "document" : opts.assumedGauge || parts.some((p) => p.measures.status === "assumed") ? "assumed" : "missing";
     const placements: WrittenPlacementDescription[] = [];
     const layout = pattern.layout?.placements ?? [];
     for (const [i, part] of pattern.parts.entries()) {
@@ -266,7 +299,7 @@ export function describeWritten(pattern: WrittenPattern, options: DescribeWritte
     if (gaugeStatus === "missing") head.push("Falta la muestra: sin ella no hay medidas en cm.");
     const sections = [head.join(" "), ...parts.map((p) => p.text)];
     if (pattern.layout) sections.push(["Dónde va cada pieza:", ...placements.map((p) => p.text)].join("\n"));
-    sections.push("Prototipo digital: las medidas son aproximadas; teje una muestra con tu lana y tu aguja para comprobar las medidas y las proporciones.");
+    sections.push("Prototipo digital: las medidas son aproximadas; teje una muestra con tu lana y tu ganchillo para comprobar las medidas y las proporciones.");
     return { ok: true, dialect, parts, placements, gaugeStatus, text: sections.join("\n\n") };
   } catch {
     return empty("No se pudo describir el patrón.");

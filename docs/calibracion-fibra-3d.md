@@ -29,13 +29,13 @@ Luminancia 0-255 de los píxeles de la lana: media, percentil 98 (destellos), bo
 
 | Lana | 3D media | 3D p98 | 3D borde | 3D contraste | 2D media | 2D p98 | 2D contraste |
 |---|---|---|---|---|---|---|---|
-| 100 % algodón | 37,2 | 51,4 | 36,3 | 3,1 | 46,2 | 84,6 | 9,6 |
-| 100 % acrílico | 37,2 | 51,4 | 36,3 | 3,1 | 46,2 | 84,6 | 9,6 |
-| 70/30 lana y mohair | 46,3 | 75,2 | 58,6 | 2,4 | 55,4 | 90,8 | 8,5 |
-| 100 % seda | 41,3 | 124,3 | 34,1 | 8,3 | 59,5 | 155,7 | 23,8 |
-| 85/15 algodón y lurex | 38,7 | 58,1 | 36,2 | 3,7 | 47,5 | 90,2 | 10,7 |
-| 100 % mohair | 59,2 | 110,6 | 87,5 | 1,7 | 75,9 | 112,1 | 11,6 |
-| "Colores planos" | 38,0 | 51,6 | 36,4 | 1,7 | 50,7 | 85,2 | 8,6 |
+| 100 % algodón | 37,3 | 51,7 | 35,5 | 2,9 | 46,2 | 84,6 | 9,6 |
+| 100 % acrílico | 37,3 | 51,7 | 35,5 | 2,9 | 46,2 | 84,6 | 9,6 |
+| 70/30 lana y mohair | 46,2 | 74,2 | 57,9 | 2,3 | 55,4 | 90,8 | 8,5 |
+| 100 % seda | 41,4 | 124,3 | 33,4 | 7,8 | 59,5 | 155,7 | 23,8 |
+| 85/15 algodón y lurex | 38,7 | 58,1 | 35,4 | 3,6 | 47,5 | 90,2 | 10,7 |
+| 100 % mohair | 59,2 | 110,5 | 87,7 | 1,5 | 75,9 | 112,1 | 11,6 |
+| "Colores planos" | 38,1 | 51,7 | 35,7 | 1,6 | 50,7 | 85,2 | 8,6 |
 
 Lectura:
 
@@ -44,6 +44,8 @@ Lectura:
 - **Definición**: algodón, acrílico y seda (1) más marcados que lana/mohair (0,35) y mohair (0). El 3D lo traduce en el contraste local.
 - **Colores planos**: en 3D, igual que el algodón sin relieve extra y sin halo ni brillo; en 2D, el tubo sin sombra de fibra.
 - **Diferencias que quedan** (no son fallas de orden): en 3D la media de la seda queda debajo de la lana/mohair (en el 2D, encima) porque el 3D aclara por el borde y no rellena el punto; el mohair puro en 3D tiene casi el mismo contraste que "Colores planos" (el 2D dibuja pelos que el 3D no tiene: la v1 no usa pelaje, ADR 0010).
+
+Las capturas 3D se regeneraron tras corregir la lengüeta de la esfera (cierre en espiral continua, commit c4ab055); las cifras cambian en menos de 1 punto y el orden entre fibras es el mismo. Las capturas 2D no cambian.
 
 ## Capturas
 

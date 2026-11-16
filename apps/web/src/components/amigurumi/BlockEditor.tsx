@@ -1,7 +1,7 @@
 "use client";
 
 import { LOOPS, STITCHES, loopAbbrev, stitchAbbrev, type Dialect, type Item, type ItemPath, type Loop, type Part, type StitchCode, type Yarn } from "@loopitalab/pattern-core";
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   BlockActions,
   blockTree,
@@ -16,8 +16,9 @@ import {
   type BlockNode,
   type BlockSelection,
 } from "@/lib/amigurumi/blocks.ts";
+import type { LimitSummary } from "@/lib/amigurumi/limits.ts";
 import type { PartReview } from "@/lib/amigurumi/review.ts";
-import { roundLabel } from "@/lib/amigurumi/rounds.ts";
+import { roundLabel, sourceIndexByNumber } from "@/lib/amigurumi/rounds.ts";
 import type { WrittenStore } from "@/lib/amigurumi/store.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
 import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
@@ -52,6 +53,8 @@ export interface BlockEditorProps {
   policy: BlockEditPolicy;
   actions: BlockActions;
   review?: PartReview | undefined;
+  /** Límites recomendados (BUG-QA4-3): la vuelta que pasa los puntos recomendados lleva su aviso, sin diálogo. */
+  limits?: LimitSummary | undefined;
   /** Para pruebas. */
   initialSelection?: BlockSelection | null;
   /** "Editar en el texto": la vuelta del documento (`part.rounds[j]`) a la que ir. */
@@ -90,11 +93,24 @@ function describe(item: Item, ctx: Pick<Ctx, "dialect">): string {
   return T.cambioDescripcion(item.yarn);
 }
 
-export function BlockEditor({ store, part, yarns, dialect, policy, actions, review, initialSelection = null, onEditInText, announce, onRoundFocus }: BlockEditorProps) {
+export function BlockEditor({ store, part, yarns, dialect, policy, actions, review, limits, initialSelection = null, onEditInText, announce, onRoundFocus }: BlockEditorProps) {
   const rootRef = useRef<HTMLDivElement>(null);
   const [selection, setSelection] = useState<BlockSelection | null>(initialSelection);
   const pending = useRef<{ roundIndex: number; path: ItemPath | null } | null>(null);
   const uid = useId();
+  /** Vueltas del documento que pasan los puntos recomendados (del motor; la interfaz solo las ubica). */
+  const limitOverRounds = useMemo(() => {
+    const set = new Set<number>();
+    const over = limits?.roundsOver.get(part.id);
+    if (over && over.size > 0) {
+      const byNumber = sourceIndexByNumber(part);
+      for (const num of over) {
+        const j = byNumber.get(num);
+        if (j !== undefined) set.add(j);
+      }
+    }
+    return set;
+  }, [limits, part]);
 
   const mark = (roundIndex: number, path: ItemPath | null) => {
     const next: BlockSelection = { partId: part.id, roundIndex, path };
@@ -202,6 +218,7 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
           const label = roundLabel(part, j);
           const count = roundCountOf(part, j);
           const items = review?.byRound.get(j) ?? [];
+          const overLimit = limitOverRounds.has(j);
           const mismatch = count && round.expected !== undefined && round.expected !== count.produced;
           const tree = blockTree(round, policy);
           const flat = flattenBlocks(tree);
@@ -259,6 +276,11 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
                     {it.message}
                   </p>
                 ))}
+              {overLimit ? (
+                <p className="rounded-lg border-l-4 border-mostaza pl-2 text-sm" data-kind="limit" data-testid="block-limit">
+                  {AMIGURUMI_TEXTS.editor.limiteVuelta(label)}
+                </p>
+              ) : null}
               <ul role="tree" aria-label={T.etiquetaArbol(label)} aria-describedby={`${uid}-help`} className="grid gap-1.5" data-testid="block-tree">
                 {tree.map((node) => (
                   <BlockItem key={node.path.join(".")} node={node} roundIndex={j} ctx={ctx} stop={stop} flat={flat} parentEditable />

@@ -1,7 +1,7 @@
 "use client";
 
 import { clearBrowserProgressQueues } from "@/lib/projects/progress-queue.ts";
-import { clearBrowserBackups } from "@/lib/studio/backup.ts";
+import { announceSignOut, clearBrowserBackups } from "@/lib/studio/backup.ts";
 
 /**
  * Cierre de sesión. Antes de enviar el POST a /auth/salir borra los respaldos locales de diseños
@@ -14,6 +14,9 @@ export function SignOutForm() {
       action="/auth/salir"
       method="post"
       onSubmit={() => {
+        // Primero la señal: los estudios abiertos dejan de respaldar (T20-M2). Si no, `beforeunload` y `pagehide` de
+        // la navegación del formulario reescriben el respaldo (y el texto sin leer) justo después de borrarlo.
+        announceSignOut();
         clearBrowserBackups();
         // También el avance de tejido que no alcanzó a enviarse (`loopitalab:<uid>:avance:*`, ADR 0009 §4).
         clearBrowserProgressQueues();

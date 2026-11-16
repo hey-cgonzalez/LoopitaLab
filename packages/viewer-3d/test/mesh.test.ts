@@ -40,11 +40,11 @@ function faceNormal(m: PartMesh, t: number): [number, number, number] {
 
 /**
  * Los triángulos miran hacia el mismo lado que la normal analítica de sus vértices. Se mide por
- * área: con el giro por anillo (`ringPhase`) solo puede quedar alguna astilla casi degenerada
- * donde una vuelta empinada sale del disco del anillo mágico (fixture B: 5e-6 del área; sin el
- * giro era el 1,6 %).
+ * área: con el giro por anillo (`ringPhase`) y el abanico desde el vértice de arriba más cercano a
+ * la base (T21) no queda ninguno en los fixtures (antes de T21, astillas en el 5e-6 del área del
+ * fixture B; sin el giro, el 1,6 %).
  */
-function assertWindingMatchesNormals(m: PartMesh, label: string, maxFlipped = 1e-4): void {
+function assertWindingMatchesNormals(m: PartMesh, label: string, maxFlipped = 1e-9): void {
   let total = 0;
   let flipped = 0;
   for (let t = 0; t < m.indexCount / 3; t++) {
@@ -162,7 +162,9 @@ describe("F4-10: mismo conteo en espiral y en vueltas unidas", () => {
     const ms = buildPartMesh(spiral, ["A"], ps);
     const mj = buildPartMesh(joined, ["A"], pj);
     assert.equal(ms.vertexCount, mj.vertexCount);
-    assert.deepEqual(ms.indices, mj.indices);
+    // Los mismos triángulos por punto (el abanico puede partir de otro vértice de arriba, T21).
+    assert.equal(ms.indexCount, mj.indexCount);
+    assert.deepEqual(ms.faceStitch, mj.faceStitch);
     const zs = new Set(pj.rings.map((r) => Math.fround(r.zCm)));
     for (let v = 0; v < mj.vertexCount; v++) assert.ok(zs.has(mj.positions[v * 3 + 2]!), "en vueltas unidas, cada vértice está a la altura de su anillo");
     // En espiral, el tope del primer punto de la V7 está a la altura del anillo 6 y el del último, en el 7.
@@ -173,10 +175,13 @@ describe("F4-10: mismo conteo en espiral y en vueltas unidas", () => {
     assert.ok(dz > 0);
     assert.ok(Math.abs(Math.min(...z) - ps.rings[c]!.zCm) < 1e-5, "empieza en la altura del anillo anterior");
     assert.ok(Math.abs(Math.max(...z) - ps.rings[c + 1]!.zCm) < 1e-5, "termina en la altura de su anillo");
-    // Las posiciones xy coinciden: solo cambia la altura.
-    for (let v = 0; v < ms.vertexCount; v++) {
-      assert.ok(Math.abs(ms.positions[v * 3]! - mj.positions[v * 3]!) < 1e-6 && Math.abs(ms.positions[v * 3 + 1]! - mj.positions[v * 3 + 1]!) < 1e-6);
-    }
+    // En espiral la hélice es continua (T21): el radio también va del anillo anterior al suyo, así que el
+    // tope del primer punto de la V7 está en el radio del anillo 6 y el del último, en el del 7. Unidas: el del anillo.
+    const radius = (m: typeof ms, v: number) => Math.hypot(m.positions[v * 3]!, m.positions[v * 3 + 1]!);
+    const rs = tops.map((v) => radius(ms, v));
+    assert.ok(Math.abs(Math.min(...rs) - Math.min(ps.rings[c]!.radiusCm, ps.rings[c + 1]!.radiusCm)) < 1e-5);
+    assert.ok(Math.abs(Math.max(...rs) - Math.max(ps.rings[c]!.radiusCm, ps.rings[c + 1]!.radiusCm)) < 1e-5);
+    for (const v of roundVertices(mj, c).filter((x) => mj.uvs[x * 2 + 1] === 1)) assert.ok(Math.abs(radius(mj, v) - pj.rings[c + 1]!.radiusCm) < 1e-5);
   });
 });
 

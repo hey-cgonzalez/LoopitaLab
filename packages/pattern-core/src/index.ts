@@ -9,6 +9,7 @@ export * from "./edit.ts";
 export * from "./edit-written.ts";
 export * from "./migrate.ts";
 export * from "./recommended.ts";
+export * from "./part-gauge.ts";
 export {
   PROFILE_RADIAL_TOLERANCE,
   STITCH_HEIGHT_FACTOR,

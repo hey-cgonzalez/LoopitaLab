@@ -2,7 +2,6 @@
 
 import type { Dialect, Issue, LimitUsage, PartRef, RecommendedLimit, WrittenPattern } from "@loopitalab/pattern-core";
 import { describeWritten } from "@loopitalab/pattern-render";
-import { suggestedGauge } from "@loopitalab/yarn-catalog";
 import Link from "next/link";
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { LegalLinks } from "@/components/SiteFooter";
@@ -13,6 +12,7 @@ import { useSettledDoc } from "@/components/studio/useStoreSelector";
 import { useDesignSession } from "@/components/studio/useStudioSession";
 import { YarnPanel } from "@/components/studio/YarnPanel";
 import { BLOCK_EDIT_POLICY_V1, BlockActions, type BlockEditPolicy } from "@/lib/amigurumi/blocks.ts";
+import { assumedGaugeOfPart } from "@/lib/amigurumi/assumed-gauge.ts";
 import { crossedLimit, limitSummaryCache } from "@/lib/amigurumi/limits.ts";
 import { reviewWritten } from "@/lib/amigurumi/review.ts";
 import { modeOf, pieceRefs, placementOf, sameRef, surfaceFromPick, unplacedFromLayout, type PlacementMode } from "@/lib/amigurumi/placement.ts";
@@ -117,7 +117,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     createStore: (doc) => new WrittenStore(doc),
     onRecovered,
   });
-  const { store, autosave, status, recovery } = session;
+  const { store, autosave, status, recovery, pendingDropped } = session;
   const [buffers] = useState(() => new TextBuffers(store, dialect));
   buffersRef.current = buffers;
   const [controls] = useState(() => previewControls(store));
@@ -147,7 +147,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const setAnnounce = useCallback((message: string) => setAnnouncement((prev) => (prev === message ? message + String.fromCharCode(0x200b) : message)), []);
   const [lineRequest, setLineRequest] = useState<LineRequest | null>(null);
   const [textNotice, setTextNotice] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<{ usage: LimitUsage; crossed: RecommendedLimit[]; run: () => void } | null>(null);
+  const [dialog, setDialog] = useState<{ usages: LimitUsage[]; run: () => void } | null>(null);
   /** Límites aceptados con "Seguir igual" en esta sesión: estado del estudio, nunca del documento. */
   const accepted = useRef(new Set<RecommendedLimit>());
   const viewerRef = useRef<ViewerHandle | null>(null);
@@ -189,10 +189,15 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const review = useMemo(() => reviewWritten(settled), [settled]);
   const described = useSettledDoc<WrittenPattern>(store, DESCRIBE_SETTLE_MS);
   const description = useMemo(() => {
-    const weight = described.yarns[0]?.weight;
-    const s = typeof weight === "number" ? suggestedGauge(weight, "crochet") : undefined;
-    const assumedGauge = s ? { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm, gaugeStitch: s.assumption === "crochet-pa" ? ("dc" as const) : ("sc" as const) } : undefined;
-    return viewerPerfSpan("describe", () => describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) }));
+    return viewerPerfSpan("describe", () =>
+      describeWritten(described, {
+        dialect,
+        assumedGaugeOf: (part) => {
+          const { stitchesPer10cm, rowsPer10cm, gaugeStitch } = assumedGaugeOfPart(described, part);
+          return { stitchesPer10cm, rowsPer10cm, gaugeStitch };
+        },
+      }),
+    );
   }, [described, dialect]);
 
   // ---------------------------------------------------------------- 3D: resaltado y selección
@@ -372,19 +377,15 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         return;
       }
       // Todos los límites que esta acción supera: si sigue, no se vuelve a preguntar por ninguno de ellos.
-      const all: RecommendedLimit[] = [crossed.limit];
-      let next = crossed;
+      const usages: LimitUsage[] = [crossed];
       const seen = new Set(accepted.current);
-      while (next) {
-        seen.add(next.limit);
-        const more = crossedLimit(store.doc, sim.doc, seen);
-        if (!more) break;
-        all.push(more.limit);
-        next = more;
+      seen.add(crossed.limit);
+      for (let more = crossedLimit(store.doc, sim.doc, seen); more; more = crossedLimit(store.doc, sim.doc, seen)) {
+        usages.push(more);
+        seen.add(more.limit);
       }
       setDialog({
-        usage: crossed,
-        crossed: all,
+        usages,
         run: () => done?.(store.run(action)),
       });
     },
@@ -524,6 +525,12 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         recoveryExtra={pendingRecovered > 0 ? `Incluye líneas sin leer en ${pendingRecovered === 1 ? "1 parte" : `${pendingRecovered} partes`}.` : undefined}
       />
 
+      {pendingDropped ? (
+        <p role="status" className="shrink-0 border-b-2 border-mostaza bg-superficie px-4 py-2 text-sm" data-testid="pending-dropped">
+          El texto sin leer es demasiado largo para el respaldo de este equipo: no se conservará si cierras la pestaña. El resto del diseño sí. Corrige o borra esas líneas.
+        </p>
+      ) : null}
+
       <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 flex-wrap gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
         {TABS.map((t) => (
           <button
@@ -637,6 +644,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
                   policy={blockPolicy}
                   actions={blockActions}
                   review={review.byPart.get(selected.id)}
+                  limits={limits}
                   onEditInText={editInText}
                   announce={setAnnounce}
                   onRoundFocus={onCaretRound}
@@ -778,13 +786,13 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
       />
 
       <LimitDialog
-        usage={dialog?.usage ?? null}
+        usages={dialog?.usages ?? null}
         onCancel={() => setDialog(null)}
         onConfirm={() => {
           const d = dialog;
           setDialog(null);
           if (!d) return;
-          for (const l of d.crossed) accepted.current.add(l);
+          for (const u of d.usages) accepted.current.add(u.limit);
           d.run();
         }}
       />
