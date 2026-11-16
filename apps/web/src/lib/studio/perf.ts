@@ -333,15 +333,29 @@ export function setActivePerf(r: PerfRecorder | null): void {
   active = r;
 }
 
+type SpanSink = (name: string, start: number, end: number) => void;
+const sinks = new Set<SpanSink>();
+
+/**
+ * Otro recolector que también quiere los tramos de `perfSpan` (el del estudio amigurumi, T12 de la fase 4: el
+ * autoguardado es compartido). Devuelve la función que lo quita.
+ */
+export function addSpanSink(sink: SpanSink): () => void {
+  sinks.add(sink);
+  return () => void sinks.delete(sink);
+}
+
 /** Ejecuta `fn` y, si hay recolector activo, registra cuánto tardó (validación, CA-P7). */
 export function perfSpan<T>(name: string, fn: () => T): T {
   const r = active;
-  if (!r) return fn();
+  if (!r && sinks.size === 0) return fn();
   const now = () => (typeof performance !== "undefined" ? performance.now() : Date.now());
   const start = now();
   try {
     return fn();
   } finally {
-    r.span(name, start, now());
+    const end = now();
+    r?.span(name, start, end);
+    for (const s of sinks) s(name, start, end);
   }
 }

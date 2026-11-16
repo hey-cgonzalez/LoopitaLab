@@ -11,7 +11,6 @@ export interface ProfileFormState {
 }
 
 const ALLOWED = {
-  terminology: ["es", "us", "uk"],
   units: ["metric", "imperial"],
   dominant_hand: ["right", "left"],
 } as const;

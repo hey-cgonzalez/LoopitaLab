@@ -52,7 +52,7 @@ export const PROJECT_MESSAGES: Record<Exclude<ProjectErrorCode, "CONFLICT" | "VE
   UNAUTHENTICATED: "Tu sesión terminó. Vuelve a ingresar para seguir con tu proyecto.",
   INVALID_REQUEST: "No pudimos leer lo que enviaste. Recarga la página e intenta de nuevo.",
   NOT_FOUND: "No encontramos ese proyecto o diseño. Puede que lo hayas borrado desde otro dispositivo.",
-  NOT_A_CHART: "Por ahora solo se pueden tejer gráficos de colorwork.",
+  NOT_A_CHART: "Seguir un amigurumi punto a punto llega en una próxima versión. Por ahora solo se pueden tejer gráficos de colorwork.",
   NO_DESIGN: "Este proyecto no tiene un diseño asociado, así que no hay un patrón que seguir.",
   NOT_SAVABLE: "El diseño tiene errores que impiden abrirlo, así que no se puede seguir tejiendo con esta versión. Revísalo en el estudio.", // F3-42
   NOT_KNITTABLE: "El diseño tiene errores de tejido que impiden tejerlo. Corrígelos en el estudio e intenta de nuevo.",

@@ -1,5 +1,4 @@
 import type { PointerEvent as ReactPointerEvent, FocusEvent as ReactFocusEvent } from "react";
-import type { DocumentStore } from "@/lib/studio/store.ts";
 import { previewControls, type YarnCandidate } from "./preview-controls.ts";
 
 /** Estilos compartidos del selector de lanas (los mismos del panel de lanas). */
@@ -18,7 +17,7 @@ export interface PreviewHandlers {
   onBlur(): void;
 }
 
-export function previewHandlers(store: DocumentStore, index: number, candidate: YarnCandidate): PreviewHandlers {
+export function previewHandlers(store: object, index: number, candidate: YarnCandidate): PreviewHandlers {
   const c = previewControls(store);
   return {
     onPointerEnter: (e) => {
@@ -32,6 +31,6 @@ export function previewHandlers(store: DocumentStore, index: number, candidate: 
   };
 }
 
-export function clearPreview(store: DocumentStore, index: number): void {
+export function clearPreview(store: object, index: number): void {
   previewControls(store).previewYarn(index, null);
 }

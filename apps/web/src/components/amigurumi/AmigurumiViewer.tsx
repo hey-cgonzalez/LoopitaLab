@@ -1,17 +1,21 @@
 "use client";
 
-import { concreteRounds, type WrittenPattern } from "@loopitalab/pattern-core";
+import { concreteRounds, type PartRef, type WrittenPattern } from "@loopitalab/pattern-core";
 import type { Lod } from "@loopitalab/viewer-3d";
 import { createThreeRenderer, type AmigurumiRenderer, type PickResult } from "@loopitalab/viewer-3d/three";
 import { Canvas, type RootState } from "@react-three/fiber";
 import { useCallback, useEffect, useId, useRef, useState, useSyncExternalStore } from "react";
-import type * as THREE from "three";
+import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import type { PreviewControls } from "@/components/studio/preview-controls.ts";
 import { applyCameraAction, cameraKeyAction, framing, type Vec3 } from "./camera-keys.ts";
 import { ViewerController, type ViewerStatus } from "./controller.ts";
 import { Silhouettes } from "./Silhouettes.tsx";
+import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
 import { measureText, VIEWER_3D_TEXTS as T } from "./texts.ts";
+
+const A11Y = AMIGURUMI_TEXTS.a11y;
 
 /** Documento fuera de React (ADR 0004): el visor se suscribe y lee la versión actual. */
 export interface PatternSource {
@@ -42,7 +46,45 @@ export interface AmigurumiViewerProps {
   perf?: boolean;
   onHandle?: (handle: ViewerHandle | null) => void;
   heightPx?: number;
+  /**
+   * Id de una descripción más completa que pone quien monta el visor (`describeWritten` en el estudio, T14; enmienda
+   * T11-9): se suma a la corta del visor en `aria-describedby` del lienzo.
+   */
+  describedBy?: string;
+  /**
+   * Punto tocado: vuelta concreta 0-based (`roundIndex`), su número visible (de `concreteRounds`), el punto dentro
+   * de la vuelta (`stitchInRound`, 0-based) y el punto del mundo en cm (`point`, ya con el giro de la raíz).
+   */
+  onPick?: (pick: ViewerPick | null) => void;
+  /** Estado del visor después de cada escena (piezas sin ubicar, avisos). */
+  onStatus?: (status: ViewerStatus) => void;
+  /**
+   * Pieza cuyo ancla se muestra (modo "Posicionar", T16). El marco sale de `surfaceFrame` con la malla del
+   * anfitrión (`ViewerController.anchorFrame`), igual que `buildScene`.
+   */
+  anchorTarget?: PartRef | null;
+  /** Modo "Posicionar": el puntero es una cruz y tocar fija el ancla (lo decide quien recibe `onPick`). */
+  positioning?: boolean;
 }
+
+export interface ViewerPick {
+  partId: string;
+  copy: number;
+  roundIndex: number;
+  roundNumber: number | null;
+  stitchInRound: number;
+  point: [number, number, number];
+}
+
+/** Tamaños de la vista previa del ancla, en cm. */
+const ANCHOR_DOT_CM = 0.3;
+const ANCHOR_NORMAL_CM = 2;
+/**
+ * Las tres flechas se distinguen por su largo (normal > tangente > meridiano), no solo por su color: la leyenda de
+ * `PositionPanel` las describe en ese orden (WCAG 1.4.1).
+ */
+const ANCHOR_TANGENT_CM = 1.4;
+const ANCHOR_MERIDIAN_CM = 0.9;
 
 const FOV = 40;
 
@@ -51,7 +93,7 @@ const FOV = 40;
  * entran en el JS inicial de ninguna ruta. `frameloop="demand"`: dibuja solo cuando algo cambia. El renderer es
  * imperativo (`@loopitalab/viewer-3d/three`) y el documento llega por `source`, sin pasar por el árbol de React.
  */
-export default function AmigurumiViewer({ source, controls, perf = false, onHandle, heightPx = 520 }: AmigurumiViewerProps) {
+export default function AmigurumiViewer({ source, controls, perf = false, onHandle, heightPx = 520, describedBy, onPick, onStatus, anchorTarget = null, positioning = false }: AmigurumiViewerProps) {
   const descId = useId();
   const [status, setStatus] = useState<ViewerStatus | null>(null);
   const [lost, setLost] = useState(false);
@@ -70,8 +112,38 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
   const homeRef = useRef<{ position: Vec3; target: Vec3 } | null>(null);
   const paintWaiters = useRef<Array<(t: number) => void>>([]);
   const down = useRef<{ x: number; y: number } | null>(null);
+  const markerRef = useRef<AnchorMarker | null>(null);
+  const anchorTargetRef = useRef<PartRef | null>(anchorTarget);
+  anchorTargetRef.current = anchorTarget;
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
+  const [anchorAttr, setAnchorAttr] = useState("");
 
-  controllerRef.current ??= new ViewerController({ onStatus: setStatus, flatColors: controls.flatColors });
+  /** Vista previa del ancla: el marco del controlador (malla del anfitrión), fuera de React. */
+  const refreshAnchor = useCallback(() => {
+    const marker = markerRef.current;
+    const c = controllerRef.current;
+    const target = anchorTargetRef.current;
+    const frame = marker && c && target ? c.anchorFrame(target) : null;
+    if (marker) {
+      marker.show(frame);
+      stateRef.current?.invalidate();
+    }
+    setAnchorAttr(frame ? `${frame.round}:${frame.stitch}` : "");
+  }, []);
+
+  controllerRef.current ??= new ViewerController({
+    onStatus: (s) => {
+      setStatus(s);
+      onStatusRef.current?.(s);
+      refreshAnchor();
+    },
+    flatColors: controls.flatColors,
+  });
+
+  useEffect(() => {
+    refreshAnchor();
+  }, [anchorTarget?.part, anchorTarget?.copy, refreshAnchor]);
 
   const frame = useCallback(() => {
     const r = rendererRef.current;
@@ -144,6 +216,8 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
       setTimeout(() => {
         if (mounts.current !== id) return;
         controllerRef.current?.dispose();
+        markerRef.current?.dispose();
+        markerRef.current = null;
         orbitRef.current?.dispose();
         rendererRef.current?.dispose();
         rendererRef.current = null;
@@ -167,6 +241,8 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
       },
     });
     rendererRef.current = renderer;
+    markerRef.current?.dispose();
+    markerRef.current = new AnchorMarker(state.scene);
     const orbit = new OrbitControls(camera, gl.domElement);
     orbit.enableDamping = false; // con frameloop="demand", la amortiguación pediría frames sin fin
     orbit.addEventListener("change", () => state.invalidate());
@@ -174,6 +250,7 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
     // Fin de frame (para mediciones): lo primero que corre después de que r3f dibujó.
     const channel = new MessageChannel();
     state.scene.onAfterRender = () => {
+      activeViewerPerf()?.viewerFrameEnd(); // `edit-to-paint-3d` y `hover-to-paint-3d` (T12, solo con ?perf=1)
       const waiters = paintWaiters.current;
       if (waiters.length === 0) return;
       paintWaiters.current = [];
@@ -198,6 +275,7 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
       state.invalidate();
     });
     controllerRef.current!.attach(renderer);
+    refreshAnchor();
     frame();
     // Se guarda al montar: con el contexto perdido, `getExtension` devuelve null y ya no se podría restaurar.
     const loseExt = gl.getContext().getExtension("WEBGL_lose_context");
@@ -228,6 +306,8 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
   };
 
   const onKeyDown = (e: React.KeyboardEvent) => {
+    // Ctrl, Cmd y Alt con + − 0 son del navegador (zoom de la página, WCAG 1.4.4): no se toman.
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
     const action = cameraKeyAction(e.key);
     const st = stateRef.current;
     const orbit = orbitRef.current;
@@ -256,12 +336,14 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
     if (!hit) {
       setPicked(null);
       r.setHighlight(null);
+      onPick?.(null);
       return;
     }
     const part = source.getSnapshot().parts.find((p) => p.id === hit.partId);
     const roundNumber = part ? roundNumberOf(part, hit.roundIndex) : null;
     setPicked({ ...hit, name: part?.name ?? hit.partId, roundNumber });
     r.setHighlight({ partId: hit.partId, copy: hit.copy, roundIndex: hit.roundIndex });
+    onPick?.({ partId: hit.partId, copy: hit.copy, roundIndex: hit.roundIndex, roundNumber, stitchInRound: hit.stitchInRound, point: hit.point });
   };
 
   const changeLod = (next: Lod) => {
@@ -280,16 +362,16 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         {T.avisoPrototipo}
       </p>
       <div className="flex flex-wrap items-center gap-4 text-sm">
-        <label className="inline-flex items-center gap-2" title={T.coloresPlanosAyuda}>
-          <input type="checkbox" checked={flat} onChange={(e) => controls.setFlatColors(e.target.checked)} data-testid="visor-3d-colores-planos" />
+        <label className="inline-flex items-center gap-2">
+          <input type="checkbox" className="size-5 accent-marino" checked={flat} onChange={(e) => controls.setFlatColors(e.target.checked)} aria-describedby={`${descId}-planos`} data-testid="visor-3d-colores-planos" />
           {T.coloresPlanos}
         </label>
-        <fieldset className="inline-flex items-center gap-2">
+        <fieldset className="inline-flex flex-wrap items-center gap-x-3 gap-y-1">
           <legend className="sr-only">{T.nivel}</legend>
-          <span>{T.nivel}:</span>
+          <span aria-hidden="true">{T.nivel}:</span>
           {(["relief", "smooth"] as const).map((l) => (
-            <label key={l} className="inline-flex items-center gap-1">
-              <input type="radio" name={`${descId}-lod`} checked={lod === l} onChange={() => changeLod(l)} />
+            <label key={l} className="inline-flex items-center gap-1.5">
+              <input type="radio" className="size-5 accent-marino" name={`${descId}-lod`} checked={lod === l} onChange={() => changeLod(l)} />
               {l === "relief" ? T.nivelRelieve : T.nivelLiso}
             </label>
           ))}
@@ -300,7 +382,10 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
           </span>
         ) : null}
       </div>
-      <p className="sr-only">{T.coloresPlanosAyuda}</p>
+      {/* Visible (un `title` no se ve en el celular ni con teclado) y enlazada a la casilla. */}
+      <p id={`${descId}-planos`} className="text-sm text-tinta-suave">
+        {T.coloresPlanosAyuda}
+      </p>
       {mode === "degraded" ? (
         <p className="text-sm" role="status">
           {T.sobreRecomendado}
@@ -311,18 +396,21 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
 
       <div className="relative w-full overflow-hidden rounded-lg border border-borde" style={{ height: heightPx }}>
         <div
-          className="absolute inset-0 outline-offset-2 focus-visible:outline-2"
+          className="absolute inset-0"
+          data-focus-inset
           tabIndex={0}
           role="img"
           aria-label={T.etiquetaLienzo}
-          aria-describedby={descId}
+          aria-describedby={describedBy ? `${descId} ${describedBy}` : descId}
           onKeyDown={onKeyDown}
           onPointerDown={(e) => (down.current = { x: e.clientX, y: e.clientY })}
           onPointerUp={onPointerUp}
           data-testid="visor-3d-lienzo"
           data-mode={mode}
           data-lost={lost ? "true" : "false"}
-          style={{ visibility: showSilhouettes ? "hidden" : "visible" }}
+          data-positioning={positioning ? "true" : "false"}
+          data-anchor={anchorAttr}
+          style={{ visibility: showSilhouettes ? "hidden" : "visible", cursor: positioning ? "crosshair" : undefined }}
         >
           <Canvas
             frameloop="demand"
@@ -339,6 +427,9 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         ) : null}
       </div>
 
+      <p className="text-sm text-tinta-suave" data-testid="visor-3d-teclas">
+        {A11Y.visorTeclas}
+      </p>
       <p id={descId} className="sr-only" data-testid="visor-3d-descripcion">
         {description}
       </p>
@@ -367,12 +458,18 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
         </div>
       ) : null}
 
+      {/* Avisos de la escena (`notes`: forma, anclas, muestra supuesta), con los textos provisionales de T18. */}
       {status && status.notes.length > 0 ? (
-        <ul className="grid gap-0.5 text-sm text-tinta-suave" data-testid="visor-3d-avisos">
-          {status.notes.map((n, i) => (
-            <li key={`${n.code}-${i}`}>{n.message}</li>
-          ))}
-        </ul>
+        <section className="grid gap-1 rounded-md border-2 border-mostaza px-3 py-2 text-sm" aria-label={T.avisosTitulo} data-testid="visor-3d-avisos-zona">
+          <h3 className="font-semibold">{T.avisosTitulo}</h3>
+          <ul className="grid list-disc gap-0.5 pl-5" data-testid="visor-3d-avisos">
+            {status.notes.map((n, i) => (
+              <li key={`${n.code}-${i}`} data-code={n.code}>
+                {n.message}
+              </li>
+            ))}
+          </ul>
+        </section>
       ) : null}
 
       {perf ? (
@@ -382,6 +479,70 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
       ) : null}
     </section>
   );
+}
+
+/**
+ * Vista previa del ancla (T16): un punto en el ancla y tres flechas con el marco (normal, tangente a la vuelta y
+ * meridiano). Va en su propio grupo, con el mismo giro que la raíz del renderer (la pieza crece hacia +z y se muestra
+ * de pie), así usa las coordenadas de `SceneInstance.matrix`. No entra en `pick` ni en `bounds`.
+ */
+class AnchorMarker {
+  readonly #group = new THREE.Group();
+  readonly #dot: THREE.Mesh;
+  readonly #normal: THREE.ArrowHelper;
+  readonly #tangent: THREE.ArrowHelper;
+  readonly #meridian: THREE.ArrowHelper;
+  readonly #scene: THREE.Scene;
+
+  constructor(scene: THREE.Scene) {
+    this.#scene = scene;
+    this.#group.name = "loopita-ancla";
+    this.#group.rotation.x = -Math.PI / 2;
+    this.#group.visible = false;
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false });
+    this.#dot = new THREE.Mesh(new THREE.SphereGeometry(ANCHOR_DOT_CM, 16, 12), material);
+    const origin = new THREE.Vector3();
+    const dir = new THREE.Vector3(0, 0, 1);
+    this.#normal = new THREE.ArrowHelper(dir, origin, ANCHOR_NORMAL_CM, 0x1a2540, 0.5, 0.3);
+    this.#tangent = new THREE.ArrowHelper(dir, origin, ANCHOR_TANGENT_CM, 0xba222c, 0.35, 0.22);
+    this.#meridian = new THREE.ArrowHelper(dir, origin, ANCHOR_MERIDIAN_CM, 0x2f7d32, 0.28, 0.2);
+    for (const o of [this.#dot, this.#normal, this.#tangent, this.#meridian]) {
+      o.renderOrder = 999;
+      o.traverse((x) => {
+        const m = (x as THREE.Mesh).material as THREE.Material | undefined;
+        if (m) m.depthTest = false;
+      });
+      this.#group.add(o);
+    }
+    scene.add(this.#group);
+  }
+
+  show(frame: { anchor: [number, number, number]; normal: [number, number, number]; tangent: [number, number, number]; meridian: [number, number, number] } | null): void {
+    if (!frame) {
+      this.#group.visible = false;
+      return;
+    }
+    const at = new THREE.Vector3(...frame.anchor);
+    this.#dot.position.copy(at);
+    for (const [arrow, d] of [
+      [this.#normal, frame.normal],
+      [this.#tangent, frame.tangent],
+      [this.#meridian, frame.meridian],
+    ] as const) {
+      arrow.position.copy(at);
+      arrow.setDirection(new THREE.Vector3(...d));
+    }
+    this.#group.visible = true;
+  }
+
+  dispose(): void {
+    this.#scene.remove(this.#group);
+    this.#group.traverse((x) => {
+      const mesh = x as THREE.Mesh;
+      mesh.geometry?.dispose();
+      (mesh.material as THREE.Material | undefined)?.dispose();
+    });
+  }
 }
 
 /** "2 piezas: Cuerpo (≈ 9,2 cm de alto, …); Oreja, 2 copias (…)." */

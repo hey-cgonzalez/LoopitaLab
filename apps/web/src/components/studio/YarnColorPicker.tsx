@@ -3,7 +3,7 @@
 import { useId, useRef, useState, type KeyboardEvent } from "react";
 import { paletteByFamily } from "@/lib/studio/yarn-edit.ts";
 import { customColorInfo, paletteNavigate, palettePosition, parseHexInput, type NavKey } from "@/lib/studio/yarn-picker.ts";
-import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { YarnEditStore } from "@/lib/studio/yarn-store.ts";
 import { STUDIO_TEXTS } from "@/lib/studio-texts.ts";
 import { FIELD, previewHandlers } from "./yarn-picker-ui.ts";
 
@@ -12,7 +12,7 @@ const FAMILIES = paletteByFamily();
 const NAV_KEYS = new Set<string>(["ArrowLeft", "ArrowRight", "ArrowUp", "ArrowDown", "Home", "End"]);
 
 interface Props {
-  store: DocumentStore;
+  store: YarnEditStore;
   /** Posición de la lana en el diseño (a qué lana se le aplica la vista previa). */
   index: number;
   /** Letra de la lana que se edita (A, B…): entra en los nombres accesibles de la paleta (CA3-A2). */

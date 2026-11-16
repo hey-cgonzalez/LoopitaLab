@@ -1,10 +1,9 @@
-import { validatePattern, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
+import { validatePattern, type ChartPattern, type Issue, type Pattern } from "@loopitalab/pattern-core";
 import type { DesignErrorCode } from "@/lib/designs/messages.ts";
 import type { SaveDesignResult } from "@/lib/designs/types.ts";
-import { backupKey, clearBackup, isValidOwnerId, MAX_BACKUP_CHARS, type BackupStorage, type LocalBackup } from "./backup.ts";
+import { backupKey, clearBackup, isValidOwnerId, MAX_BACKUP_CHARS, pendingTextOf, type BackupStorage, type LocalBackup } from "./backup.ts";
 import { paintGate } from "./paint-gate.ts";
 import { perfSpan } from "./perf.ts";
-import type { DocumentStore } from "./store.ts";
 
 /*
  * Autoguardado del estudio (ADR 0006, E10; CA-F6, CA-F7).
@@ -26,6 +25,7 @@ export {
   isBackupKey,
   LEGACY_BACKUP_PREFIX,
   MAX_BACKUP_CHARS,
+  pendingTextOf,
   pruneBackups,
   readBackup,
   type BackupStorage,
@@ -40,6 +40,17 @@ export const AUTOSAVE_DEBOUNCE_MS = 1500;
  */
 export const AUTOSAVE_MAX_WAIT_MS = 10_000;
 export const RETRY_DELAYS_MS: readonly number[] = [2_000, 4_000, 8_000, 16_000, 30_000];
+/** Espera antes de escribir en el respaldo el texto sin leer del estudio amigurumi (no se escribe en cada tecla). */
+export const PENDING_TEXT_BACKUP_MS = 400;
+
+/**
+ * Lo que el autoguardado necesita del almacén: el documento actual y el aviso de cambios. Lo cumplen el almacén del
+ * colorwork (`DocumentStore`) y el del amigurumi (`WrittenStore`).
+ */
+export interface AutosaveStore<P extends Pattern = ChartPattern> {
+  readonly doc: P;
+  subscribe(listener: () => void): () => void;
+}
 
 export type SaveStatus =
   /** Todo guardado. `draft`: se guardó, pero con errores de tejido que impiden tejerlo. */
@@ -56,7 +67,7 @@ export type SaveStatus =
   /** Falla que reintentar no arregla (sesión vencida, tamaño, cuota…). */
   | { kind: "failed"; code: DesignErrorCode; message: string };
 
-export interface AutosaveDeps {
+export interface AutosaveDeps<P extends Pattern = ChartPattern> {
   patternId: string;
   /** `user.id` de la dueña: va en la clave y en el contenido del respaldo local. */
   ownerId: string;
@@ -64,7 +75,7 @@ export interface AutosaveDeps {
   initialUpdatedAt: string;
   /** Server Action `savePattern`. */
   save: (id: string, document: unknown, expectedUpdatedAt: string) => Promise<SaveDesignResult>;
-  validate?: (doc: ChartPattern) => { savable: boolean; issues: Issue[] };
+  validate?: (doc: P) => { savable: boolean; issues: Issue[] };
   storage?: BackupStorage | null;
   debounceMs?: number;
   maxWaitMs?: number;
@@ -79,17 +90,20 @@ export interface AutosaveDeps {
 
 type Listener = () => void;
 
-export class Autosave {
-  #deps: Required<Pick<AutosaveDeps, "debounceMs" | "maxWaitMs" | "retryDelaysMs" | "now">> & AutosaveDeps;
+export class Autosave<P extends Pattern = ChartPattern> {
+  #deps: Required<Pick<AutosaveDeps<P>, "debounceMs" | "maxWaitMs" | "retryDelaysMs" | "now">> & AutosaveDeps<P>;
   /** Desde cuándo hay cambios sin enviar (para `maxWaitMs`); null si no hay. */
   #pendingSince: number | null = null;
   /** Mientras la usuaria no decide sobre un respaldo ofrecido, no se escribe ni se borra el respaldo (T8, c). */
   #backupHeld = false;
-  #store: DocumentStore;
+  /** Texto sin leer por parte (estudio amigurumi): va en el respaldo, nunca en el documento. */
+  #pendingText: Record<string, string> | null = null;
+  #pendingTimer: ReturnType<typeof setTimeout> | null = null;
+  #store: AutosaveStore<P>;
   #status: SaveStatus;
   #updatedAt: string;
   /** Documento que ya está en el servidor. Se compara por referencia: deshacer hasta ahí vuelve a "guardado". */
-  #savedDoc: ChartPattern;
+  #savedDoc: P;
   #timer: ReturnType<typeof setTimeout> | null = null;
   #inflight: Promise<void> | null = null;
   #attempt = 0;
@@ -97,7 +111,7 @@ export class Autosave {
   #unsubscribe: (() => void) | null = null;
   #disposed = true;
 
-  constructor(store: DocumentStore, deps: AutosaveDeps) {
+  constructor(store: AutosaveStore<P>, deps: AutosaveDeps<P>) {
     this.#store = store;
     this.#deps = { debounceMs: AUTOSAVE_DEBOUNCE_MS, maxWaitMs: AUTOSAVE_MAX_WAIT_MS, retryDelaysMs: RETRY_DELAYS_MS, now: Date.now, ...deps };
     this.#updatedAt = deps.initialUpdatedAt;
@@ -182,13 +196,37 @@ export class Autosave {
 
   /** Escribe el respaldo ahora (síncrono). Se llama al cerrar o ocultar la pestaña. */
   writeBackupNow(): void {
-    if (this.hasUnsaved) this.#writeBackup(this.#store.doc);
+    this.#clearPendingTimer();
+    if (this.hasUnsaved || this.#pendingText) this.#writeBackup(this.#store.doc);
+  }
+
+  /** Texto sin leer que el respaldo conserva (para las pruebas). */
+  get pendingText(): Readonly<Record<string, string>> | null {
+    return this.#pendingText;
+  }
+
+  /**
+   * Texto de las partes que no se pudo leer (CA4-E9). No es parte del documento ni cuenta como cambio sin guardar:
+   * solo se conserva en el respaldo local, que se escribe poco después (no en cada tecla). `null` o `{}` lo quitan.
+   */
+  setPendingText(map: Readonly<Record<string, string>> | null): void {
+    const next = map && Object.keys(map).length > 0 ? pendingTextOf(map) : null;
+    if (JSON.stringify(next) === JSON.stringify(this.#pendingText)) return;
+    this.#pendingText = next;
+    if (this.#disposed) return;
+    this.#clearPendingTimer();
+    this.#pendingTimer = setTimeout(() => {
+      this.#pendingTimer = null;
+      if (this.#pendingText || this.hasUnsaved) this.#writeBackup(this.#store.doc);
+      else if (!this.#backupHeld) clearBackup(this.#deps.storage, this.#deps.ownerId, this.#deps.patternId);
+    }, PENDING_TEXT_BACKUP_MS);
   }
 
   /** Deja de escuchar y cancela los temporizadores. Un envío en curso termina, pero ya no actualiza el estado. */
   stop(): void {
     this.#disposed = true;
     this.#clearTimer();
+    this.#clearPendingTimer();
     this.#unsubscribe?.();
     this.#unsubscribe = null;
   }
@@ -274,7 +312,11 @@ export class Autosave {
         }, this.#deps.debounceMs);
         return;
       }
-      if (!this.#backupHeld) clearBackup(this.#deps.storage, this.#deps.ownerId, this.#deps.patternId);
+      if (!this.#backupHeld) {
+        // El texto sin leer sigue fuera del documento: el respaldo queda solo con él (y el documento ya guardado).
+        if (this.#pendingText) this.#writeBackup(doc);
+        else clearBackup(this.#deps.storage, this.#deps.ownerId, this.#deps.patternId);
+      }
       this.#set({ kind: "saved", draft: outcome.draft, at: this.#deps.now() });
       return;
     }
@@ -312,12 +354,13 @@ export class Autosave {
     }, delay);
   }
 
-  #writeBackup(doc: ChartPattern): void {
+  #writeBackup(doc: P): void {
     const storage = this.#deps.storage;
     if (!storage || this.#backupHeld) return;
     const { ownerId, patternId } = this.#deps;
     if (!isValidOwnerId(ownerId)) return; // sin dueña conocida no se respalda
     const backup: LocalBackup = { v: 2, ownerId, baseUpdatedAt: this.#updatedAt, savedAt: this.#deps.now(), document: doc };
+    if (this.#pendingText) backup.pendingText = this.#pendingText;
     try {
       const text = JSON.stringify(backup);
       // Un respaldo que no se podría leer de vuelta no se escribe (y no se deja uno viejo que lo contradiga).
@@ -326,6 +369,11 @@ export class Autosave {
     } catch {
       /* cuota llena o modo privado: el respaldo es solo una red de seguridad */
     }
+  }
+
+  #clearPendingTimer(): void {
+    if (this.#pendingTimer !== null) clearTimeout(this.#pendingTimer);
+    this.#pendingTimer = null;
   }
 
   #clearTimer(): void {

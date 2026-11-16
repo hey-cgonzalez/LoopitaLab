@@ -7,7 +7,7 @@ import { listUserYarns } from "@/app/lanas/actions";
 import { describeComposition } from "@/lib/yarns/form.ts";
 import type { SavedYarn } from "@/lib/yarns/saved.ts";
 import { colorName } from "@/lib/studio/yarn-picker.ts";
-import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { YarnEditStore } from "@/lib/studio/yarn-store.ts";
 import { STUDIO_TEXTS, savedYarnUsedText } from "@/lib/studio-texts.ts";
 import { BTN, previewHandlers } from "./yarn-picker-ui.ts";
 
@@ -16,7 +16,7 @@ const S = STUDIO_TEXTS.selectorLanas;
 type Load = { kind: "loading" } | { kind: "ok"; yarns: SavedYarn[] } | { kind: "signed-out" } | { kind: "error"; message: string };
 
 interface Props {
-  store: DocumentStore;
+  store: YarnEditStore;
   index: number;
   letter: string;
   /** Hay lugar para una lana más en el diseño. */

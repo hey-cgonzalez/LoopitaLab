@@ -1,6 +1,6 @@
 "use client";
 
-import type { Part, WrittenPattern } from "@loopitalab/pattern-core";
+import { LIMITS, type Part, type WrittenPattern } from "@loopitalab/pattern-core";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ViewerHandle, PatternSource } from "@/components/amigurumi/AmigurumiViewer.tsx";
 import { AmigurumiViewerLoader } from "@/components/amigurumi/AmigurumiViewerLoader.tsx";
@@ -42,7 +42,8 @@ export interface FrameStats {
 export interface Visor3dDevApi {
   ready: boolean;
   select(key: string): Promise<{ ms: number }>;
-  sceneOfStitches(n: number): Promise<{ ms: number; stitches: number }>;
+  /** Arma una escena de unos `n` puntos hasta el primer frame (`unique`: partes distintas, sin copias). */
+  sceneOfStitches(n: number, unique?: boolean): Promise<{ ms: number; stitches: number; parts: number }>;
   /** Edita una vuelta del fixture A (meseta V11–30 ↔ V11–31) hasta el frame pintado: `edit-to-paint-3d`. */
   editToPaint(): Promise<{ ms: number }>;
   /** Cambia la lana de una vuelta (misma forma): `colorizePartMesh` y el rango de `yarn`. */
@@ -74,15 +75,30 @@ const q = (xs: number[], f: number) => {
   return s[Math.min(s.length - 1, Math.floor(f * s.length))] ?? 0;
 };
 
-/** Escena de unos `stitches` puntos con copias de una parte (para medir; T12 la reemplaza por su escenario). */
-function sceneOfStitches(template: WrittenPattern, stitches: number): WrittenPattern {
+/**
+ * Escena de unos `stitches` puntos para medir (T11 y T12). Con copias de una parte (por defecto), se arma una sola
+ * malla y el costo es del dibujo. Con `unique`, hasta `LIMITS.maxParts` partes distintas (el fixture A con la meseta
+ * alargada, sin pasar por el lector de texto), cada una con su malla: el peor caso para armar la escena
+ * (calibración de `SCENE_HARD_STITCH_CAP`, ADR 0010, sección 6c).
+ */
+function sceneOfStitches(template: WrittenPattern, stitches: number, unique = false): WrittenPattern {
   const base = template.parts[0]!;
-  const copies = Math.max(1, Math.round(stitches / 1_800));
   const parts: Part[] = [];
-  for (let left = copies, i = 0; left > 0; i++) {
-    const n = Math.min(50, left);
-    parts.push({ ...base, id: `cuerpo-${i + 1}`, name: `Cuerpo ${i + 1}`, copies: n });
-    left -= n;
+  if (unique) {
+    const count = Math.min(LIMITS.maxParts, Math.max(1, Math.ceil(stitches / 6_000)));
+    // Fixture A: 1.800 puntos con 20 vueltas de 60 en la meseta (V11–30, índice 10); cada vuelta más suma 60.
+    const plateau = Math.max(1, Math.round(20 + (stitches / count - 1_800) / 60));
+    for (let i = 0; i < count; i++) {
+      const rounds = base.rounds.map((r, j) => (j < 10 ? r : j === 10 ? { ...r, through: r.number + plateau - 1 } : { ...r, number: r.number + plateau - 20 }));
+      parts.push({ ...base, id: `cuerpo-${stitches}-${i + 1}`, name: `Cuerpo ${i + 1}`, rounds });
+    }
+  } else {
+    const copies = Math.max(1, Math.round(stitches / 1_800));
+    for (let left = copies, i = 0; left > 0; i++) {
+      const n = Math.min(50, left);
+      parts.push({ ...base, id: `cuerpo-${i + 1}`, name: `Cuerpo ${i + 1}`, copies: n });
+      left -= n;
+    }
   }
   return { ...template, id: `escena-${stitches}`, title: `Escena ${stitches}`, parts, layout: { placements: [] } };
 }
@@ -144,10 +160,16 @@ export default function VisorDemo({ data }: { data: DemoData }) {
         paint(() => {
           choose(key);
         }),
-      sceneOfStitches: async (n) => {
-        const r = await paint(() => source.set(sceneOfStitches(data.demos[0]!.pattern, n)));
+      sceneOfStitches: async (n, unique) => {
+        // Partes nuevas (sin mallas anteriores): la escena se arma completa (`buildScene`, subir y el primer frame).
+        // Sobre el límite recomendado el armado va en un turno aparte: se espera al frame que ya la dibuja.
+        const t0 = performance.now();
+        source.set(sceneOfStitches(data.demos[0]!.pattern, n, unique === true));
+        let end = await h.nextPaint();
+        for (let i = 0; i < 600 && h.controller.status.updating; i++) end = await h.nextPaint();
         h.frame();
-        return { ...r, stitches: h.renderer.stats().stitches };
+        const st = h.renderer.stats();
+        return { ms: end - t0, stitches: st.stitches, parts: st.parts };
       },
       editToPaint: () =>
         paint(() => {

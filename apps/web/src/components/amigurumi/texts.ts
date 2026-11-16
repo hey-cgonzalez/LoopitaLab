@@ -25,6 +25,7 @@ export const VIEWER_3D_TEXTS = {
   contextoPerdido: "Se perdió la vista 3D (el navegador liberó la tarjeta gráfica). Se muestran las siluetas mientras se recupera.",
   soloEn3d: "Las siluetas usan el color plano de cada lana: el halo y el brillo solo se ven en la vista 3D.",
   medidasTitulo: "Medidas",
+  avisosTitulo: "Avisos de la vista 3D",
   estimacion: "estimación",
   supuesto: "supuesto",
   muestraSupuesta: "Las medidas y la forma usan una muestra supuesta: teje una muestra para comprobar.",

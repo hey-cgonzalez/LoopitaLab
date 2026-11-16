@@ -19,7 +19,7 @@ export default async function Page() {
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">
             <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Mis diseños</h1>
-            <p className="mt-1 text-tinta-suave">Tus gráficos de colorwork. Se guardan solos mientras los editas.</p>
+            <p className="mt-1 text-tinta-suave">Tus gráficos de colorwork y tus amigurumis escritos. Los gráficos se guardan solos mientras los editas.</p>
           </div>
           <Link href="/disenos/nuevo" className="rounded-full bg-marino px-6 py-2.5 font-bold text-white hover:bg-indigo">
             Nuevo diseño

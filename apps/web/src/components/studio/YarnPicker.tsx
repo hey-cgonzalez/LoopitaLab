@@ -2,7 +2,7 @@
 
 import { LIMITS, yarnLetter, type Yarn } from "@loopitalab/pattern-core";
 import { useEffect, useId, useRef, useState, useSyncExternalStore, type KeyboardEvent } from "react";
-import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { YarnEditStore } from "@/lib/studio/yarn-store.ts";
 import { nextYarnId, normalizeNote, withColor, withNote, yarnProblems } from "@/lib/studio/yarn-edit.ts";
 import { applySavedYarn, colorName, newYarnFromSaved } from "@/lib/studio/yarn-picker.ts";
 import type { SavedYarn } from "@/lib/yarns/saved.ts";
@@ -22,7 +22,7 @@ const CHANGE_IDLE_MS = 600;
 type Tab = "adjust" | "saved";
 
 interface Props {
-  store: DocumentStore;
+  store: YarnEditStore;
   index: number;
   yarn: Yarn;
   letter: string;

@@ -1,6 +1,5 @@
 "use client";
 
-import { APP_TIME_ZONE } from "@/lib/time-zone";
 import { NO_STITCH, yarnLetter, type ChartPattern, type Issue } from "@loopitalab/pattern-core";
 import Link from "next/link";
 import { memo, useCallback, useDeferredValue, useEffect, useId, useState, useSyncExternalStore, type ReactNode } from "react";
@@ -15,6 +14,7 @@ import {
   selectEdited,
   selectFullDisabled,
   selectHasRepeats,
+  selectAssumedGauge,
   selectIsAi,
   selectTechnique,
   selectYarns,
@@ -28,6 +28,7 @@ import { EditorToolbar } from "./EditorToolbar";
 import { PerfPanel } from "./PerfPanel";
 import { PreviewPane } from "./PreviewPane";
 import { SaveIndicator } from "./SaveIndicator";
+import { SessionBanners } from "./SessionBanners";
 import { PrototypeNotice } from "./StudioNotices";
 import { StudioSidebar } from "./StudioSidebar";
 import { useSidebarDoc, useStoreSelector } from "./useStoreSelector";
@@ -57,7 +58,6 @@ interface Props {
 
 type Tab = "editor" | "preview" | "settings";
 
-const timeFmt = new Intl.DateTimeFormat("es-CL", { dateStyle: "medium", timeStyle: "short", timeZone: APP_TIME_ZONE });
 const TABS: { id: Tab; label: string }[] = [
   { id: "editor", label: T.pestanas.editor },
   { id: "preview", label: T.pestanas.vista },
@@ -119,6 +119,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
   const technique = useStoreSelector(store, selectTechnique);
   const fullDisabled = useStoreSelector(store, selectFullDisabled);
   const hasRepeats = useStoreSelector(store, selectHasRepeats);
+  const gaugeAssumed = useStoreSelector(store, selectAssumedGauge);
 
   const titleId = useId();
   const [titleText, setTitleText] = useState(initial.title);
@@ -126,7 +127,6 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
   const [versionLabel, setVersionLabel] = useState("");
   const [versionMsg, setVersionMsg] = useState<{ tone: "ok" | "error"; text: string } | null>(null);
   const [versionBusy, setVersionBusy] = useState(false);
-  const [overwriting, setOverwriting] = useState(false);
 
   const [tab, setTab] = useState<Tab>("editor");
   const [tool, setTool] = useState<Tool>("pencil");
@@ -253,21 +253,6 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
     return { ok: false, message: PROJECT_TEXTS.tejer.guardarAntes };
   }, [autosave]);
 
-  function reloadFromServer() {
-    autosave.stop();
-    autosave.discardBackup();
-    window.location.reload();
-  }
-
-  async function overwrite() {
-    setOverwriting(true);
-    try {
-      await autosave.overwrite();
-    } finally {
-      setOverwriting(false);
-    }
-  }
-
   // Cada zona es una columna que desplaza por dentro (escritorio) o el panel de su pestaña (tableta y móvil).
   // `relative`: los textos `sr-only` (posición absoluta) quedan dentro de la columna; sin él alargarían la página.
   const show = (t: Tab) => (tab === t ? "flex" : "hidden lg:flex");
@@ -278,7 +263,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
   // Lanas: en escritorio encabezan la columna izquierda (así el editor usa todo el alto de la suya); en tableta y
   // móvil van en la pestaña del editor, debajo de la cuadrícula (que queda a la vista al abrir la pestaña), para
   // cambiar de lana mientras se pinta. El orden del DOM es el visual en los dos casos.
-  const yarnPanel = <YarnPanel store={store} yarns={yarns} activeId={activeId} onActiveChange={setActiveId} />;
+  const yarnPanel = <YarnPanel store={store} technique={technique} gaugeAssumed={gaugeAssumed} yarns={yarns} activeId={activeId} onActiveChange={setActiveId} />;
 
   const design = (
     <>
@@ -333,7 +318,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
           <Link href="/disenos" className="py-1 text-sm underline underline-offset-4">
             ← Mis diseños
           </Link>
-          <div className="min-w-[12rem] flex-1">
+          <div className="min-w-[min(12rem,100%)] flex-1">
             <label htmlFor={titleId} className="sr-only">
               Nombre del diseño
             </label>
@@ -360,49 +345,7 @@ export function StudioShell({ document: initial, updatedAt, ownerId, draftIssues
         </div>
       </div>
 
-      {recovery ? (
-        <section aria-label="Cambios sin guardar de una sesión anterior" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-mostaza bg-superficie px-4 py-2">
-          <div className="mx-auto flex flex-wrap items-center gap-4">
-            <p className="min-w-0 flex-1">
-              Encontramos cambios sin guardar de {timeFmt.format(new Date(recovery.savedAt))}, de la última vez que abriste este diseño en este equipo.
-              {recovery.serverIsNewer ? " Ojo: el diseño se guardó después desde otro lugar; si los recuperas, reemplazan esa versión." : ""}
-              {edited ? ` ${T.respaldo.recuperacionEditando}` : ""}
-            </p>
-            <button type="button" onClick={session.acceptRecovery} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo">
-              Recuperar cambios
-            </button>
-            <button type="button" onClick={session.dismissRecovery} className="rounded-full border-2 border-marino px-5 py-2 font-bold hover:bg-marino hover:text-white">
-              Descartar
-            </button>
-          </div>
-        </section>
-      ) : null}
-
-      {status.kind === "conflict" ? (
-        <section role="alert" aria-label="Conflicto al guardar" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-error bg-superficie px-4 py-2">
-          <div className="mx-auto flex flex-wrap items-center gap-4">
-            <p className="min-w-0 flex-1">{T.guardado.conflicto}</p>
-            <button type="button" onClick={reloadFromServer} className="rounded-full bg-marino px-5 py-2 font-bold text-white hover:bg-indigo">
-              Recargar la versión guardada
-            </button>
-            <button type="button" onClick={overwrite} disabled={overwriting} className="rounded-full border-2 border-error px-5 py-2 font-bold text-error hover:bg-error hover:text-white disabled:opacity-60">
-              {overwriting ? "Sobrescribiendo…" : "Sobrescribir con mi versión"}
-            </button>
-          </div>
-          <p className="mx-auto mt-1 text-sm text-tinta-suave">Recargar descarta lo que cambiaste aquí. Sobrescribir reemplaza lo guardado desde el otro lugar.</p>
-        </section>
-      ) : null}
-
-      {status.kind === "blocked" ? (
-        <section role="alert" aria-label="No se puede guardar" className="max-h-[40%] shrink-0 overflow-y-auto border-b-2 border-error bg-superficie px-4 py-2">
-          <p className="mx-auto font-bold text-error">No se puede guardar el diseño con estos errores:</p>
-          <ul className="mx-auto list-disc pl-6">
-            {status.issues.slice(0, 5).map((i) => (
-              <li key={`${i.code}-${i.path}`}>{i.message}</li>
-            ))}
-          </ul>
-        </section>
-      ) : null}
+      <SessionBanners status={status} autosave={autosave} recovery={recovery} edited={edited} onAccept={session.acceptRecovery} onDismiss={session.dismissRecovery} />
 
       <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
         {TABS.map((t) => (

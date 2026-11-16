@@ -1,8 +1,9 @@
 /**
  * Constantes con nombre del backend `three` (ADR 0010, secciones 6, 6b y 6c; enmiendas V-1 y V-4).
  *
- * Los valores de rendimiento son la primera calibración de T3b: **T12 los recalibra** en el equipo de
- * referencia (como enmiendas del ADR). Los del aspecto por fibra son valores iniciales razonables:
+ * Los valores de rendimiento son la primera calibración de T3b, **confirmada por T12 en el M1** (2026-11-15,
+ * `apps/web/e2e/medir-visor-3d.ts`, cifras en `docs/qa-fase-4.md`); la medición en el equipo de referencia decide
+ * (como enmiendas del ADR). Los del aspecto por fibra son valores iniciales razonables:
  * **T11c los calibra** con capturas 2D y 3D de las mismas lanas, revisadas por `catalogo-lanas` y
  * `experto-tejido`. Ninguno cambia el documento ni lo que se puede guardar.
  */
@@ -12,7 +13,8 @@ import { LIMITS, RECOMMENDED_WRITTEN_LIMITS } from "@loopitalab/pattern-core";
 
 /**
  * Por encima de esta cantidad de puntos visibles, el nivel de detalle pasa a `"smooth"` (enmienda V-4).
- * Calibrar en T12: ≥ 30 fps en `"relief"` con razón de píxeles 2 en el equipo de referencia; si no, 10.000.
+ * Regla: ≥ 30 fps en `"relief"` con razón de píxeles 2 en el equipo de referencia; si no, 10.000. T12, en el M1
+ * (GPU real, CPU ×4): 19.800 puntos en `"relief"` con el aspecto por fibra giran a 60 fps (el tope de la pantalla).
  */
 export const LOD_STITCH_BUDGET = 20_000;
 
@@ -23,8 +25,11 @@ export const LOD_STITCH_BUDGET = 20_000;
 export const RECOMMENDED_SCENE_STITCHES: number = RECOMMENDED_WRITTEN_LIMITS.sceneStitches;
 
 /**
- * Tope del visor (enmienda V-1): por encima no se arma la malla y se muestran las siluetas. Calibrar en
- * T12: la escena más grande que se arma completa (escena, subir y primer frame) en ≤ 1 s con CPU ×4.
+ * Tope del visor (enmienda V-1): por encima no se arma la malla y se muestran las siluetas. Regla: la escena más
+ * grande que se arma completa (escena, subir y primer frame) en ≤ 1 s con CPU ×4. T12, en el M1: unos 700.000
+ * puntos con 50 partes distintas (el peor caso; con copias, mucho más), pero **queda en 200.000**: el tope también
+ * acota la parte más grande que se rearma en el hilo principal con cada edición (R4-20; una parte de 120.000 puntos
+ * tarda unos 150 ms con CPU ×4). Subirlo necesita armar la malla en un *worker* (ADR 0010, sección 6c).
  */
 export const SCENE_HARD_STITCH_CAP = 200_000;
 

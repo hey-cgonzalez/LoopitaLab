@@ -89,7 +89,7 @@ export function DesignList({ designs: initial }: { designs: DesignListItem[] }) 
                     </Link>
                   </p>
                   <p className="text-sm text-tinta-suave">
-                    {d.renderAs ? SHAPE[d.renderAs] ?? d.renderAs : "Patrón escrito"}
+                    <span data-testid="design-kind">{d.kind === "written" ? "Amigurumi (escrito)" : "Colorwork"}</span> {d.renderAs ? `· ${SHAPE[d.renderAs] ?? d.renderAs}` : ""}
                     {d.width !== null && d.height !== null ? ` · motivo de ${d.width} × ${d.height}` : ""} · actualizado el {dateFmt.format(new Date(d.updatedAt))}
                   </p>
                 </div>

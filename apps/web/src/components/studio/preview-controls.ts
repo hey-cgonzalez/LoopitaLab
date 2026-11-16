@@ -1,5 +1,4 @@
 import type { Yarn } from "@loopitalab/pattern-core";
-import type { DocumentStore } from "@/lib/studio/store.ts";
 
 /*
  * Controles de la vista previa que NO son del documento (regla de oro 1; ADR 0008 §3 y §4), por estudio:
@@ -10,7 +9,7 @@ import type { DocumentStore } from "@/lib/studio/store.ts";
  * - `flatColors` ("Colores planos"): preferencia de vista que apaga el halo y el brillo por fibra. Se recuerda en este
  *   navegador (`localStorage`), nunca en el documento.
  *
- * Está asociado al `DocumentStore` (un estudio = un almacén), así el selector del panel lateral y la vista previa se
+ * Está asociado al almacén del estudio (`DocumentStore` o `WrittenStore`: un estudio = un almacén), así el selector del panel lateral y la vista previa se
  * encuentran sin pasar por React ni por el documento. El motor se registra con `bind` al montarse.
  */
 
@@ -99,10 +98,10 @@ function defaultStorage(): Pick<Storage, "getItem" | "setItem"> | null {
   }
 }
 
-const registry = new WeakMap<DocumentStore, PreviewControls>();
+const registry = new WeakMap<object, PreviewControls>();
 
 /** Controles de la vista previa del estudio de `store` (se crean al primer uso). */
-export function previewControls(store: DocumentStore): PreviewControls {
+export function previewControls(store: object): PreviewControls {
   let c = registry.get(store);
   if (!c) {
     c = new PreviewControls();

@@ -3,13 +3,11 @@
 import { EDIT_LIMITS, yarnLetter, type Yarn } from "@loopitalab/pattern-core";
 import { weightLabel } from "@loopitalab/yarn-catalog";
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { selectAssumedGauge, selectTechnique } from "@/lib/studio/select.ts";
-import type { DocumentStore } from "@/lib/studio/store.ts";
+import type { YarnEditStore } from "@/lib/studio/yarn-store.ts";
 import { newYarnFor } from "@/lib/studio/yarn-edit.ts";
 import { STUDIO_TEXTS, yarnAddedText, yarnButtonLabel, yarnMovedText, yarnRemovedText, yarnTitle } from "@/lib/studio-texts.ts";
 import { YarnPicker } from "./YarnPicker.tsx";
 import { FIELD } from "./yarn-picker-ui.ts";
-import { useStoreSelector } from "./useStoreSelector.ts";
 
 const T = STUDIO_TEXTS;
 const BTN = "rounded-full border-2 border-marino px-2.5 py-1 text-sm font-bold enabled:hover:bg-marino enabled:hover:text-white disabled:opacity-40";
@@ -17,16 +15,24 @@ const [QUITAR_VERBO, ...QUITAR_REST] = T.lanas.quitar.split(" ");
 const QUITAR_RESTO = QUITAR_REST.join(" ");
 
 interface PanelProps {
-  store: DocumentStore;
+  store: YarnEditStore;
+  /** Técnica del diseño: el grosor sugiere agujas (palillo) o crochet. */
+  technique: "knit" | "crochet";
+  /** El documento no tiene muestra (la de referencia es un supuesto visible). */
+  gaugeAssumed: boolean;
   /** Lanas del documento (el panel no necesita el resto: así una pincelada no lo vuelve a renderizar). */
   yarns: readonly Yarn[];
   /** `id` de la lana activa (las celdas se pintan con ella). */
   activeId: string;
   onActiveChange(id: string): void;
+  /** Textos propios del estudio (el amigurumi no tiene cuadrícula ni casillas). */
+  help?: string;
+  replaceHelp?: string;
+  replaceQuestion?: string;
 }
 
 /** Panel de lanas (zona `yarns`): lista A, B, C…, editor mínimo, agregar, quitar con reemplazo y reordenar. */
-export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps) {
+export function YarnPanel({ store, technique, gaugeAssumed, yarns, activeId, onActiveChange, help = T.lanas.ayuda, replaceHelp = T.lanas.eligeReemplazo, replaceQuestion = T.panelLanas.reemplazoPregunta }: PanelProps) {
   const [removing, setRemoving] = useState<number | null>(null);
   const [replacement, setReplacement] = useState(0);
   const [openId, setOpenId] = useState<string | null>(null);
@@ -37,8 +43,6 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
   /** Dónde va el foco cuando las lanas ya se dibujaron con el cambio (el botón que se usó puede cambiar de lugar o desaparecer). */
   const pendingFocus = useRef<{ kind: "move"; id: string; dir: -1 | 1 } | { kind: "editor"; id: string } | { kind: "add" } | null>(null);
   const atMax = yarns.length >= EDIT_LIMITS.maxYarns;
-  const technique = useStoreSelector(store, selectTechnique);
-  const gaugeAssumed = useStoreSelector(store, selectAssumedGauge);
 
   useEffect(() => {
     const p = pendingFocus.current;
@@ -125,7 +129,7 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
         {spoken}
       </p>
       {atMax ? <p className="text-sm text-tinta-suave">{T.panelLanas.maximo}</p> : null}
-      <p className="text-sm text-tinta-suave">{T.lanas.ayuda}</p>
+      <p className="text-sm text-tinta-suave">{help}</p>
       <ul ref={listRef} className="grid gap-1.5">
         {yarns.map((y, i) => {
           const letter = yarnLetter(i);
@@ -189,7 +193,7 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
               {removing === i ? (
                 <RemoveConfirm label={yarnButtonLabel(T.lanas.quitar, letter)} onCancel={() => cancelRemove(y.id)}>
                   <label className="font-bold" htmlFor={`replace-${y.id}`}>
-                    {T.panelLanas.reemplazoPregunta}
+                    {replaceQuestion}
                   </label>
                   <select id={`replace-${y.id}`} value={replacement} onChange={(e) => setReplacement(Number(e.target.value))} className={FIELD}>
                     {yarns.map((o, j) => (j === i ? null : <option key={o.id} value={j}>{yarnTitle(yarnLetter(j))}</option>))}
@@ -200,7 +204,7 @@ export function YarnPanel({ store, yarns, activeId, onActiveChange }: PanelProps
                   <button type="button" data-cancel onClick={() => cancelRemove(y.id)} className={BTN}>
                     {T.panelLanas.cancelar}
                   </button>
-                  <p className="basis-full text-sm text-tinta-suave">{T.lanas.eligeReemplazo}</p>
+                  <p className="basis-full text-sm text-tinta-suave">{replaceHelp}</p>
                 </RemoveConfirm>
               ) : null}
               {openId === y.id ? (

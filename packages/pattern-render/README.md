@@ -81,8 +81,8 @@ Por ejemplo, para una banda de 4 × 3 repetida 5 × 2 veces:
 Devuelve `{ ok, dialect, parts, placements, gaugeStatus, text }`: los datos estructurados (por parte: vueltas con su conteo, etiquetas de copias y medidas) y el texto plano para lectores de pantalla. Nunca lanza; con un documento no `savable` devuelve `ok: false` y una frase.
 
 - **Conteos**: de `summarizePart` y `concreteRounds`; las medidas, de `shapeMetrics`, `partProfile` y `partDimensions`. Aquí no se cuenta nada (regla de oro 2).
-- **Copias**: "Se teje 2 veces: Oreja (1 de 2), Oreja (2 de 2). Las copias son idénticas, sin espejo."
-- **Dónde va cada pieza** (enmienda C-17 del ADR 0011): "Oreja (1 de 2): se cose a «Cabeza», entre la V10 y la V11, contando desde el anillo mágico." Sin distancia en puntos desde el inicio de la vuelta (`SurfaceAt.stitch` no se usa). Con cadeneta inicial, "contando desde la cadeneta inicial"; en hileras, H en vez de V y "la cadeneta base"; con `attach: "start"`, "por el centro de su inicio". Las copias sin entrada en `layout` salen como "se ubica de forma automática".
+- **Copias**: "Se teje 2 veces: Oreja (1 de 2), Oreja (2 de 2). Todas son iguales, sin espejo."
+- **Dónde va cada pieza** (enmienda C-17 del ADR 0011): "Oreja (1 de 2): se cose a la pieza «Cabeza», entre la V10 y la V11, contando desde el anillo mágico." Sin distancia en puntos desde el inicio de la vuelta (`SurfaceAt.stitch` no se usa). Con cadeneta inicial, "contando desde la cadeneta inicial"; en hileras, H en vez de V y "la cadeneta base"; con `attach: "start"`, "por el centro de su inicio". Las copias sin entrada en `layout` salen como "sin ubicar; el 3D la acomoda sola".
 - **Medidas**: "≈ N cm" y siempre "estimación". Con la muestra del documento, "a partir de la muestra del patrón". Sin muestra del documento y con `assumedGauge`, además "muestra supuesta" y "supuesto". Sin ninguna, "Sin muestra: no se pueden dar medidas" y ningún "≈" (regla de oro 6).
 - **Dialecto**: el prefijo de vuelta (V, H o R) y las abreviaturas de cada vuelta salen con `formatRound` de `pattern-core`; la prosa es siempre español.
 

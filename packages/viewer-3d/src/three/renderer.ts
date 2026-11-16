@@ -371,7 +371,11 @@ export function createThreeRenderer(opts: ThreeRendererOptions): AmigurumiRender
     },
 
     setHighlight(target) {
-      highlight = target && typeof target.partId === "string" ? { ...target } : null;
+      const next = target && typeof target.partId === "string" ? { ...target } : null;
+      // El mismo resaltado no pide otro frame (T12): el estudio lo vuelve a fijar en cada edición y en cada
+      // movimiento del cursor. `setScene` recalcula el rango si cambió la malla.
+      if (next?.partId === highlight?.partId && next?.copy === highlight?.copy && next?.roundIndex === highlight?.roundIndex) return;
+      highlight = next;
       refreshHighlightRange();
       refreshMaterials();
       invalidate();

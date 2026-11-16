@@ -90,7 +90,7 @@ export function buildScene(input: SceneInput): SceneResult {
     return entry;
   });
   if (assumed.length > 0) {
-    notes.unshift({ code: "GAUGE_ASSUMED", message: "Las medidas y la forma usan una muestra supuesta: teje una muestra para comprobar.", data: { partIds: assumed } });
+    notes.unshift({ code: "GAUGE_ASSUMED", message: "Las medidas y la forma usan una muestra supuesta. Teje una muestra con tu lana y tu aguja para comprobarlas.", data: { partIds: assumed } });
   }
 
   // 2. Una ranura por copia, con su posición del documento si la tiene.
@@ -144,7 +144,7 @@ export function buildScene(input: SceneInput): SceneResult {
     const at = s.placement!.at as SurfaceAt;
     const host = byRef.get(refKey(at.host?.part, at.host?.copy));
     const fail = (reason: string): Mat4 => {
-      notes.push({ code: "ANCHOR_UNRESOLVED", message: `${label(s)}: no se pudo ubicar sobre la pieza indicada; se muestra aparte.`, partId: s.part.id, copy: s.copy, data: { reason } });
+      notes.push({ code: "ANCHOR_UNRESOLVED", message: `${label(s)}: no se pudo ubicar donde se cose; el 3D la muestra aparte, a la derecha de las demás piezas.`, partId: s.part.id, copy: s.copy, data: { reason } });
       return autoPlace(s);
     };
     if (!host || host === s) return fail("host");
@@ -157,7 +157,7 @@ export function buildScene(input: SceneInput): SceneResult {
     if (frame.clamped) {
       notes.push({
         code: "ANCHOR_CLAMPED",
-        message: `${label(s)}: la vuelta o el punto donde se cose ya no existen en ${label(host)}; el 3D la pone en la vuelta ${frame.round}.`,
+        message: `${label(s)}: la vuelta o el punto donde se cose ya no existe en la pieza «${label(host)}»; el 3D la pone en la vuelta ${frame.round} (la más cercana). Revisa dónde va.`,
         partId: s.part.id,
         copy: s.copy,
         data: { host: { part: host.part.id, copy: host.copy }, round: at.round, stitch: at.stitch, usedRound: frame.round, usedStitch: frame.stitch },
@@ -207,11 +207,13 @@ function strainNotes(part: Part, profile: Extract<PartProfile, { kind: "revoluti
     if (ring.strain > 1 + STRAIN_EPS) ruffled.push(ring.round);
     else if (ring.strain < 1 - STRAIN_EPS) gathered.push(ring.round);
   }
-  const list = (r: number[]) => r.slice(0, 5).map((n) => `V${n}`).join(", ") + (r.length > 5 ? "…" : "");
+  // Una sola frase por zona (T18): el detalle vuelta por vuelta lo da el validador del patrón, y esta nota no lo repite.
+  // Textos de las notas del 3D: validar con tejedora (T1b, sección "Textos de T18").
+  const zone = (r: number[]) => (r[0] === r[r.length - 1] ? `en la vuelta ${r[0]}` : `entre la vuelta ${r[0]} y la ${r[r.length - 1]}`);
   if (ruffled.length > 0) {
-    notes.push({ code: "SHAPE_RUFFLES", message: `${part.name}: en ${list(ruffled)} la tela crece más rápido de lo que puede abrir en plano. El 3D la dibuja lisa; tejida, tiende a ondularse.`, partId: part.id, data: { rounds: ruffled } });
+    notes.push({ code: "SHAPE_RUFFLES", message: `${part.name}, ${zone(ruffled)}: la pieza aumenta más de lo que la tela puede abrir en plano. El 3D la dibuja lisa; tejida, puede ondularse. Las vueltas con aviso están en la revisión del patrón.`, partId: part.id, data: { rounds: ruffled } });
   }
   if (gathered.length > 0) {
-    notes.push({ code: "SHAPE_GATHERS", message: `${part.name}: en ${list(gathered)} la pieza se cierra más rápido de lo que la tela permite. El 3D la dibuja lisa; tejida, tiende a fruncirse.`, partId: part.id, data: { rounds: gathered } });
+    notes.push({ code: "SHAPE_GATHERS", message: `${part.name}, ${zone(gathered)}: la pieza disminuye más de lo que puede cerrarse en curva. El 3D la dibuja lisa; tejida, puede fruncirse. Las vueltas con aviso están en la revisión del patrón.`, partId: part.id, data: { rounds: gathered } });
   }
 }

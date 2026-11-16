@@ -35,9 +35,13 @@ Variables opcionales:
 | `E2E_PORT` | `3100` | Puerto del servidor de pruebas |
 | `E2E_SKIP_BUILD` | — | `1`: no vuelve a hacer `next build` (usa el `.next` existente; tiene que haberse construido con las variables de ejemplo) |
 | `E2E_LATENCY_BUDGET_MS` | `100` | Umbral del p95 de latencia (CA-P1 y CA-P3) |
-| `E2E_VIEWER_BUDGET_MS` | `100` | Presupuesto de latencia del visor 3D (fase 4). La CI lo fija en `400` (provisional: WebGL por software, sin medir todavía). Lo leen las pruebas del visor cuando existan (T3b y siguientes) |
+| `E2E_VIEWER_BUDGET_MS` | `100` | Umbral del p95 de `edit-to-paint-3d` y `hover-to-paint-3d` en `latencia-visor.spec.ts` (CA4-P1 a CA4-P3 y CA4-P10). La CI lo fija en `150` (WebGL por software; razonamiento en `docs/qa-fase-4.md`). `edit-to-feedback` fuera de los límites usa 100 ms (en la CI solo se informa, `E2E_P8_REPORT_ONLY=1`) |
+| `E2E_FEEDBACK_OUT_OF_LIMITS_MS` | `100` | Umbral del p95 de `edit-to-feedback` fuera de los límites recomendados (CA4-P8) |
+| `E2E_P8_REPORT_ONLY` | (sin valor) | Con `1`, CA4-P8 solo se informa. La CI lo activa: con SwiftShader en GitHub el p95 varió entre 126 y 243 ms con el mismo código (PR #15) |
+| `E2E_LOAD_LONG_TASK_MS` | `500` | Tarea larga máxima al cargar la página sobre el tope (CA4-P9), por la limitación de CPU. La CI lo fija en `800`. Al editar se exigen siempre 500 ms |
 | `E2E_CPU_RATE` | `1` | CPU limitada por CDP. `4` reproduce las condiciones del ADR 0004 |
-| `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` mide con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
+| `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` y `latencia-visor.spec.ts` miden con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
+| `E2E_R420_STRICT` | — | `1`: `latencia-visor.spec.ts` exige también `edit-to-feedback` < 100 ms cerca de `SCENE_HARD_STITCH_CAP` (R4-20; sin la variable, solo informa) |
 
 Si una prueba falla con `browserType.launch: Timeout`, es el arranque de Chromium y no el estudio. Pasó una vez en macOS, en la primera corrida después de descargar Chromium. Vuelve a correr las pruebas.
 
@@ -45,7 +49,7 @@ Los resultados quedan en `apps/web/test-results/` (trazas y capturas, solo de lo
 
 ## WebGL por software (fase 4, T3)
 
-El proyecto `webgl` corre `e2e/webgl.spec.ts` contra `/dev/webgl` (una página sin three que dibuja un triángulo y publica en `data-*` el contexto y el `UNMASKED_RENDERER_WEBGL`). Lanza Chromium con `webglLaunch` (`playwright.config.ts`): `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`, según "Using Chromium with SwiftShader" de la documentación de Chromium. En la CI (`CI=1`) la prueba exige que el renderer contenga "SwiftShader". Los proyectos del visor 3D deben usar `launchOptions: webglLaunch`. Los proyectos del estudio (canvas 2D) no lo usan, para no alterar sus mediciones de latencia.
+El proyecto `webgl` corre `e2e/webgl.spec.ts` contra `/dev/webgl` (una página sin three que dibuja un triángulo y publica en `data-*` el contexto y el `UNMASKED_RENDERER_WEBGL`). Lanza Chromium con `webglLaunch` (`playwright.config.ts`): `--use-gl=angle --use-angle=swiftshader --enable-unsafe-swiftshader --ignore-gpu-blocklist`, según "Using Chromium with SwiftShader" de la documentación de Chromium. En la CI (`CI=1`) la prueba exige que el renderer contenga "SwiftShader". Los proyectos del visor 3D deben usar `launchOptions: webglLaunch`. Los proyectos del estudio (canvas 2D) no lo usan, para no alterar sus mediciones de latencia. Además de `/dev/webgl` y `/dev/visor-3d`, `webgl.spec.ts` abre el estudio amigurumi (`/dev/amigurumi`, T14 de la fase 4): editar el texto de una parte rearma solo su malla, «Colores planos» y la vista previa de una lana no arman escena, y sobre el límite recomendado el editor responde mientras el 3D se rearma diferido. También posiciona (T16): en «Posicionar», tocar la cabeza fija el ancla de la oreja en la vuelta visible y el punto que da `pick`, el marco del ancla cae a menos de un punto del toque y «Girar» escribe `rotationDeg[0]`.
 
 ## Qué cubren
 
@@ -67,6 +71,8 @@ Todas las pruebas fallan si en la página hubo un `console.error` o una excepci�
 | `movil.spec.ts` | 390 px: cada pestaña muestra solo su panel, sin desplazamiento horizontal (también con el editor de lana y la confirmación de quitar abiertos). Las flechas mueven entre pestañas. "Saltar al editor" vuelve a la cuadrícula desde otra pestaña | CA-A1 |
 | `selector-lanas.spec.ts` | Selector de lanas del estudio: paleta, vista previa al pasar el cursor, grosor con equivalencia en inglés, composición con avisos por fibra, panel de metraje y muestra supuesta (13 pruebas) | T9, F3-23 a F3-27 |
 | `qa-grupo-c.spec.ts` | Selector de lanas entero con el teclado (pestañas, paleta con foco itinerante, Esc, un paso de deshacer por elección), táctil sin vista previa y Colores planos que sobrevive a recargar (3 pruebas) | T8, T9 |
+| `amigurumi.spec.ts` | Estudio amigurumi en `/dev/amigurumi` (T14 de la fase 4): límites recomendados visibles desde el inicio y diálogo «Seguir igual» o «Cancelar»; lectura en cada cambio, error en su línea, forma canónica solo al salir de la línea; aviso de `#`; dialecto UK; partes (agregar, renombrar, cantidad, ordenar, borrar); quitar una lana usada actualiza los `@`; el 3D sigue al documento; Bloques y Posicionar activos; Posicionar sin puntero (vuelta y punto con campos, errores de vuelta o punto inexistente, giro acotado a ±180, extremo, separar, «Quitar posición», deshacer, pieza principal libre y ciclo rechazado) y «Dónde va cada pieza»; pasos de armado; siluetas sin WebGL (12 pruebas) | CA4-E1, CA4-E2, CA4-E5, CA4-E7, CA4-E8, CA4-E10, CA4-E12, CA4-V4 |
+| `latencia-visor.spec.ts` | Estudio amigurumi con WebGL por software (proyecto `webgl`, en orden en un trabajador; T12 de la fase 4): escenario de referencia del ADR 0010 (14 piezas, 4.036 puntos, algodón, lana con mohair y seda) con 50 ediciones de texto, 50 acciones de bloques, 50 cambios `@B` ↔ `@C`, 50 colores y 50 «Colores planos» (`edit-to-paint-3d` bajo `E2E_VIEWER_BUDGET_MS`, contadores de mallas, atributos y programas, ninguna validación dentro de una edición); 50 colores al pasar el cursor (`hover-to-paint-3d`); fuera de los límites (60.900 puntos: `edit-to-feedback` bajo 100 ms, `"smooth"`, «Actualizando 3D…» y el 3D llega a la última edición); sobre `SCENE_HARD_STITCH_CAP` (siluetas, ninguna tarea de más de 500 ms, se sigue editando); y R4-20 cerca del tope (solo informa); el colorwork no pide el fragmento de `three` y se informa su tamaño | CA4-P1 a CA4-P3, CA4-P5, CA4-P7 a CA4-P10, R4-20 |
 | `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa, con el aspecto por fibra activado: 50 entradas de pintar (clic y teclado), 20 cambios de repeticiones de 5 a 10, 50 colores al pasar el cursor (`hover-to-paint`) y 50 avances de la fila resaltada (`row-to-paint`), estos dos con el banco de medición de la vista previa (`?perf=1`). Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7, CA3-P1 a CA3-P3, CA3-P5 |
 
 ### Latencia
@@ -96,6 +102,16 @@ Validaciones dentro de una ventana de edición: 0 en todos los casos.
 | Tubo | 25,5 | 83,6 |
 | Círculo de rombos (40.000 puntos) | 88,6 | 102,2 |
 | Copa | 31,2 | 50,4 |
+
+### Latencia del visor 3D (fase 4, T12)
+
+`latencia-visor.spec.ts` usa el recolector del estudio amigurumi (`/dev/amigurumi?perf=1`, `window.__loopitaViewerPerf`, `src/lib/amigurumi/viewer-perf.ts`), con tres métricas desde `event.timeStamp` de la entrada hasta lo primero que corre después del frame pintado: `edit-to-paint-3d` (el frame del visor que ya dibuja el cambio), `edit-to-feedback` (el editor muestra el texto, el conteo y los errores de lectura, sin esperar al 3D) y `hover-to-paint-3d`. Quedan también como `performance.measure` (`loopita:edit-to-paint-3d:<origen>`, `loopita:edit-to-feedback:<origen>`, `loopita:hover-to-paint-3d`). Las ediciones son de teclado y puntero reales, sin `evaluate` entre teclas: un `evaluate` espera a que el hilo principal se libere y escondería el tiempo que una tecla espera detrás de una reconstrucción del 3D. Las ayudas están en `support/visor-latencia.ts` y las usa también `medir-visor-3d.ts`. Los números salen en la consola (`[latencia-visor] {...}`) y como adjuntos `latencia-visor-<escenario>.json`. Corre en orden en un trabajador y, en local, conviene `--workers=1` (con otras pruebas en paralelo, la CPU compartida falsea las cifras):
+
+```sh
+pnpm --filter @loopitalab/web e2e --project=webgl --workers=1 e2e/latencia-visor.spec.ts
+```
+
+Umbrales: `E2E_VIEWER_BUDGET_MS` para el 3D (100 ms por defecto) y 100 ms para `edit-to-feedback` fuera de los límites (CA4-P8; en la CI solo se informa). **Sin traza** (`test.use({ trace: "off" })`): grabarla toma instantáneas del DOM en cada acción y falsea la medición (con 60.900 puntos, `edit-to-feedback` p50 de 60–66 ms con traza y 16–17 ms sin ella). `latencia.spec.ts` (colorwork) sí graba la traza al fallar; sus cifras de la CI pueden estar infladas por eso. Cifras, presupuesto de la CI y guía para el equipo de referencia: `docs/qa-fase-4.md`.
 
 **Chromium completo, no el shell.** Por defecto Playwright usa `chromium-headless-shell`, que dibuja el canvas mucho más lento: con CPU ×4, el círculo de rombos daba p95 de 177 ms al pintar y 202 ms en repeticiones, contra 63,5 ms y 86,7 ms con Chromium completo. Por eso la configuración usa `channel: "chromium"`.
 
@@ -148,8 +164,8 @@ npx supabase@2.122.1 stop --no-backup
 - **ana**: diseños, autoguardado, versiones, conflicto, duplicar y borrar;
 - **bea**: aislamiento y preferencias de la cuenta;
 - **cata**: cerrar sesión. Es aparte porque cerrar sesión revoca todas las sesiones de la cuenta;
-- **dani**: lanas guardadas usadas desde el estudio (`lanas-estudio.spec.ts`). Es aparte porque `lanas.spec.ts` espera que la lista de ana empiece vacía;
-- **eva**: QA del grupo C (`sesion/qa-grupo-c.spec.ts`): tope de 500 lanas, nota de más de 200 caracteres, Colores planos y autoguardado repetido;
+- **dani**: lanas guardadas usadas desde el estudio (`lanas-estudio.spec.ts`). Es aparte porque `lanas.spec.ts` espera que la lista de ana empiece vacía. También el estudio amigurumi (`sesion/amigurumi.spec.ts`), que cambia `profiles.pattern_dialect` a `uk` durante una prueba y lo devuelve a `es` al terminar;
+- **eva**: QA del grupo C (`sesion/qa-grupo-c.spec.ts`): tope de 500 lanas, nota de más de 200 caracteres, Colores planos y autoguardado repetido. También el posicionado con WebGL (`sesion/posicionar.spec.ts`, en su propio trabajador con los flags de `webglLaunch`);
 - **fer**: "Tejer este diseño" y la pantalla "Tejiendo" (`sesion/tejer.spec.ts`, `sesion/tejer-a11y.spec.ts` y `sesion/qa-fase3-tejer.spec.ts`). Es aparte porque sus proyectos impiden borrar los diseños que tejen.
 
 `sesion-limpiar` (`limpiar.teardown.ts`) corre al final, aunque fallen pruebas. Borra todas las cuentas `@e2e.loopitalab.test`, también las de una corrida cortada y la del registro. Sus diseños y versiones se borran en cascada.
@@ -168,9 +184,13 @@ npx supabase@2.122.1 stop --no-backup
 | `qa-grupo-c.spec.ts` | Tope de 500 lanas guardadas, nota de más de 200 caracteres, Colores planos fuera del documento y autoguardado repetido 5 veces (eva) | T8 a T11 |
 | `tejer.spec.ts` | "Tejer este diseño" desde el estudio con la pantalla previa, avanzar con botones, teclado y teclas de pasapáginas, el avance sobrevive a recargar, 390 px sin desplazamiento horizontal y `row-to-paint`; conflicto entre dos contextos con las dos salidas; "Pasar a la versión actual" tras editar el diseño; borrar el proyecto y después el diseño; `NOT_KNITTABLE` desde Mis diseños; pantalla encendida recordada; recálculo si el diseño cambia con la pantalla previa abierta; diseño con error de tejido no se puede tejer (fer; 7 pruebas) | T12, F3-7, F3-12, F3-38, F3-39, F3-41, ADR 0009 |
 | `tejer-a11y.spec.ts` | Accesibilidad y una mano en "Tejiendo": el conflicto abre un `<dialog>` modal (Esc no lo cierra, el foco vuelve a «Siguiente»), interruptor de mano con DOM y orden visual coincidentes, 390 px con controles ≥ 56 px en el 40 % inferior, 320 px sin desplazamiento horizontal, poca altura (568 px), región viva, gráfico en texto con la fila actual, interruptor de pantalla encendida y foco al borrar un proyecto (fer; 9 pruebas) | T13, CA3-T11 |
+| `escritos.spec.ts` | Crear un amigurumi desde `/disenos/nuevo`, borrador con una vuelta que no cuadra, recargar y ver que no se puede tejer (ana) | T13, CA4-M4, CA4-V7 |
+| `amigurumi.spec.ts` | Estudio amigurumi (dani; 3 pruebas): crear, escribir vueltas, ver y corregir el error en su línea, ver que el 3D cambia, notas y cierre de varias líneas, guardar y recargar; líneas sin leer en el respaldo local, recuperadas al recargar y nunca en la base; dialecto UK del perfil (escribe `R1: 6 dc`, lee `es-uk`, no guarda el modo) | T14, CA4-E1, CA4-E2, CA4-E4, CA4-E7, CA4-E9 |
+| `bloques.spec.ts` | Editor de bloques (dani; 2 pruebas): editar en bloques, ver el texto y el 3D, guardar y recargar; las líneas sin leer piden elegir antes de pasar a bloques, también con el respaldo recuperado | T15, CA4-E3, CA4-E6 |
+| `posicionar.spec.ts` | Posicionado con WebGL por software (eva): tocar la cabeza en «Posicionar» cose la oreja en la vuelta y el punto tocados, girarla, guardar y recargar; `layout.placements` de la base y «Dónde va cada pieza» dicen la misma vuelta (forma C-17, sin distancia en puntos); 4 vueltas más en la cabeza no mueven el ancla | T16, CA4-V3, CA4-V4 |
 | `qa-fase3-tejer.spec.ts` | QA final de "Tejiendo" (fer; 9 pruebas): corte de red con la cola local y envío al volver (CA3-T7), `VERSION_CHANGED` desde otro contexto y relectura al volver a la pantalla, envío inmediato al ocultarse (CA3-T6), Wake Lock simulado (CA3-T10, incluidas las regresiones de BUG-QA3-1 y BUG-QA3-2, ya corregidos, y el rechazo del navegador) y latencia `row-to-paint` en la pantalla real (CA3-P3) | T16, CA3-T6, CA3-T7, CA3-T10, CA3-P3 |
 
-Total: 45 pruebas con sesión (cuenta 2, acceso 2, aislamiento 1, conflicto 1, diseños 4, lanas 3, lanas-estudio 3, qa-grupo-c 4, tejer 7, tejer-a11y 9, qa-fase3-tejer 9), más `sesion-preparar` (preparación) y `sesion-limpiar` (limpieza).
+Total: 52 pruebas con sesión (cuenta 2, acceso 2, aislamiento 1, conflicto 1, diseños 4, lanas 3, lanas-estudio 3, qa-grupo-c 4, tejer 7, tejer-a11y 9, qa-fase3-tejer 9, escritos 1, amigurumi 3, bloques 2, posicionar 1), más `sesion-preparar` (preparación) y `sesion-limpiar` (limpieza).
 
 Las comprobaciones en la base usan la clave secreta local (`support.ts`, `adminClient`), que solo acepta una URL local. La guardia de `console.error` es la misma que sin sesión. La única excepción declarada es el 404 de `aislamiento.spec.ts`.
 

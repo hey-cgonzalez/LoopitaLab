@@ -243,3 +243,171 @@ test("calibración: capturas 3D y 2D de las mismas lanas (T11c, CA4-V8)", async 
   }
   console.log(`[calibracion]\n${rows.join("\n")}`);
 });
+
+/*
+ * Estudio amigurumi con WebGL por software (T14 de la fase 4): el visor se monta con el almacén como fuente
+ * (`subscribe` y `getSnapshot`) y deja el modo y la reconstrucción a `ViewerController`. Editar el texto de una parte
+ * rearma solo esa malla; la vista previa de una lana y "Colores planos" no arman escena. Fuera del límite
+ * recomendado, el editor responde aunque el 3D vaya diferido.
+ */
+type StudioHook = {
+  store: { doc: { parts: Array<{ id: string }> } };
+  viewer(): { controller: { counters: { buildScene: number; partsBuilt: number; looksOnly: number } } } | null;
+};
+const studioCounters = (page: import("@playwright/test").Page) =>
+  page.evaluate(() => (window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.viewer()!.controller.counters);
+
+test("estudio amigurumi: editar una parte rearma solo su malla; la vista previa y Colores planos no arman escena", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=muneco");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  const before = await studioCounters(page);
+  await page.getByTestId("part-text").evaluate((el: HTMLTextAreaElement) => {
+    el.focus();
+    el.setSelectionRange(el.value.length, el.value.length);
+  });
+  // Un cierre no cambia la forma: se agrega una nota a la última vuelta, que sí cambia la parte pero no su perfil.
+  await page.keyboard.type("\n> nota de prueba");
+  await expect.poll(async () => (await studioCounters(page)).buildScene).toBeGreaterThan(before.buildScene);
+  const after = await studioCounters(page);
+  expect(after.partsBuilt - before.partsBuilt).toBeLessThanOrEqual(1);
+
+  // "Colores planos": solo aspectos (sin escena).
+  await page.getByTestId("visor-3d-colores-planos").check();
+  await page.getByTestId("visor-3d-colores-planos").uncheck();
+  const flat = await studioCounters(page);
+  expect(flat.buildScene).toBe(after.buildScene);
+  expect(flat.looksOnly).toBeGreaterThan(after.looksOnly);
+
+  // Vista previa de un color al pasar el cursor por la paleta: no arma escena ni cambia el documento.
+  const doc = await page.evaluate(() => JSON.stringify((window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.store.doc));
+  await page.locator("[data-zone=yarns]").getByRole("button", { name: "Editar lana A" }).click();
+  await page.locator("[data-testid=color-picker] [data-swatch]").nth(3).hover();
+  await page.locator("[data-testid=color-picker] [data-swatch]").nth(5).hover();
+  expect((await studioCounters(page)).buildScene).toBe(after.buildScene);
+  expect(await page.evaluate(() => JSON.stringify((window as unknown as { __loopitaAmigurumi: StudioHook }).__loopitaAmigurumi.store.doc))).toBe(doc);
+});
+
+test("estudio amigurumi: sobre el límite recomendado, el editor responde y el 3D se actualiza diferido", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=grande");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("limits-meter")).toHaveAttribute("data-tone", "over");
+  await expect(page.getByTestId("scene-stitches-tone")).toContainText("Supera el límite recomendado");
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "degraded");
+  await page.getByTestId("part-text").evaluate((el: HTMLTextAreaElement) => {
+    el.focus();
+    const at = el.value.indexOf("V11-30");
+    el.setSelectionRange(at + "V11-30: 60 pb (60)".length, at + "V11-30: 60 pb (60)".length);
+  });
+  // Una flecha ida y vuelta: el editor sigue el cursor con el teclado y el puntero (no con una selección programática).
+  await page.keyboard.press("ArrowLeft");
+  await page.keyboard.press("ArrowRight");
+  await expect(page.getByTestId("caret-count")).toContainText("V11–30: 60 puntos cada una");
+  const before = await studioCounters(page);
+  // Una nota en la meseta cambia la parte: el texto se lee al instante y el 3D se rearma en un turno aparte.
+  await page.keyboard.type("\n> nota");
+  await expect(page.getByTestId("part-text")).toHaveValue(/V11-30: 60 pb \(60\)\n> nota/);
+  await expect(page.getByTestId("part-text-editor")).toHaveAttribute("data-status", "synced");
+  await expect.poll(async () => (await studioCounters(page)).buildScene, { timeout: 15_000 }).toBeGreaterThan(before.buildScene);
+  await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
+});
+
+/*
+ * Editor de bloques (T15 de la fase 4) con WebGL por software: una acción de bloques (cantidad, insertar vuelta)
+ * rearma el 3D igual que el texto, y solo la parte editada.
+ */
+test("estudio amigurumi: editar en bloques rearma solo la malla de su parte", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=muneco");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: StudioHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  await page.getByTestId("tab-blocks").click();
+  await expect(page.getByTestId("block-editor")).toBeVisible();
+  const before = await studioCounters(page);
+  const first = page.locator('[data-round="0"]').getByTestId("block-insert-after");
+  await first.click();
+  await expect.poll(async () => (await studioCounters(page)).buildScene, { timeout: 15_000 }).toBeGreaterThan(before.buildScene);
+  const after = await studioCounters(page);
+  expect(after.partsBuilt - before.partsBuilt).toBeLessThanOrEqual(1);
+  await expect(page.getByTestId("visor-3d-lienzo")).toHaveAttribute("data-mode", "full");
+  await expect(page.getByTestId("visor-3d-actualizando")).toHaveCount(0, { timeout: 15_000 });
+});
+
+/*
+ * Posicionado (T16 de la fase 4; decisión 3; ADR 0010, T10-2 y T11-1): en "Posicionar", tocar la cabeza fija el ancla
+ * de la oreja en la vuelta visible (`concreteRounds(cabeza)[roundIndex].number`) y el punto (`stitchInRound`) que da
+ * `pick`, y la vista previa del ancla (marco de `surfaceFrame` con la malla del anfitrión) cae sobre el punto tocado.
+ * El guardado y la recarga, con sesión, están en `sesion/posicionar.spec.ts`.
+ */
+type PickHit = { partId: string; copy: number; roundIndex: number; stitchInRound: number; point: [number, number, number] };
+type PlaceHook = {
+  store: { doc: { parts: Array<{ id: string; rounds: Array<{ number: number; through?: number }> }>; layout?: { placements: Array<{ target: { part: string; copy: number }; at: { type: string; round?: number; stitch?: number; rotationDeg?: number[] } }> } } };
+  viewer(): {
+    renderer: { pick(x: number, y: number): PickHit | null };
+    controller: { anchorFrame(t: { part: string; copy: number }): { position: [number, number, number]; anchor: [number, number, number]; round: number; stitch: number; clamped: boolean } | null };
+  } | null;
+};
+
+test("estudio amigurumi: Posicionar una oreja tocando la cabeza y girarla (T16)", async ({ page }) => {
+  await page.goto("/dev/amigurumi?demo=armar");
+  await page.waitForFunction(() => (window as unknown as { __loopitaAmigurumi?: PlaceHook }).__loopitaAmigurumi?.viewer() != null, null, { timeout: 60_000 });
+  const canvas = page.getByTestId("visor-3d-lienzo");
+  await expect(canvas).toHaveAttribute("data-mode", "full");
+  await page.getByTestId("position-mode").click();
+  const panel = page.getByTestId("position-panel");
+  await panel.getByTestId("position-target").selectOption({ label: "Oreja (1 de 2)" });
+  await panel.getByTestId("position-mode-surface").check();
+  // El panel va debajo del visor: se lleva el lienzo a la vista antes de medir dónde tocar.
+  await canvas.scrollIntoViewIfNeeded();
+  const box = (await canvas.boundingBox())!;
+  // Lo que se ve: la columna del visor se desplaza sola (overflow), y la página tiene su alto.
+  const column = (await page.locator("[data-column=view]").boundingBox())!;
+  const viewport = page.viewportSize()!;
+  // Un punto de la pantalla sobre la cabeza, buscado con el mismo `pick` del visor (antes de cambiar la escena).
+  const found = await page.evaluate(() => {
+    const v = (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.viewer()!;
+    const out: Array<{ ndc: [number, number]; hit: PickHit }> = [];
+    for (let y = 0.6; y >= -0.6; y -= 0.05) {
+      for (let x = -0.9; x <= 0.9; x += 0.05) {
+        const hit = v.renderer.pick(x, y);
+        if (hit && hit.partId === "cabeza" && hit.roundIndex >= 3 && hit.roundIndex <= 9) out.push({ ndc: [x, y], hit });
+      }
+    }
+    return out;
+  });
+  const toScreen = (ndc: [number, number]) => ({ x: box.x + ((ndc[0] + 1) / 2) * box.width, y: box.y + ((1 - ndc[1]) / 2) * box.height });
+  const target = found.find((f) => {
+    const p = toScreen(f.ndc);
+    return p.y > Math.max(0, column.y) + 2 && p.y < Math.min(viewport.height, column.y + column.height) - 2 && p.x > 0 && p.x < viewport.width;
+  });
+  expect(target, "la cabeza se ve en el lienzo").toBeDefined();
+  const { x: px, y: py } = toScreen(target!.ndc);
+  await page.mouse.click(px, py);
+  const hit = target!.hit;
+
+  // Vuelta visible con rango (V5–9): roundIndex 4 es la V5. La cabeza no tiene vueltas antes de la V1.
+  const number = hit.roundIndex + 1;
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.store.doc.layout?.placements[0] ?? null))
+    .toEqual({ target: { part: "oreja", copy: 0 }, at: { type: "surface", host: { part: "cabeza", copy: 0 }, round: number, stitch: hit.stitchInRound, attach: "end", rotationDeg: [0, 0, 0] } });
+  await expect(canvas).toHaveAttribute("data-anchor", `${number}:${hit.stitchInRound}`);
+
+  // El marco del ancla cae sobre el punto tocado: a menos de un punto del lugar del toque (pick da el punto del mundo,
+  // con la raíz girada −90° sobre x: (x, y, z) de la escena se ve como (x, z, −y)).
+  const frame = await page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.viewer()!.controller.anchorFrame({ part: "oreja", copy: 0 }));
+  expect(frame).not.toBeNull();
+  expect(frame!.clamped).toBe(false);
+  const [wx, wy, wz] = hit.point;
+  const scenePoint = [wx, -wz, wy];
+  const d = Math.hypot(frame!.position[0] - scenePoint[0]!, frame!.position[1] - scenePoint[1]!, frame!.position[2] - scenePoint[2]!);
+  expect(d, `distancia entre el ancla y el toque: ${d.toFixed(2)} cm`).toBeLessThan(1);
+
+  // Girarla: "Girar" escribe rotationDeg[0] (sobre la normal).
+  await panel.getByTestId("position-rot-normal").fill("45");
+  await panel.getByTestId("position-rot-normal").press("Enter");
+  await expect
+    .poll(() => page.evaluate(() => (window as unknown as { __loopitaAmigurumi: PlaceHook }).__loopitaAmigurumi.store.doc.layout?.placements[0]?.at.rotationDeg))
+    .toEqual([45, 0, 0]);
+  await expect(page.locator('[data-testid=where-list] li[data-part="oreja"][data-copy="0"]')).toContainText(`entre la V${number} y la V${number + 1}, contando desde el anillo mágico`);
+  // Sin avisos de "no se pudo".
+  await expect(page.getByTestId("position-notice")).toHaveCount(0);
+});
