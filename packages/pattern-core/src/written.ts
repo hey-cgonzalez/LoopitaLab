@@ -29,7 +29,8 @@ export interface RoundCount {
  * recorren siempre, así que la lana con que termina una pasada es la del último cambio de
  * lana del grupo, o la de entrada si no tiene ninguno; desde la segunda pasada ya no cambia.
  * El validador además acota el trabajo de expansión (`LIMITS.maxExpansionWork`).
- * Pendiente de `experto-tejido`: si un grupo sin puntos debe ser error estructural; hoy es válido.
+ * Decisión T21: aviso, no error. Un grupo con `times` ≥ 2 sin ningún punto en su subárbol es
+ * válido y el validador avisa con `GROUP_COLOR_ONLY` (advertencia).
  */
 function walk(items: Item[], yarn: string, visit: (code: StitchCode, count: number, yarn: string, loop: Loop) => void, state: { visits: number }): string {
   let current = yarn;

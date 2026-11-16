@@ -437,6 +437,17 @@ describe("dialectos y modos de lectura (ADR 0011, sección 8; C-15, C-16; CA4-G2
     assert.equal(formatRound(r, "uk"), "R1: 3 ss");
   });
 
+  it("T21 (C6): invdec, sk y skip se leen igual en es-us y es-uk; UK sigue escribiendo miss", () => {
+    for (const [t, code] of [["invdec", "dec"], ["sk", "sk"], ["skip", "sk"]] as const) {
+      assert.equal(lookupStitch(t, "es-us"), code, t);
+      assert.equal(lookupStitch(t, "es-uk"), code, t);
+    }
+    const r: Round = { number: 1, items: [{ type: "stitch", stitch: "sk", count: 2 }, { type: "stitch", stitch: "dec", count: 3 }] };
+    assert.equal(formatRound(r, "uk"), "R1: 2 miss, 3 dec");
+    assert.deepEqual(okRound("R1: 2 skip, 3 invdec", "es-uk"), r);
+    assert.deepEqual(okRound("R1: 2 sk, 3 invdec", "es-uk"), okRound("R1: 2 sk, 3 invdec", "es-us"));
+  });
+
   it("F4-67 / RT5: en cada modo, ningún alias corresponde a dos puntos (ni a punto y hebra)", () => {
     for (const mode of READING_MODES) {
       const seen = new Map<string, string>();

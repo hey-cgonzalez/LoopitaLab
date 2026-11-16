@@ -117,7 +117,7 @@ describe("F4-1 a F4-7: inicio de la parte", () => {
     const [i] = only(r.issues, "PART_START_FLAT_RING");
     assert.equal(i?.severity, "info");
     assert.equal(i?.path, "parts[0].start");
-    assert.equal(i?.message, "Parte: las filas suelen empezar con una cadeneta base, no con un anillo mágico. La vista de la pieza no dibuja el anillo.");
+    assert.equal(i?.message, "Parte: las hileras suelen empezar con una cadeneta base, no con un anillo mágico. La vista de la pieza no dibuja el anillo.");
   });
 });
 

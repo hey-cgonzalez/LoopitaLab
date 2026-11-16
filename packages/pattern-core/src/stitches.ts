@@ -102,11 +102,13 @@ export const STITCHES: Record<StitchCode, StitchDef> = {
   dec: {
     code: "dec", consumes: 2, produces: 1, es: "dism", us: "dec", uk: "dec", nameEs: "disminución (2 pb juntos)",
     // "sc2tog" solo en US: en UK la disminución de pb es "dc2tog", que en US sería de pa (C-16).
-    aliases: { es: ["dism"], us: ["dec", "invdec", "sc2tog"], uk: ["dec", "dc2tog"] },
+    // "invdec" nombra una técnica, no una abreviatura de dialecto: se lee en los dos (revisión T21, C6).
+    aliases: { es: ["dism"], us: ["dec", "invdec", "sc2tog"], uk: ["dec", "dc2tog", "invdec"] },
   },
   sk: {
     code: "sk", consumes: 1, produces: 0, es: "saltar", us: "sk", uk: "miss", nameEs: "saltar un punto",
-    aliases: { es: ["saltar"], us: ["sk", "skip"], uk: ["miss"] },
+    // "sk" y "skip" significan lo mismo en UK (revisión T21, C6); el formateador sigue escribiendo "miss" en UK.
+    aliases: { es: ["saltar"], us: ["sk", "skip"], uk: ["miss", "sk", "skip"] },
   },
 };
 

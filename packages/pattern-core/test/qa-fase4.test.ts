@@ -249,12 +249,13 @@ describe("F4-13 a F4-16: espiral, vueltas cerradas y palabra por construcción",
   });
 
   it("F4-16: en hileras los mensajes nunca dicen «vuelta»; en espiral y cerradas, sí", () => {
-    // validar con tejedora: el motor escribe «fila» y el texto acepta «H»/«hilera» y «fila» (F4-16 propone «hilera»).
+    // T21 (C2): el motor escribe «hilera», como la sintaxis (H2) y la descripción; el texto acepta «H»/«hilera» y «fila». // validar con tejedora
     const flat = read("Inicio: cad 11\nConstrucción: hileras\nH1: 10 pb (10)\nH2: 11 pb (11)\nH3: 12 pb (12)");
     const msgs = validatePattern(writtenOf([flat])).issues.map((i) => i.message);
     assert.ok(msgs.length > 0);
     for (const m of msgs) assert.doesNotMatch(m, /vuelta/i, m);
-    assert.ok(msgs.some((m) => /fila 2/.test(m)));
+    assert.ok(msgs.some((m) => /hilera 2/.test(m)));
+    for (const m of msgs) assert.doesNotMatch(m, /\bfilas?\b/, m);
     const round = read("Inicio: AM\nV1: 6 pb (6)\nV2: 7 pb (7)");
     assert.ok(validatePattern(writtenOf([round])).issues.some((i) => /vuelta 2/.test(i.message)));
   });
@@ -290,9 +291,11 @@ describe("F4-17 a F4-27: qué consume, qué produce y cuánto sube cada punto", 
     assert.deepEqual(c.slice(1), [[6, 12], [12, 6]]);
   });
 
-  it("F4-21: la disminución invisible (invdec, solo en es-us) cuenta como dism y no es dism en hebra delantera", () => {
+  it("F4-21: la disminución invisible (invdec, en es-us y es-uk desde T21) cuenta como dism y no es dism en hebra delantera", () => {
     const inv = parsePart("Inicio: AM\nV1: 12 pb (12)\nV2: 6 invdec (6)", { id: "p", mode: "es-us" });
     assert.ok(inv.ok);
+    const invUk = parsePart("Inicio: AM\nV1: 12 pb (12)\nV2: 6 invdec (6)", { id: "p", mode: "es-uk" });
+    assert.deepEqual(invUk.ok ? invUk.value.rounds : null, inv.ok ? inv.value.rounds : undefined);
     const item = inv.ok ? inv.value.rounds[1]?.items[0] : undefined;
     assert.deepEqual(item, { type: "stitch", stitch: "dec", count: 6 });
     const front = read("Inicio: AM\nV1: 12 pb (12)\nV2: 6 dism hd (6)");

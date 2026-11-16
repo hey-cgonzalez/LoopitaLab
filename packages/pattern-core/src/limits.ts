@@ -22,6 +22,11 @@ export const LIMITS = {
    * Tope de una vuelta: lo que deja (`produced`), lo que trabaja (`consumed`, T4-4), su
    * trabajo de expansión (T20-A1), su conteo declarado (`expected`) y la cadeneta inicial
    * de la parte (`start.count`, hueco 1 de T20).
+   *
+   * El trabajo cuenta también los nodos de grupo (cada uno, por los `times` que lo envuelven),
+   * así que con grupos anidados el máximo efectivo de puntos queda en unos 49.500, no en
+   * 50.000: `[[pb] x100] x500` deja 50.000 puntos pero trabaja 50.501 y es LIMIT (revisión
+   * T21, punto 2c). No importa en la práctica: el límite recomendado es 200 puntos por vuelta.
    */
   maxRoundStitches: 50_000,
   /**
@@ -30,7 +35,7 @@ export const LIMITS = {
    * caracteres en los tres dialectos, así que toda vuelta hace la ida y vuelta por texto.
    * Un tapestry de 200 puntos con color por punto cabe en 5 nodos (`[@A, pb, @B, pb] x100`).
    */
-  // validar con experto-tejido: ¿alcanzan 100?
+  // T21: 100 alcanza para amigurumi; subir a 200 (con `maxLineLength` 4.000) antes de tapestry o imagen a amigurumi.
   maxRoundItems: 100,
   /**
    * Trabajo de expansión de todo el documento (T20-A1): Σ, sobre las vueltas concretas de

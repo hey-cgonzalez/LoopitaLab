@@ -46,6 +46,19 @@ export interface ValidateOptions {
    * (`ROUND_GROWS_FAST`, `ROUND_SHRINKS_FAST`); la muestra del documento se lee como punto bajo.
    */
   assumedGaugeStitch?: GaugeStitch;
+  /**
+   * Muestra supuesta por parte para los avisos de forma de un patrón escrito (revisión T21,
+   * C1; BUG-QA4-1): la aplicación la deriva del grosor de la lana de la muestra de la parte
+   * (`gaugeWeightOf`: la lana inicial, o `yarns[0]`). Solo se consulta si el documento no trae
+   * `gauge`, y solo con partes ya válidas en estructura; `index` es su posición en `parts`.
+   * `stitch` omitido es `"sc"`.
+   *
+   * Prioridad, de mayor a menor: `gauge` del documento; `assumedGaugeOf` (si devuelve una
+   * muestra válida para esa parte); `assumedGauge` con `assumedGaugeStitch`; `weightCat`. Con
+   * `undefined`, una muestra inválida o una excepción, esa parte cae a la forma global. Los
+   * gráficos de colorwork no la usan (las hebras flotantes siguen con `assumedGauge` o `weightCat`).
+   */
+  assumedGaugeOf?: (part: Part, index: number) => { gauge: Gauge; stitch?: GaugeStitch } | undefined;
   /** Largo máximo de una hebra flotante en cm, cuando hay muestra (real o supuesta). Por defecto 2,5 cm. */
   maxFloatCm?: number;
   /**
@@ -267,12 +280,19 @@ class CappedSink implements ErrorSink {
   }
   /** `message` puede ser una función: solo se arma si el problema se guarda (40.000 ítems malos no arman 80.000 textos). */
   error(code: string, path: string, message: string | (() => string), data?: Record<string, unknown>): void {
+    this.#add("error", code, path, message, data);
+  }
+  /** Advertencia con el mismo tope por código que los errores. */
+  warn(code: string, path: string, message: string | (() => string), data?: Record<string, unknown>): void {
+    this.#add("warning", code, path, message, data);
+  }
+  #add(severity: Severity, code: string, path: string, message: string | (() => string), data?: Record<string, unknown>): void {
     const seen = this.#seen.get(code);
     if (seen && seen.n >= this.#max) {
       seen.n++;
       return;
     }
-    this.#c.error(code, path, typeof message === "function" ? message() : message, data);
+    this.#c.add(severity, code, path, typeof message === "function" ? message() : message, data);
     const last = this.#c.issues[this.#c.issues.length - 1] as Issue;
     if (seen) {
       seen.n++;
@@ -820,8 +840,11 @@ function mixedWeights(yarns: unknown, c: Collector) {
 
 // ------------------------------------------------------------ Patrón escrito
 
-/** "fila" en partes de ida y vuelta (`flat`) y "vuelta" en espiral o en vueltas unidas. */
-const partRowWord = (construction: unknown) => (construction === "flat" ? "fila" : "vuelta");
+/**
+ * "hilera" en partes de ida y vuelta (`flat`) y "vuelta" en espiral o en vueltas unidas
+ * (revisión T21, C2: en crochet, "hilera"; el colorwork sigue con "fila", `rowWord`). // validar con tejedora
+ */
+const partRowWord = (construction: unknown) => (construction === "flat" ? "hilera" : "vuelta");
 /** "1 punto", "3 puntos": la palabra en singular o plural (las de este archivo forman el plural con "s"). */
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? "" : "s"}`;
 /** "1 vez", "3 veces". */
@@ -851,7 +874,7 @@ const MAGIC_RING_USUAL = Object.freeze({ min: 3, max: 12 });
 /** Lo que el validador de `layout` necesita saber de cada parte (por su `id`). */
 interface PartInfo {
   name: string;
-  /** "vuelta" o "fila". */
+  /** "vuelta" o "hilera". */
   word: string;
   /** Veces que se teje; `null` si `copies` no es válido (ya es PART_COPIES). */
   copies: number | null;
@@ -864,7 +887,7 @@ interface PartInfo {
  * `layout`), o `null` si la lista de partes no se pudo recorrer (no es una lista o supera
  * `LIMITS.maxParts`).
  */
-function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: ShapeMetrics | null): Map<string, PartInfo> | null {
+function validateWritten(input: Rec, yarnIds: string[], c: Collector, metricsOf: PartMetrics): Map<string, PartInfo> | null {
   if (input.technique !== "crochet") {
     c.error("WRITTEN_TECHNIQUE", "technique", "En esta versión los patrones escritos son solo de crochet; el palillo se diseña con gráfico.");
   }
@@ -924,7 +947,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
     if (part.finish !== undefined) checkText(part.finish, `${pp}.finish`, `El cierre de ${pname}`, LIMITS.maxFinishLength, c, true);
 
     if (!["spiral", "joined", "flat"].includes(part.construction as string)) {
-      c.error("PART_CONSTRUCTION", `${pp}.construction`, `${pname}: la construcción debe ser en espiral, en vueltas unidas o en filas (ida y vuelta).`);
+      c.error("PART_CONSTRUCTION", `${pp}.construction`, `${pname}: la construcción debe ser en espiral, en vueltas unidas o en hileras (ida y vuelta).`);
       return;
     }
     const word = partRowWord(part.construction);
@@ -958,7 +981,7 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
       c.warn("PART_START_RING_SHORT", `${pp}.start.count`, `${pname}: una cadeneta en aro necesita al menos 2 cadenetas; con 1 no se forma el aro. Usa un anillo mágico o más cadenetas.`, { count: 1, min: 2 });
     }
     if (start.type === "magic_ring" && flat) {
-      c.info("PART_START_FLAT_RING", `${pp}.start`, `${pname}: las filas suelen empezar con una cadeneta base, no con un anillo mágico. La vista de la pieza no dibuja el anillo.`);
+      c.info("PART_START_FLAT_RING", `${pp}.start`, `${pname}: las hileras suelen empezar con una cadeneta base, no con un anillo mágico. La vista de la pieza no dibuja el anillo.`);
     }
     if (!isStr(part.startYarn) || part.startYarn === "") {
       c.error("PART_START_YARN", `${pp}.startYarn`, `${pname}: falta indicar con qué lana empieza.`);
@@ -1042,8 +1065,13 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
         structureOk = false;
         return;
       }
-      const stats: ItemStats = { nodes: 0, work: 0, consumed: 0, produced: 0 };
-      if (!checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, sink, 1, 1, stats)) {
+      const stats: ItemStats = { nodes: 0, work: 0, consumed: 0, produced: 0, stitchNodes: 0, colorOnly: [] };
+      const itemsOk = checkItems(r.items, `${rp}.items`, label, yarnSet, usedYarns, c, sink, 1, 1, stats);
+      // Advertencia, no error (revisión T21, punto 2b): el grupo es válido y se teje igual. // validar con tejedora (texto)
+      for (const gp of stats.colorOnly) {
+        sink.warn("GROUP_COLOR_ONLY", gp, () => `${label}: este grupo solo cambia de lana y no teje ningún punto; solo cuenta el último cambio. Quita el grupo o agrega puntos.`);
+      }
+      if (!itemsOk) {
         structureOk = false;
         return;
       }
@@ -1196,7 +1224,10 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
       }
     });
     info.produced = produced;
-    if (!flat && metrics) shapeNotices(typed, pp, pname, word, metrics, c, concreteList);
+    if (!flat) {
+      const metrics = metricsOf(typed, pi);
+      if (metrics) shapeNotices(typed, pp, pname, word, metrics, c, concreteList);
+    }
     if (missingExpected.length > 0) {
       const n = missingExpected.length;
       c.info(
@@ -1230,24 +1261,43 @@ function validateWritten(input: Rec, yarnIds: string[], c: Collector, metrics: S
 
 // ------------------------------------------------------- Forma de las partes
 
+/** Resolución de la muestra de los avisos de forma de cada parte; `null` si no hay avisos de forma. */
+type PartMetrics = (part: Part, index: number) => ShapeMetrics | null;
+
+const gaugeStitchOf = (st: unknown): GaugeStitch => (st === "hdc" || st === "dc" || st === "tr" ? st : "sc");
+
 /**
- * Muestra de los avisos de forma (ADR 0010, sección 2): la del documento (leída como punto
- * bajo, C-3), después `assumedGauge` (con `assumedGaugeStitch`), después `weightCat` (tabla
- * de crochet). Sin ninguna, no hay avisos de forma (regla de oro 6: no se inventa la muestra).
+ * Muestra de los avisos de forma (ADR 0010, sección 2; revisión T21, C1): la del documento
+ * (leída como punto bajo, C-3); si falta, la de `assumedGaugeOf` para esa parte; después
+ * `assumedGauge` (con `assumedGaugeStitch`); después `weightCat` (tabla de crochet). Sin
+ * ninguna, no hay avisos de forma (regla de oro 6: no se inventa la muestra).
  */
-function writtenShapeMetrics(docGauge: unknown, opts: ValidateOptions): ShapeMetrics | null {
-  if (isGauge(docGauge)) return shapeMetrics(docGauge, { assumed: false, gaugeStitch: "sc" });
+function writtenShapeMetrics(docGauge: unknown, opts: ValidateOptions): PartMetrics {
+  if (isGauge(docGauge)) {
+    const m = shapeMetrics(docGauge, { assumed: false, gaugeStitch: "sc" });
+    return () => m;
+  }
+  let global: ShapeMetrics | null = null;
   if (isGauge(opts.assumedGauge)) {
-    const st = opts.assumedGaugeStitch;
-    const gaugeStitch: GaugeStitch = st === "hdc" || st === "dc" || st === "tr" ? st : "sc";
-    return shapeMetrics(opts.assumedGauge, { assumed: true, gaugeStitch });
+    global = shapeMetrics(opts.assumedGauge, { assumed: true, gaugeStitch: gaugeStitchOf(opts.assumedGaugeStitch) });
+  } else {
+    const cat = opts.weightCat;
+    if (isInt(cat) && cat >= 0 && cat <= 7) {
+      const g = ASSUMED_CROCHET_GAUGE[cat]!;
+      global = shapeMetrics(g, { assumed: true, gaugeStitch: g.stitch });
+    }
   }
-  const cat = opts.weightCat;
-  if (isInt(cat) && cat >= 0 && cat <= 7) {
-    const g = ASSUMED_CROCHET_GAUGE[cat]!;
-    return shapeMetrics(g, { assumed: true, gaugeStitch: g.stitch });
-  }
-  return null;
+  const of = opts.assumedGaugeOf;
+  if (typeof of !== "function") return () => global;
+  return (part, index) => {
+    try {
+      const r: unknown = of(part, index);
+      if (!isRec(r) || !isGauge(r.gauge)) return global;
+      return shapeMetrics(r.gauge, { assumed: true, gaugeStitch: gaugeStitchOf(r.stitch) });
+    } catch {
+      return global; // El validador nunca lanza: una opción que falla equivale a no darla.
+    }
+  };
 }
 
 /**
@@ -1528,6 +1578,10 @@ interface ItemStats {
   work: number;
   consumed: number;
   produced: number;
+  /** Ítems de punto (`type: "stitch"`) recorridos, en todos los niveles. */
+  stitchNodes: number;
+  /** Rutas de los grupos `GROUP_COLOR_ONLY` (los más externos), en orden. */
+  colorOnly: string[];
 }
 
 /**
@@ -1554,6 +1608,7 @@ function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<
     const keys = item.type === "stitch" ? SCHEMA_KEYS.stitchItem : item.type === "group" ? SCHEMA_KEYS.groupItem : item.type === "color" ? SCHEMA_KEYS.colorItem : null;
     if (keys) checkKeys(item, keys, p, c);
     if (item.type === "stitch") {
+      stats.stitchNodes++;
       let known = false;
       // Object.hasOwn: `in` aceptaría "toString", "constructor" o "__proto__" de Object.prototype.
       if (!isStr(item.stitch)) {
@@ -1586,7 +1641,17 @@ function checkItems(items: unknown[], path: string, label: string, yarnSet: Set<
       if (!Array.isArray(item.items) || item.items.length === 0) {
         sink.error("GROUP_EMPTY", p, () => `${label}: hay un grupo vacío.`);
         ok = false;
-      } else if (!checkItems(item.items, `${p}.items`, label, yarnSet, used, c, sink, depth + 1, mult * times, stats)) ok = false;
+      } else {
+        const stitchesBefore = stats.stitchNodes;
+        const mark = stats.colorOnly.length;
+        if (!checkItems(item.items, `${p}.items`, label, yarnSet, used, c, sink, depth + 1, mult * times, stats)) ok = false;
+        // GROUP_COLOR_ONLY (revisión T21, C7): un grupo repetido sin ningún punto en su
+        // subárbol. Se avisa solo el grupo más externo: los internos son el mismo hecho.
+        if (stats.stitchNodes === stitchesBefore && times >= 2) {
+          stats.colorOnly.length = mark;
+          stats.colorOnly.push(p);
+        }
+      }
     } else if (item.type === "color") {
       if (!isStr(item.yarn) || item.yarn === "") {
         sink.error("COLOR_UNKNOWN_YARN", p, () => `${label}: el cambio de color no indica a qué lana.`);
