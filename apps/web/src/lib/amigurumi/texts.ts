@@ -62,10 +62,10 @@ export const AMIGURUMI_TEXTS = {
     pestanaBloques: "Bloques",
     etiquetaTexto: (name: string) => `Patrón escrito de «${name}»`,
     ayuda:
-      "Una vuelta por línea, por ejemplo «V2: aum x6 (12)»; en una parte por hileras, «H2». Una línea que empieza con > es una nota de la vuelta de arriba. «Cantidad: 2» dice cuántas veces se teje la parte (también se lee «Hacer», «Piezas» y «Tejer»). Una base ovalada se escribe con «Inicio: AM» y todos sus puntos en la V1: el 3D la dibuja redonda. Al salir de una línea, se escribe en su forma de siempre (por ejemplo, «pb x6» pasa a «6 pb»).", // validar con tejedora
+      "Una vuelta por línea, por ejemplo «V2: aum x6 (12)»; en una parte por hileras, «H2». Una línea que empieza con > es una nota de la vuelta de arriba. «Cantidad: 2» dice cuántas veces se teje la parte (también se lee «Hacer», «Piezas» y «Tejer»). Una base ovalada se escribe con «Inicio: AM» y todos sus puntos en la V1: el 3D la dibuja redonda y puede aparecer un aviso informativo por la cantidad de puntos del anillo, que es esperado. Al salir de una línea, se escribe en su forma de siempre (por ejemplo, «pb x6» pasa a «6 pb»).", // validar con tejedora
     dialecto: (d: Dialect) =>
       d === "uk"
-        ? "Abreviaturas: inglés del Reino Unido (UK). Ojo: en UK «dc» es el punto bajo (en US, «sc»); «sc» da error. Se leen también las del español." // validar con tejedora
+        ? "Abreviaturas: inglés del Reino Unido (UK). Ojo: en UK «dc» es el punto bajo; en US «dc» es el punto alto y el punto bajo es «sc». Aquí «sc» da error. Se leen también las del español." // validar con tejedora
         : d === "us"
           ? "Abreviaturas: inglés de EE. UU. (US). Se leen también las del español."
           : "Abreviaturas: español. Se leen también las de EE. UU. (US).",
@@ -194,7 +194,8 @@ export const AMIGURUMI_TEXTS = {
     puntos: "Puntos en 10 cm",
     vueltas: "Vueltas en 10 cm",
     ayuda: "En punto bajo, con la lana y el ganchillo que vas a usar. El amigurumi se teje apretado: mide tu muestra.",
-    supuesta: (st: number, rw: number) => `Muestra supuesta: ${n(st)} puntos y ${n(rw)} vueltas en 10 cm, según el grosor de la lana A.`,
+    supuesta: (st: number, rw: number) => `Muestra supuesta: ${n(st)} puntos y ${n(rw)} vueltas en 10 cm, según el grosor de la lana con que empieza esta parte.`,
+    supuestaPorParte: (name: string, st: number, rw: number) => `${name}: ${n(st)} puntos y ${n(rw)} vueltas en 10 cm.`,
     supuestaAyuda: "Sin tu muestra, las medidas y la forma del 3D son un supuesto.",
     quitar: "Usar la muestra supuesta",
     incompleta: "Escribe los puntos y las vueltas en 10 cm.",
@@ -262,7 +263,7 @@ export const AMIGURUMI_TEXTS = {
   armado: {
     titulo: "Armado",
     dondeVa: "Dónde va cada pieza",
-    dondeVaAyuda: "Sale de la posición de cada pieza. Las vueltas se cuentan desde el anillo mágico (o desde la cadeneta inicial), no desde el cuello ni desde el marcador.", // validar con tejedora
+    dondeVaAyuda: "Sale de la posición de cada pieza. Las vueltas (o hileras) se cuentan desde el anillo mágico, la cadeneta inicial o la cadeneta base, no desde el cuello ni desde el marcador.", // validar con tejedora
     sinDescripcion: "Corrige los errores del patrón para ver dónde va cada pieza.",
     sinUbicar: (list: string) => `Sin ubicar (el 3D las acomoda solas, a la derecha): ${list}.`,
     pasos: "Pasos de armado",
@@ -279,7 +280,7 @@ export const AMIGURUMI_TEXTS = {
   lanas: {
     ayuda: "Cada lana tiene una letra (A, B, C…). En el patrón, @B cambia a la lana B; así distingues las lanas aunque no distingas bien los colores.",
     reemplazoPregunta: "¿Con qué lana la reemplazas en el patrón?",
-    eligeReemplazo: "Antes de quitarla, elige la lana que la reemplaza en el patrón (los cambios @ y la lana con que empieza cada parte).", // validar con tejedora
+    eligeReemplazo: "Antes de quitarla, elige la lana que la reemplaza en el patrón (los cambios @ y la lana con que empieza cada parte). Si la lana nueva es de otro grosor, cambian las medidas de la pieza.", // validar con tejedora
   },
 
   tejer: "Seguir un amigurumi punto a punto llega en una próxima versión.",

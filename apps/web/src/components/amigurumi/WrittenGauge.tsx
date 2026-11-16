@@ -1,7 +1,7 @@
 "use client";
 
 import type { WrittenPattern } from "@loopitalab/pattern-core";
-import { suggestedGauge } from "@loopitalab/yarn-catalog";
+import { assumedGaugeOfPart } from "@/lib/amigurumi/assumed-gauge.ts";
 import { useEffect, useId, useState } from "react";
 import type { WrittenStore } from "@/lib/amigurumi/store.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
@@ -43,8 +43,10 @@ export function WrittenGauge({ store, doc }: { store: WrittenStore; doc: Written
     setProblem(r.ok ? null : (r.problems[0] ?? T.incompleta));
   }
 
-  const weight = doc.yarns[0]?.weight;
-  const assumed = !g && typeof weight === "number" ? suggestedGauge(weight, "crochet") : undefined;
+  // Muestra supuesta de cada parte (lana inicial de la parte, `assumedGaugeOfPart`); si difieren, se muestran por parte.
+  const perPart = !g ? doc.parts.map((p) => ({ name: p.name, ...assumedGaugeOfPart(doc, p) })) : [];
+  const assumed = perPart[0];
+  const differ = perPart.some((x) => x.stitchesPer10cm !== assumed?.stitchesPer10cm || x.rowsPer10cm !== assumed?.rowsPer10cm);
   return (
     <section aria-labelledby={`${uid}-t`} className="grid gap-2 rounded-2xl border-2 border-linea bg-superficie p-3" data-testid="written-gauge">
       <h2 id={`${uid}-t`} className="font-display text-base font-bold">
@@ -77,6 +79,13 @@ export function WrittenGauge({ store, doc }: { store: WrittenStore; doc: Written
       ) : assumed ? (
         <div className="grid gap-0.5 text-sm" data-testid="written-assumed-gauge">
           <p className="font-bold">{T.supuesta(assumed.stitchesPer10cm, assumed.rowsPer10cm)}</p>
+          {differ ? (
+            <ul className="list-disc pl-5">
+              {perPart.map((x, i) => (
+                <li key={i}>{T.supuestaPorParte(x.name, x.stitchesPer10cm, x.rowsPer10cm)}</li>
+              ))}
+            </ul>
+          ) : null}
           <p className="text-tinta-suave">{T.supuestaAyuda}</p>
         </div>
       ) : (

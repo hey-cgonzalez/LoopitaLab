@@ -1,5 +1,6 @@
-import { isDraftError, validatePattern, type Issue, type ValidateOptions, type WeightCategory, type WrittenPattern } from "@loopitalab/pattern-core";
-import { FIBER_IDS, PALETTE_IDS, suggestedGauge } from "@loopitalab/yarn-catalog";
+import { isDraftError, validatePattern, type Issue, type ValidateOptions, type WrittenPattern } from "@loopitalab/pattern-core";
+import { FIBER_IDS, PALETTE_IDS } from "@loopitalab/yarn-catalog";
+import { assumedGaugeOfPart } from "./assumed-gauge.ts";
 import { AMIGURUMI_TEXTS } from "./texts.ts";
 import { viewerPerfSpan } from "./viewer-perf.ts";
 
@@ -10,18 +11,19 @@ import { viewerPerfSpan } from "./viewer-perf.ts";
 
 /**
  * Opciones del validador cuando el documento no trae muestra (regla de oro 6: el supuesto se marca, no se esconde):
- * la muestra de crochet sugerida para el grosor de la lana principal (`suggestedGauge`), con `assumption` traducido
- * al punto de la muestra (`crochet-pa` → `dc`; si no, `sc`). Si `yarn-catalog` no conoce el grosor, `weightCat` y la
- * tabla interna del validador. Con muestra en el documento, ninguna de las dos.
+ * la muestra supuesta de cada parte, según la lana con que empieza (`assumedGaugeOfPart`, revisión T21 C1). Con
+ * muestra en el documento, ninguna.
  */
 export function writtenValidateOptions(pattern: WrittenPattern): ValidateOptions {
   const base: ValidateOptions = { fibers: FIBER_IDS, paletteIds: PALETTE_IDS };
   if (pattern.gauge) return base;
-  const weight = pattern.yarns[0]?.weight;
-  if (typeof weight !== "number") return base;
-  const s = suggestedGauge(weight, "crochet");
-  if (s) return { ...base, assumedGauge: { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm }, assumedGaugeStitch: s.assumption === "crochet-pa" ? "dc" : "sc" };
-  return { ...base, weightCat: weight as WeightCategory };
+  return {
+    ...base,
+    assumedGaugeOf: (part) => {
+      const g = assumedGaugeOfPart(pattern, part);
+      return { gauge: { stitchesPer10cm: g.stitchesPer10cm, rowsPer10cm: g.rowsPer10cm }, stitch: g.gaugeStitch };
+    },
+  };
 }
 
 export type Hint = "ring" | "join" | "turning_chain";

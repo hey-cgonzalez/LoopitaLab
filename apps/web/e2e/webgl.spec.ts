@@ -47,8 +47,8 @@ test("visor 3D: dibuja, el aviso de prototipo está visible y cambiar el aspecto
   const notice = page.getByTestId("visor-3d-aviso");
   await expect(notice).toBeVisible();
   await expect(notice).toContainText("redondea la pieza y puede cambiar sus medidas");
-  // C3 de T21: "ganchillo" en crochet (acepta los dos mientras el texto de la interfaz se actualiza).
-  await expect(notice).toContainText(/teje una muestra con tu (aguja|ganchillo)/);
+  // C3 de T21: "ganchillo" en crochet .
+  await expect(notice).toContainText(/teje una muestra con tu ganchillo/);
   await expect(notice.getByRole("button")).toHaveCount(0); // no se puede cerrar
   await expect(page.getByTestId("visor-3d-medidas")).toContainText("estimación");
 

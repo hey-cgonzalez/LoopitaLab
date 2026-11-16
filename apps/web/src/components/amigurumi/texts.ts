@@ -8,7 +8,7 @@ export const VIEWER_3D_TEXTS = {
    * visor y sin botón para cerrarlo.
    */
   avisoPrototipo:
-    "Vista aproximada. La forma y el tamaño reales dependen de tu tensión, la lana y el relleno. El relleno redondea la pieza y puede cambiar sus medidas. El amigurumi se teje más apretado que una muestra plana: teje una muestra con tu aguja para comprobar. El halo y el brillo de la fibra son una aproximación visual.",
+    "Vista aproximada. La forma y el tamaño reales dependen de tu tensión, la lana y el relleno. El relleno redondea la pieza y puede cambiar sus medidas. El amigurumi se teje más apretado que una muestra plana: teje una muestra con tu ganchillo para comprobar. El halo y el brillo de la fibra son una aproximación visual. La pelusa del mohair y de las lanas peludas no se dibuja.",
   etiquetaLienzo: "Vista 3D del amigurumi. Flechas: girar; + y −: acercar y alejar; 0: volver a la vista inicial.",
   cargando: "Cargando la vista 3D…",
   actualizando: "Actualizando 3D…",

@@ -367,13 +367,15 @@ describe("límites recomendados (solo advierten, del motor)", () => {
 });
 
 describe("revisión diferida", () => {
-  it("sin muestra valida con assumedGauge y assumedGaugeStitch (de suggestedGauge); con muestra, sin supuesto", () => {
-    const o = writtenValidateOptions(doc());
-    expect(o.assumedGauge).toBeDefined();
-    expect(o.assumedGaugeStitch === "sc" || o.assumedGaugeStitch === "dc").toBe(true);
+  it("sin muestra valida con assumedGaugeOf (por parte, de suggestedGauge); con muestra, sin supuesto", () => {
+    const d = doc();
+    const o = writtenValidateOptions(d);
+    const r = o.assumedGaugeOf?.(d.parts[0]!, 0);
+    expect(r?.gauge).toBeDefined();
+    expect(r?.stitch === "sc" || r?.stitch === "dc").toBe(true);
     expect(o.weightCat).toBeUndefined();
     const g = writtenValidateOptions(doc({ gauge: { stitchesPer10cm: 20, rowsPer10cm: 22 } }));
-    expect(g.assumedGauge).toBeUndefined();
+    expect(g.assumedGaugeOf).toBeUndefined();
     expect(g.weightCat).toBeUndefined();
   });
 

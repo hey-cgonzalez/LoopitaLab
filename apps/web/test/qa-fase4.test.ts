@@ -7,9 +7,8 @@
  *    `ratio` = Δr/s con tres decimales) que validar con `assumedGauge` = `suggestedGauge(cat, "crochet")` y el punto
  *    traducido de `assumption`. El `ratio` depende del ancho del punto y del alto de la vuelta: una diferencia en
  *    puntos, vueltas o punto de la muestra cambia el resultado.
- * 2. BUG-QA4-1: la muestra supuesta tiene dos fuentes (ADR 0011, T14-5). El panel de la muestra, el validador y la
- *    descripción accesible usan el grosor de la lana A; el 3D, las medidas de la lista de partes y las siluetas usan
- *    la lana inicial de cada parte. No se corrige aquí: lo decide `experto-tejido` en T21.
+ * 2. BUG-QA4-1 (corregido en T21, C1): la muestra supuesta sale de una sola fuente, `assumedGaugeOfPart`: la lana
+ *    inicial de cada parte, en el validador, la descripción, el panel, las medidas, las siluetas y el 3D.
  * 3. Casos F4 de textos de la interfaz: F4-44, F4-54, F4-79 (aviso de prototipo), F4-72 a F4-74 (nombres de los
  *    límites), F4-80 (forma C-17), F4-81 (aviso de `#`) y F4-82 (ayuda de los límites).
  */
@@ -19,6 +18,7 @@ import { suggestedGauge } from "@loopitalab/yarn-catalog";
 import { describe, expect, it } from "vitest";
 import { metricsResolver, partSummaries, silhouettesOf } from "@/components/amigurumi/metrics.ts";
 import { VIEWER_3D_TEXTS } from "@/components/amigurumi/texts.ts";
+import { assumedGaugeOfPart } from "@/lib/amigurumi/assumed-gauge.ts";
 import { writtenValidateOptions } from "@/lib/amigurumi/review.ts";
 import { AMIGURUMI_TEXTS, LIMIT_NAMES } from "@/lib/amigurumi/texts.ts";
 
@@ -89,43 +89,45 @@ describe("prueba cruzada: muestra de crochet del validador = suggestedGauge(cat,
       const s = suggestedGauge(cat, "crochet")!;
       const single: WrittenPattern = { ...doc, yarns: [yarn("A", cat, "#E9DDBE")] };
       const opts = writtenValidateOptions(single);
-      expect(opts.assumedGauge).toEqual({ stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm });
-      expect(opts.assumedGaugeStitch).toBe(stitchOf(s.assumption));
+      expect(opts.assumedGaugeOf?.(single.parts[0]!, 0)).toEqual({ gauge: { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm }, stitch: stitchOf(s.assumption) });
     }
   });
 });
 
-describe("BUG-QA4-1: la muestra supuesta tiene dos fuentes (ADR 0011, T14-5)", () => {
+describe("BUG-QA4-1: la muestra supuesta sale de una sola fuente (revisión T21, C1)", () => {
   // Lana A fina (categoría 1) y lana B gruesa (categoría 6). La parte empieza con la B. Sin muestra en el documento.
   const body = part(["Parte: Cuerpo", "Inicio: AM", "Construcción: espiral", "Lana: B", "V1: 6 pb (6)", "V2: aum x6 (12)", "V3: [pb, aum] x6 (18)", "V4-8: 18 pb (18)"].join("\n"), "cuerpo");
   const doc: WrittenPattern = { ...newWrittenPattern({ id: ID, title: "Dos lanas", yarns: [yarn("A", 1, "#E9DDBE"), yarn("B", 6, "#BA222C")], partName: "x" }), parts: [body] };
+  const describedOf = (d: WrittenPattern) =>
+    describeWritten(d, {
+      assumedGaugeOf: (p) => {
+        const { stitchesPer10cm, rowsPer10cm, gaugeStitch } = assumedGaugeOfPart(d, p);
+        return { stitchesPer10cm, rowsPer10cm, gaugeStitch };
+      },
+    });
 
-  it("hoy: el validador y la descripción usan la lana A; el 3D, las medidas y las siluetas, la lana inicial de la parte", () => {
-    const a = suggestedGauge(1, "crochet")!;
+  it("el validador, la descripción, la lista de medidas, las siluetas y el 3D usan la lana inicial de la parte", () => {
     const b = suggestedGauge(6, "crochet")!;
-    // Panel y validador: lana A.
-    expect(writtenValidateOptions(doc).assumedGauge).toEqual({ stitchesPer10cm: a.stitchesPer10cm, rowsPer10cm: a.rowsPer10cm });
-    expect(AMIGURUMI_TEXTS.muestra.supuesta(a.stitchesPer10cm, a.rowsPer10cm)).toContain("según el grosor de la lana A");
-    // 3D (controller → metricsResolver), lista de medidas y siluetas: lana B, la inicial de la parte.
-    const m = metricsResolver(doc)(body);
-    expect(m.stitchWidthCm).toBeCloseTo(10 / b.stitchesPer10cm, 9);
-    // Descripción accesible, armada como en WrittenStudio (con la lana A).
-    const desc = describeWritten(doc, { assumedGauge: { stitchesPer10cm: a.stitchesPer10cm, rowsPer10cm: a.rowsPer10cm, gaugeStitch: stitchOf(a.assumption) } });
-    const described = desc.parts[0]?.measures?.heightCm;
-    const summary = partSummaries(doc)[0]!;
-    const silhouette = silhouettesOf(doc)[0]!;
+    const g = assumedGaugeOfPart(doc, body);
+    expect(g).toMatchObject({ stitchesPer10cm: b.stitchesPer10cm, rowsPer10cm: b.rowsPer10cm, gaugeStitch: stitchOf(b.assumption), weight: 6 });
+    expect(writtenValidateOptions(doc).assumedGaugeOf?.(body, 0)).toEqual({ gauge: { stitchesPer10cm: b.stitchesPer10cm, rowsPer10cm: b.rowsPer10cm }, stitch: stitchOf(b.assumption) });
+    expect(AMIGURUMI_TEXTS.muestra.supuesta(b.stitchesPer10cm, b.rowsPer10cm)).toContain("según el grosor de la lana con que empieza esta parte");
+    expect(metricsResolver(doc)(body).stitchWidthCm).toBeCloseTo(10 / b.stitchesPer10cm, 9);
+    const described = describedOf(doc).parts[0]?.measures?.heightCm;
     expect(described).toBeDefined();
-    // La misma pieza mide distinto en la descripción y en la lista de medidas del 3D (más del doble).
-    expect(summary.heightCm / (described as number)).toBeGreaterThan(2);
-    expect(silhouette.heightCm).toBeCloseTo(summary.heightCm, 9);
+    expect(partSummaries(doc)[0]!.heightCm).toBeCloseTo(described as number, 6);
+    expect(silhouettesOf(doc)[0]!.heightCm).toBeCloseTo(partSummaries(doc)[0]!.heightCm, 9);
   });
 
-  // `it.fails`: pasa mientras el bug exista. Cuando T21 decida una sola fuente y se corrija, esta prueba falla y
-  // hay que quitarle el `.fails`.
-  it.fails("esperado: la descripción y la lista de medidas dan el mismo alto para la misma pieza", () => {
-    const a = suggestedGauge(1, "crochet")!;
-    const desc = describeWritten(doc, { assumedGauge: { stitchesPer10cm: a.stitchesPer10cm, rowsPer10cm: a.rowsPer10cm, gaugeStitch: stitchOf(a.assumption) } });
-    expect(partSummaries(doc)[0]!.heightCm).toBeCloseTo(desc.parts[0]!.measures!.heightCm as number, 6);
+  it("sin grosor conocido cae al grosor 4, marcado como supuesto", () => {
+    const odd: WrittenPattern = { ...doc, yarns: [{ ...yarn("A", 1, "#E9DDBE"), weight: "x" as unknown as WeightCategory }, doc.yarns[1]!], parts: [{ ...body, startYarn: "A" }] };
+    expect(assumedGaugeOfPart(odd, odd.parts[0]!).weight).toBe(4);
+  });
+
+  it("el validador y la descripción coinciden con el 3D también en los avisos de forma (grosor distinto por parte)", () => {
+    const fine = validatePattern(doc, writtenValidateOptions(doc)).issues.map((i) => i.code);
+    const viaPart = validatePattern(doc, { assumedGauge: { stitchesPer10cm: suggestedGauge(6, "crochet")!.stitchesPer10cm, rowsPer10cm: suggestedGauge(6, "crochet")!.rowsPer10cm }, assumedGaugeStitch: stitchOf(suggestedGauge(6, "crochet")!.assumption) }).issues.map((i) => i.code);
+    expect(fine).toEqual(viaPart);
   });
 });
 
@@ -133,7 +135,7 @@ describe("casos F4 de textos de la interfaz", () => {
   it("F4-44, F4-54 y F4-79: el aviso de prototipo menciona el relleno y la tensión de amigurumi", () => {
     // validar con tejedora (textos de T18).
     expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("El relleno redondea la pieza y puede cambiar sus medidas");
-    expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("El amigurumi se teje más apretado que una muestra plana: teje una muestra con tu aguja");
+    expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("El amigurumi se teje más apretado que una muestra plana: teje una muestra con tu ganchillo");
     expect(AMIGURUMI_TEXTS.muestra.ayuda).toContain("El amigurumi se teje apretado");
   });
 

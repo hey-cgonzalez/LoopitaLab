@@ -2,7 +2,6 @@
 
 import type { Dialect, Issue, LimitUsage, PartRef, RecommendedLimit, WrittenPattern } from "@loopitalab/pattern-core";
 import { describeWritten } from "@loopitalab/pattern-render";
-import { suggestedGauge } from "@loopitalab/yarn-catalog";
 import Link from "next/link";
 import { useCallback, useDeferredValue, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { LegalLinks } from "@/components/SiteFooter";
@@ -13,6 +12,7 @@ import { useSettledDoc } from "@/components/studio/useStoreSelector";
 import { useDesignSession } from "@/components/studio/useStudioSession";
 import { YarnPanel } from "@/components/studio/YarnPanel";
 import { BLOCK_EDIT_POLICY_V1, BlockActions, type BlockEditPolicy } from "@/lib/amigurumi/blocks.ts";
+import { assumedGaugeOfPart } from "@/lib/amigurumi/assumed-gauge.ts";
 import { crossedLimit, limitSummaryCache } from "@/lib/amigurumi/limits.ts";
 import { reviewWritten } from "@/lib/amigurumi/review.ts";
 import { modeOf, pieceRefs, placementOf, sameRef, surfaceFromPick, unplacedFromLayout, type PlacementMode } from "@/lib/amigurumi/placement.ts";
@@ -189,10 +189,15 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
   const review = useMemo(() => reviewWritten(settled), [settled]);
   const described = useSettledDoc<WrittenPattern>(store, DESCRIBE_SETTLE_MS);
   const description = useMemo(() => {
-    const weight = described.yarns[0]?.weight;
-    const s = typeof weight === "number" ? suggestedGauge(weight, "crochet") : undefined;
-    const assumedGauge = s ? { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm, gaugeStitch: s.assumption === "crochet-pa" ? ("dc" as const) : ("sc" as const) } : undefined;
-    return viewerPerfSpan("describe", () => describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) }));
+    return viewerPerfSpan("describe", () =>
+      describeWritten(described, {
+        dialect,
+        assumedGaugeOf: (part) => {
+          const { stitchesPer10cm, rowsPer10cm, gaugeStitch } = assumedGaugeOfPart(described, part);
+          return { stitchesPer10cm, rowsPer10cm, gaugeStitch };
+        },
+      }),
+    );
   }, [described, dialect]);
 
   // ---------------------------------------------------------------- 3D: resaltado y selección

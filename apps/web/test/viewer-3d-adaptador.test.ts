@@ -244,7 +244,7 @@ describe("medidas y muestra supuesta (secciones 1 y 7)", () => {
 
   it("el aviso de prototipo menciona el relleno y la tensión de amigurumi (enmienda C-11)", () => {
     expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("redondea la pieza y puede cambiar sus medidas");
-    expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("teje una muestra con tu aguja");
+    expect(VIEWER_3D_TEXTS.avisoPrototipo).toContain("teje una muestra con tu ganchillo");
     expect(VIEWER_3D_TEXTS.soloEn3d).toContain("el halo y el brillo solo se ven en la vista 3D");
   });
 });
