@@ -1,7 +1,7 @@
 # QA de la fase 4: latencia del visor 3D y calibración (T12)
 
 - **Autor**: `visor-3d` (T12, con `devops` para la CI), 2026-11-15. La matriz de criterios completa de la fase la agrega `qa-tester` en T19.
-- **Código medido**: rama `fase-4/grupo-d` sobre `5ae6b57`, con los cambios de T12 (sin commit).
+- **Código medido**: rama `fase-4/grupo-d` sobre `5ae6b57`, con los cambios de T12 (commit `be03aa7`).
 - **Equipo de desarrollo**: Apple M1 (8 núcleos, 8 GB), macOS 15.6.1, Node 24.16.0, Playwright 1.64.1 con Chromium completo (`channel: "chromium"`). "GPU" es el M1 con ANGLE sobre Metal y ventana visible (`HEADED=1`); "SwiftShader" es WebGL por software con las opciones de `webglLaunch`, como en la CI.
 - **No es el equipo de referencia**: las cifras del M1 son la primera calibración. Decide la medición de la sección [Medición en el equipo de referencia](#medición-en-el-equipo-de-referencia).
 
