@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SessionPrune } from "./SessionPrune";
 import { SignOutForm } from "./SignOutForm";
 
 /**
@@ -6,8 +7,10 @@ import { SignOutForm } from "./SignOutForm";
  * navegación sigue a mano en las listas largas (globals.css reserva su alto con `scroll-padding-top`).
  * `wide`: sin ancho máximo, como el estudio a pantalla completa.
  */
-export function AppHeader({ name, wide = false }: { name: string; wide?: boolean }) {
+export function AppHeader({ name, ownerId, wide = false }: { name: string; /** `user.id`: limpia una vez los respaldos locales ajenos o caducados. */ ownerId?: string; wide?: boolean }) {
   return (
+    <>
+    {ownerId ? <SessionPrune ownerId={ownerId} /> : null}
     <header data-app-header className="z-20 shrink-0 border-b-2 border-linea bg-superficie sm:sticky sm:top-0">
       <div className={`mx-auto flex flex-wrap items-center gap-x-6 gap-y-1 py-2 ${wide ? "px-3 sm:px-4" : "max-w-6xl px-4 sm:px-6"}`}>
         <Link href="/proyectos" className="py-1 font-display text-xl font-bold tracking-tight">
@@ -33,5 +36,6 @@ export function AppHeader({ name, wide = false }: { name: string; wide?: boolean
         </div>
       </div>
     </header>
+    </>
   );
 }

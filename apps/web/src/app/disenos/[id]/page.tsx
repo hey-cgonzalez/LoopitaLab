@@ -87,7 +87,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
     const pref = await getPatternDialect();
     return (
       <>
-        <AppHeader name={name} wide />
+        <AppHeader name={name} ownerId={user.id} wide />
         <WrittenStudio document={doc} updatedAt={data.updated_at} ownerId={user.id} draftIssues={errors} dialect={pref.dialect ?? "es"} />
       </>
     );
@@ -102,7 +102,7 @@ export default async function Page({ params }: { params: Promise<{ id: string }>
 
   return (
     <>
-      <AppHeader name={name} wide />
+      <AppHeader name={name} ownerId={user.id} wide />
       <StudioShell document={doc} updatedAt={data.updated_at} ownerId={user.id} draftIssues={errors} mirror={profile?.mirror_knitting ?? false} />
     </>
   );

@@ -8,12 +8,12 @@ import { YarnManager } from "./YarnManager";
 export const metadata: Metadata = { title: "Mis lanas" };
 
 export default async function Page() {
-  const { name } = await requireUser("/lanas");
+  const { name, user } = await requireUser("/lanas");
   const result = await listUserYarns();
 
   return (
     <>
-      <AppHeader name={name} />
+      <AppHeader name={name} ownerId={user.id} />
       <main className="mx-auto grid w-full max-w-6xl content-start gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <div className="max-w-2xl">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Mis lanas</h1>

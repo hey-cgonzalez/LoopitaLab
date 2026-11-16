@@ -13,5 +13,6 @@ export async function POST(request: NextRequest) {
 
   const supabase = await createClient();
   await supabase.auth.signOut();
-  return NextResponse.redirect(new URL("/", request.nextUrl.origin), { status: 303 });
+  // `?salida=1`: la página de destino vuelve a borrar los respaldos locales (otra pestaña con el estudio abierto, T20-M2).
+  return NextResponse.redirect(new URL("/?salida=1", request.nextUrl.origin), { status: 303 });
 }

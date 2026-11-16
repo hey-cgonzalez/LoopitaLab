@@ -6,10 +6,10 @@ import { NewDesignChooser } from "./NewDesignChooser";
 export const metadata: Metadata = { title: "Nuevo diseño" };
 
 export default async function Page() {
-  const { name } = await requireUser("/disenos/nuevo");
+  const { name, user } = await requireUser("/disenos/nuevo");
   return (
     <>
-      <AppHeader name={name} />
+      <AppHeader name={name} ownerId={user.id} />
       <main className="mx-auto grid w-full max-w-6xl content-start gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <div>
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Nuevo diseño</h1>

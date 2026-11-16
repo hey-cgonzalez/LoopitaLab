@@ -29,7 +29,7 @@ export default async function Page({ searchParams }: { searchParams: Promise<{ r
   const dialectPref = await getPatternDialect();
   return (
     <>
-      <AppHeader name={name} />
+      <AppHeader name={name} ownerId={user.id} />
       <main className="mx-auto grid w-full max-w-6xl content-start gap-x-16 gap-y-6 px-4 py-6 sm:px-6 lg:grid-cols-[minmax(0,36rem)_minmax(0,1fr)] lg:py-8">
         <div className="lg:col-span-2">
           <h1 className="font-display text-3xl font-bold tracking-tight sm:text-4xl">Tu cuenta</h1>

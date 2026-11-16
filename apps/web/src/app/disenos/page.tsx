@@ -9,12 +9,12 @@ import { DesignList } from "./DesignList";
 export const metadata: Metadata = { title: "Mis diseños" };
 
 export default async function Page() {
-  const { name } = await requireUser("/disenos");
+  const { name, user } = await requireUser("/disenos");
   const result = await listPatterns();
 
   return (
     <>
-      <AppHeader name={name} />
+      <AppHeader name={name} ownerId={user.id} />
       <main className="mx-auto grid w-full max-w-6xl content-start gap-6 px-4 py-6 sm:px-6 lg:py-8">
         <div className="flex flex-wrap items-end justify-between gap-4">
           <div className="max-w-2xl">

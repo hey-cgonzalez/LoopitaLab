@@ -117,7 +117,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     createStore: (doc) => new WrittenStore(doc),
     onRecovered,
   });
-  const { store, autosave, status, recovery } = session;
+  const { store, autosave, status, recovery, pendingDropped } = session;
   const [buffers] = useState(() => new TextBuffers(store, dialect));
   buffersRef.current = buffers;
   const [controls] = useState(() => previewControls(store));
@@ -523,6 +523,12 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
         onDismiss={session.dismissRecovery}
         recoveryExtra={pendingRecovered > 0 ? `Incluye líneas sin leer en ${pendingRecovered === 1 ? "1 parte" : `${pendingRecovered} partes`}.` : undefined}
       />
+
+      {pendingDropped ? (
+        <p role="status" className="shrink-0 border-b-2 border-mostaza bg-superficie px-4 py-2 text-sm" data-testid="pending-dropped">
+          El texto sin leer es demasiado largo para el respaldo de este equipo: no se conservará si cierras la pestaña. El resto del diseño sí. Corrige o borra esas líneas.
+        </p>
+      ) : null}
 
       <div role="tablist" aria-label={T.pestanas.etiqueta} className="flex shrink-0 flex-wrap gap-2 border-b-2 border-linea bg-superficie px-3 py-1.5 lg:hidden">
         {TABS.map((t) => (

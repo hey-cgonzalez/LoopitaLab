@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Atkinson_Hyperlegible, Bricolage_Grotesque } from "next/font/google";
+import { SignOutCleanup } from "@/components/SignOutCleanup";
 import { SiteFooter } from "@/components/SiteFooter";
 import "./globals.css";
 
@@ -15,6 +16,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es-CL" className={`${display.variable} ${body.variable}`}>
       <body className="flex min-h-dvh flex-col antialiased">
+        <SignOutCleanup />
         {children}
         <SiteFooter />
       </body>

@@ -1,4 +1,5 @@
 import { STUDIO_TEXTS } from "../../src/lib/studio-texts.ts";
+import { caretToEnd, partText } from "../support/amigurumi.ts";
 import { createFromTemplate, expect, stateFile, test } from "./support.ts";
 
 // Preferencias de la cuenta y cierre de sesión.
@@ -107,5 +108,40 @@ test.describe("Cerrar sesión", () => {
 
     await page.goto("/disenos");
     await expect(page).toHaveURL(/\/ingresar\?next=%2Fdisenos$/);
+  });
+});
+
+test.describe("Cerrar sesión desde el estudio", () => {
+  // La prueba anterior cerró todas las sesiones de cata: aquí se entra de nuevo con su correo.
+  test.use({ storageState: { cookies: [], origins: [] } });
+
+  // T20-M2: con `pendingText` no hay diálogo de salida, y `beforeunload`/`pagehide` reescribían el respaldo tras borrarlo.
+  test("cerrar sesión desde el estudio no deja el respaldo local ni el texto sin leer", async ({ page, accounts }) => {
+    const uid = accounts.cata.id;
+    await page.goto("/ingresar?next=/disenos");
+    await page.getByLabel("Correo").fill(accounts.cata.email);
+    await page.getByLabel("Contraseña").fill(accounts.cata.password);
+    await page.getByRole("button", { name: "Ingresar" }).click();
+    await page.waitForURL("**/disenos");
+    await expect(page.getByRole("heading", { name: "Mis diseños", level: 1 })).toBeVisible();
+    await page.goto("/disenos/nuevo");
+    await page.getByRole("radio", { name: /Amigurumi/ }).check();
+    await page.getByLabel("Nombre del diseño", { exact: true }).fill(`Salida ${Date.now().toString(36)}`);
+    await page.getByRole("button", { name: "Crear amigurumi" }).click();
+    await page.waitForURL(/\/disenos\/[0-9a-f-]{36}$/, { timeout: 20_000 });
+    const id = /\/disenos\/([0-9a-f-]{36})$/.exec(new URL(page.url()).pathname)?.[1] ?? "";
+    await expect(partText(page)).toBeVisible({ timeout: 20_000 });
+
+    const key = `loopitalab:${uid}:diseno:${id}`;
+    await caretToEnd(page);
+    await page.keyboard.type("\nV2: zzz");
+    await expect.poll(() => page.evaluate((k) => window.localStorage.getItem(k) ?? "", key)).toContain("V2: zzz");
+
+    await page.getByRole("banner").getByRole("button", { name: "Cerrar sesión" }).click();
+    await page.waitForURL((u) => u.pathname === "/");
+    // Un instante para que cualquier escritura tardía (pagehide, temporizadores) ya hubiera ocurrido.
+    await page.waitForTimeout(1000);
+    const left = await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("loopitalab:")));
+    expect(left.filter((k) => k.includes(":diseno:")), "sin respaldo del diseño").toEqual([]);
   });
 });
