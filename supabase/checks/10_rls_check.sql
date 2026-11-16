@@ -1874,6 +1874,33 @@ do $$ begin
 end $$;
 reset role;
 
+-- T20-I1 / T20-B8: lista exacta de columnas con UPDATE para authenticated en profiles; terminology no está.
+reset role;
+do $$ declare cols text; begin
+  select string_agg(column_name::text, ',' order by column_name) into cols
+    from information_schema.column_privileges
+   where table_schema = 'public' and table_name = 'profiles'
+     and grantee = 'authenticated' and privilege_type = 'UPDATE';
+  assert cols = 'display_name,dominant_hand,mirror_knitting,pattern_dialect,units',
+    'columnas con UPDATE en profiles para authenticated: ' || coalesce(cols, 'ninguna');
+  assert not exists (
+    select 1 from information_schema.column_privileges
+     where table_schema = 'public' and table_name = 'profiles'
+       and grantee in ('anon', 'public') and privilege_type = 'UPDATE'),
+    'anon no tiene UPDATE en ninguna columna de profiles';
+  raise notice 'ok - T20-I1: lista exacta de columnas con UPDATE en profiles';
+end $$;
+set local role authenticated;
+select set_config('request.jwt.claim.sub', '81818181-8181-4181-8181-818181818181', true);
+do $$ begin
+  begin
+    update public.profiles set terminology = 'uk' where id = '81818181-8181-4181-8181-818181818181';
+    raise exception 'FALLO: terminology no debe poder actualizarse con la sesión propia';
+  exception when insufficient_privilege then null; end;
+  raise notice 'ok - T20-B8: actualizar terminology falla con insufficient_privilege';
+end $$;
+reset role;
+
 rollback;
 
 \echo 'RLS: todas las verificaciones pasaron'

@@ -25,7 +25,7 @@ vi.mock("@/lib/supabase/server", () => ({
             maybeSingle: async () =>
               hasMirror && state.failFull
                 ? { data: null, error: { code: "42703", message: 'column "mirror_knitting" does not exist' } }
-                : { data: { display_name: "Ana", terminology: "es", units: "metric", dominant_hand: "left", ...(hasMirror ? { mirror_knitting: true } : {}) }, error: null },
+                : { data: { display_name: "Ana", units: "metric", dominant_hand: "left", ...(hasMirror ? { mirror_knitting: true } : {}) }, error: null },
           }),
         };
       },
@@ -36,7 +36,7 @@ vi.mock("@/lib/supabase/server", () => ({
 const { updateProfile } = await import("@/app/cuenta/actions");
 const { requireUser, DEFAULT_WEIGHT_LABEL } = await import("@/lib/session");
 
-const base = { display_name: "Ana", terminology: "es", units: "metric", dominant_hand: "right" };
+const base = { display_name: "Ana", units: "metric", dominant_hand: "right" };
 const form = (fields: Record<string, string>) => {
   const f = new FormData();
   for (const [k, v] of Object.entries(fields)) f.set(k, v);
