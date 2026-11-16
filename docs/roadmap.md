@@ -1828,6 +1828,8 @@ Cada punto conserva sus opciones como registro; la línea **Resolución** dice l
 
 ### Decisiones de la fase 5 (aprobadas el 2026-11-16)
 
+**Confirmaciones posteriores de la usuaria (2026-11-16):** (a) la prueba real reparte el tope total de USD 2 entre T23 (ruta plana, hasta USD 0,50) y T23-3D (el resto); (b) el conjunto de evaluación de prompts (R5-22) corre en el equipo de la usuaria, con la clave solo ahí y un tope propio que se fija antes de correrlo; ese gasto sale del crédito prepagado, no del tope interno de USD 5, y conviene cargarlo aparte.
+
 Propuestas de `arquitecto` (2026-11-16). La usuaria las respondió el 2026-11-16 (T0 hecha). Las cifras de dinero usan los precios que el orquestador verificó el 2026-11-16 con el skill `claude-api` (decisión 6). Resumen de lo elegido:
 
 | # | Tema | Elegida | Notas de la usuaria |
