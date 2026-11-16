@@ -104,7 +104,8 @@ const SERVER_ENV: Record<string, string> = supabase
 const chromium = { ...devices["Desktop Chrome"], channel: "chromium" };
 const desktop = { ...chromium, viewport: { width: 1440, height: 900 } };
 const SESSION_DIR = /sesion[\\/]/;
-const WEBGL_SPEC = /webgl\.spec\.ts/;
+/** WebGL por software: `webgl.spec.ts` y la latencia del visor (`latencia-visor.spec.ts`, T12 de la fase 4). */
+const WEBGL_SPEC = /(webgl|latencia-visor)\.spec\.ts/;
 
 /*
  * WebGL por software (T3, fase 4). La CI no tiene GPU: Chromium dibuja WebGL con SwiftShader a través de ANGLE.

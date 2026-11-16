@@ -4,6 +4,7 @@ import { viewerMode, type AmigurumiRenderer, type ViewerMode, type ViewerPolicy 
 import type { PreviewTarget, YarnCandidate } from "@/components/studio/preview-controls.ts";
 import { targetAnchorFrame, type WorldFrame } from "@/lib/amigurumi/anchor.ts";
 import { unplacedFromScene } from "@/lib/amigurumi/placement.ts";
+import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
 import { LookCache, surfaceLookOf } from "./looks.ts";
 import { metricsResolver, partSummaries, type PartSummary } from "./metrics.ts";
 
@@ -16,8 +17,8 @@ import { metricsResolver, partSummaries, type PartSummary } from "./metrics.ts";
  *   visor no cuenta nada propio y decide el modo antes de armar mallas.
  * - **Dentro del límite recomendado**: `buildScene` y `setScene` en el mismo turno.
  * - **Sobre el límite recomendado**: como mucho una reconstrucción en curso. La edición solo deja el documento
- *   pendiente y "Actualizando 3D…"; la tarea programada toma el último pendiente (la siguiente edición reemplaza a
- *   las anteriores, sin cola). El editor nunca espera al 3D.
+ *   pendiente y "Actualizando 3D…"; la tarea programada (`afterPaint`: después de pintar el editor) toma el último
+ *   pendiente (la siguiente edición reemplaza a las anteriores, sin cola). El editor nunca espera al 3D.
  * - **Sobre `SCENE_HARD_STITCH_CAP`**: no se arma la malla; el componente muestra las siluetas.
  * - **Solo cambió el aspecto** (color, composición, "Colores planos", vista previa): `setLooks` o
  *   `setPreviewOverride`. Sin `buildScene`, sin atributos y sin recompilar.
@@ -25,7 +26,7 @@ import { metricsResolver, partSummaries, type PartSummary } from "./metrics.ts";
 
 export type Schedule = (task: () => void) => () => void;
 
-/** Tarea en un turno nuevo (después de pintar el editor): `MessageChannel`, sin el tope de 4 ms de `setTimeout`. */
+/** Tarea en un turno nuevo: `MessageChannel`, sin el tope de 4 ms de `setTimeout`. No espera a que se pinte nada. */
 export const nextTask: Schedule = (task) => {
   if (typeof MessageChannel === "undefined") {
     const t = setTimeout(task, 0);
@@ -41,6 +42,48 @@ export const nextTask: Schedule = (task) => {
   return () => {
     cancelled = true;
     ch.port1.close();
+  };
+};
+
+/** `scheduler.postTask` de Chromium (Prioritized Task Scheduling); no está en todos los navegadores ni en los tipos. */
+type PostTask = (cb: () => void, opts: { priority: "background"; signal: AbortSignal }) => Promise<unknown>;
+
+/**
+ * Tarea de baja prioridad: `scheduler.postTask` con prioridad `background` donde existe (Chromium), que deja pasar
+ * antes las entradas, el render de React y los frames; si no, `setTimeout(0)`, que corre detrás de los mensajes de
+ * `MessageChannel` (el planificador de React y el recolector de las mediciones).
+ */
+export const backgroundTask: Schedule = (task) => {
+  const post = (globalThis as { scheduler?: { postTask?: PostTask } }).scheduler?.postTask;
+  if (typeof post === "function" && typeof AbortController !== "undefined") {
+    const ctl = new AbortController();
+    post
+      .call((globalThis as unknown as { scheduler: unknown }).scheduler, task, { priority: "background", signal: ctl.signal })
+      .catch(() => {}); // cancelada
+    return () => ctl.abort();
+  }
+  const t = setTimeout(task, 0);
+  return () => clearTimeout(t);
+};
+
+/**
+ * Tarea después de pintar el frame que ya tiene el editor (T12 de la fase 4; riesgo R4-20): el próximo
+ * `requestAnimationFrame` corre antes de pintar, y la tarea de baja prioridad que se publica desde ahí, después. Con
+ * `nextTask` sola, la reconstrucción del 3D corría antes de que el navegador pintara, y el texto, el conteo y los
+ * errores de lectura la esperaban (`edit-to-feedback` igual a `edit-to-paint-3d`, medido en T12). Sin
+ * `requestAnimationFrame` (Node), `nextTask`. En una pestaña oculta el 3D espera a que se vuelva a mostrar.
+ */
+export const afterPaint: Schedule = (task) => {
+  if (typeof requestAnimationFrame === "undefined") return nextTask(task);
+  let cancelTask: (() => void) | null = null;
+  let cancelled = false;
+  const id = requestAnimationFrame(() => {
+    if (!cancelled) cancelTask = backgroundTask(task);
+  });
+  return () => {
+    cancelled = true;
+    cancelAnimationFrame(id);
+    cancelTask?.();
   };
 };
 
@@ -97,7 +140,7 @@ export class ViewerController implements PreviewTarget {
   readonly counters: ControllerCounters = { buildScene: 0, partsBuilt: 0, partsRecolored: 0, partsKept: 0, looksOnly: 0, deferred: 0, superseded: 0 };
 
   constructor(opts: { schedule?: Schedule; onStatus?: (s: ViewerStatus) => void; flatColors?: boolean } = {}) {
-    this.#schedule = opts.schedule ?? nextTask;
+    this.#schedule = opts.schedule ?? afterPaint;
     this.#onStatus = opts.onStatus ?? (() => {});
     this.#flat = opts.flatColors === true;
     this.#status.flatColors = this.#flat;
@@ -105,6 +148,11 @@ export class ViewerController implements PreviewTarget {
 
   get status(): ViewerStatus {
     return this.#status;
+  }
+
+  /** Último documento dibujado con geometría (o solo con aspectos nuevos); `null` sin escena. Para las mediciones. */
+  get drawn(): WrittenPattern | null {
+    return this.#drawn;
   }
 
   /** El renderer se conecta al montar el lienzo (y se desconecta con `null`). Redibuja el documento actual. */
@@ -127,16 +175,22 @@ export class ViewerController implements PreviewTarget {
     this.#emit({ flatColors: flat });
     if (!this.#pattern || !this.#renderer) return;
     const { looks, changed } = this.#looks.update(this.#pattern.yarns, flat);
+    const perf = activeViewerPerf();
     if (changed) {
+      perf?.viewerQueued("edit");
       this.counters.looksOnly++;
       this.#renderer.setLooks(looks);
     }
     this.#syncPreview();
+    if (changed) perf?.viewerApplied("latest");
   }
 
   previewYarn(index: number, candidate: YarnCandidate | null): void {
     this.#preview = candidate && Number.isInteger(index) && index >= 0 ? { index, candidate } : null;
+    const perf = this.#renderer ? activeViewerPerf() : null;
+    perf?.viewerQueued("hover");
     this.#syncPreview();
+    perf?.viewerApplied("latest");
   }
 
   /**
@@ -182,11 +236,14 @@ export class ViewerController implements PreviewTarget {
       const { looks, changed } = this.#looks.update(pattern.yarns, this.#flat);
       this.#drawn = pattern;
       if (this.#scene) this.#scene = { ...this.#scene, pattern };
+      const perf = activeViewerPerf();
       if (changed) {
+        perf?.viewerQueued("edit");
         this.counters.looksOnly++;
         renderer.setLooks(looks);
       }
       this.#syncPreview();
+      if (changed) perf?.viewerApplied("latest");
       return;
     }
     if (mode === "silhouettes") {
@@ -195,7 +252,9 @@ export class ViewerController implements PreviewTarget {
       this.#drawn = null;
       this.#scene = null;
       const { looks } = this.#looks.update(pattern.yarns, this.#flat);
+      activeViewerPerf()?.viewerQueued("edit");
       const policy = renderer.setScene({ instances: [], stitchCount: stitches }, looks);
+      activeViewerPerf()?.viewerApplied();
       this.#emit({ mode, stitches, updating: false, notes: [], parts: partSummaries(pattern), unplaced: null, policy });
       return;
     }
@@ -203,6 +262,8 @@ export class ViewerController implements PreviewTarget {
       if (this.#pending) this.counters.superseded++;
       this.#pending = pattern;
       this.counters.deferred++;
+      // Se mide desde la entrada hasta el frame que dibuja la última edición (la reemplazada se cierra con ella).
+      activeViewerPerf()?.viewerQueued("edit");
       this.#emit({ mode, stitches, updating: true });
       this.#cancel ??= this.#schedule(() => {
         this.#cancel = null;
@@ -213,6 +274,7 @@ export class ViewerController implements PreviewTarget {
       return;
     }
     this.#cancelPending();
+    activeViewerPerf()?.viewerQueued("edit");
     this.#build(pattern, stitches);
   }
 
@@ -240,6 +302,7 @@ export class ViewerController implements PreviewTarget {
     const { looks } = this.#looks.update(pattern.yarns, this.#flat);
     const policy = renderer.setScene(scene, looks);
     this.#syncPreview();
+    activeViewerPerf()?.viewerApplied();
     this.#emit({
       mode: policy.mode,
       stitches: Number.isFinite(scene.stitchCount) ? scene.stitchCount : fallbackStitches,

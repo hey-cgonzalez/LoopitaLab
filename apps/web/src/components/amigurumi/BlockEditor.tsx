@@ -1,7 +1,7 @@
 "use client";
 
 import { LOOPS, STITCHES, loopAbbrev, stitchAbbrev, type Dialect, type Item, type ItemPath, type Loop, type Part, type StitchCode, type Yarn } from "@loopitalab/pattern-core";
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import {
   BlockActions,
   blockTree,
@@ -20,6 +20,7 @@ import type { PartReview } from "@/lib/amigurumi/review.ts";
 import { roundLabel } from "@/lib/amigurumi/rounds.ts";
 import type { WrittenStore } from "@/lib/amigurumi/store.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
 
 const T = AMIGURUMI_TEXTS.bloques;
 const A = AMIGURUMI_TEXTS.a11y;
@@ -128,6 +129,11 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
     announce,
   };
 
+  // `edit-to-feedback` (T12, solo con ?perf=1): los bloques y sus conteos ya están en el DOM.
+  useLayoutEffect(() => {
+    activeViewerPerf()?.feedbackDrawn();
+  });
+
   // Después de una acción, el foco sigue a la selección (los bloques se identifican por ruta).
   useEffect(() => {
     const p = pending.current;
@@ -180,7 +186,14 @@ export function BlockEditor({ store, part, yarns, dialect, policy, actions, revi
   };
 
   return (
-    <div ref={rootRef} className="grid gap-3" data-testid="block-editor" data-part={part.id}>
+    <div
+      ref={rootRef}
+      className="grid gap-3"
+      data-testid="block-editor"
+      data-part={part.id}
+      onChangeCapture={() => activeViewerPerf()?.feedbackQueued()}
+      onClickCapture={() => activeViewerPerf()?.feedbackQueued()}
+    >
       <p id={`${uid}-help`} className="text-sm text-tinta-suave">
         {T.ayuda}
       </p>

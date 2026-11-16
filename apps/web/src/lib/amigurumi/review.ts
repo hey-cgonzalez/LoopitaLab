@@ -1,6 +1,7 @@
 import { isDraftError, validatePattern, type Issue, type ValidateOptions, type WeightCategory, type WrittenPattern } from "@loopitalab/pattern-core";
 import { FIBER_IDS, PALETTE_IDS, suggestedGauge } from "@loopitalab/yarn-catalog";
 import { AMIGURUMI_TEXTS } from "./texts.ts";
+import { viewerPerfSpan } from "./viewer-perf.ts";
 
 /*
  * Revisión del patrón escrito en el estudio (ADR 0011, sección 4; ADR 0010, enmienda T5-1). Corre diferida, nunca
@@ -102,6 +103,6 @@ export function groupIssues(pattern: WrittenPattern, issues: readonly Issue[]): 
 
 /** Valida con las opciones de la muestra supuesta y agrupa. Se llama diferido. */
 export function reviewWritten(pattern: WrittenPattern): WrittenReview {
-  const r = validatePattern(pattern, writtenValidateOptions(pattern));
+  const r = viewerPerfSpan("validate:review", () => validatePattern(pattern, writtenValidateOptions(pattern)));
   return { valid: r.valid, savable: r.savable, ...groupIssues(pattern, r.issues) };
 }

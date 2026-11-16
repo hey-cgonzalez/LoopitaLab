@@ -24,6 +24,17 @@ export function sourceIndexOfNumber(part: Part, n: number): number | null {
   return c ? c.sourceIndex : null;
 }
 
+/**
+ * Índice en `part.rounds` de cada número visible (rangos incluidos), con una sola pasada por `concreteRounds`. Para
+ * traducir muchos números a la vez (T12: `sourceIndexOfNumber` en un bucle era cuadrático y, con una parte de 449
+ * vueltas sobre el límite de puntos por vuelta, costaba 30 ms por tecla en el M1, más de 100 ms con CPU ×4).
+ */
+export function sourceIndexByNumber(part: Part): Map<number, number> {
+  const m = new Map<number, number>();
+  for (const c of concreteRounds(part)) if (!m.has(c.number)) m.set(c.number, c.sourceIndex);
+  return m;
+}
+
 /** "V5" o "V5–8" (con la palabra corta de la construcción: "H" en hileras). */
 export function roundLabel(part: Part, sourceIndex: number): string {
   const r = part.rounds[sourceIndex];

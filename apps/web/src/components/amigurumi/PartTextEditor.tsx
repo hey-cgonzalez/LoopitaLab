@@ -4,10 +4,11 @@ import { COMMENT_WARNING, countRound, parseRound, type Part } from "@loopitalab/
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import type { LimitSummary } from "@/lib/amigurumi/limits.ts";
 import type { PartReview, ReviewItem } from "@/lib/amigurumi/review.ts";
-import { roundLabel, sourceIndexOfNumber } from "@/lib/amigurumi/rounds.ts";
+import { roundLabel, sourceIndexByNumber } from "@/lib/amigurumi/rounds.ts";
 import type { WrittenStore } from "@/lib/amigurumi/store.ts";
 import type { PartText, TextBuffers } from "@/lib/amigurumi/text-buffers.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
 
 const T = AMIGURUMI_TEXTS.editor;
 const A = AMIGURUMI_TEXTS.a11y;
@@ -159,6 +160,7 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
   }
 
   function onChange(next: string) {
+    activeViewerPerf()?.feedbackQueued(); // `edit-to-feedback` (T12, solo con ?perf=1)
     store.beginStroke();
     if (idle.current) clearTimeout(idle.current);
     idle.current = setTimeout(() => {
@@ -191,6 +193,11 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
     return { text: T.conteo(label, c.produced, c.consumed, range) };
   }, [caretLine, lines, buffers.mode, part.startYarn, part.construction]);
 
+  // `edit-to-feedback` (T12): el texto, el conteo de la vuelta y los errores de lectura ya están en el DOM.
+  useLayoutEffect(() => {
+    activeViewerPerf()?.feedbackDrawn();
+  }, [view, caretInfo]);
+
   // Resaltado en el 3D de la vuelta del cursor (la del documento: solo con el texto leído).
   const caretSource = caretLine !== null && view.status === "synced" ? (roundAtLine.get(caretLine + 1) ?? null) : null;
   useEffect(() => onCaretRound(caretSource), [caretSource, part]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -198,9 +205,13 @@ export function PartTextEditor({ store, buffers, part, review, limits, onCaretRo
   /** Advertencias de puntos por vuelta (límite recomendado, del motor), por vuelta del documento. */
   const limitRounds = useMemo(() => {
     const set = new Set<number>();
-    for (const n of limits.roundsOver.get(part.id) ?? []) {
-      const j = sourceIndexOfNumber(part, n);
-      if (j !== null) set.add(j);
+    const over = limits.roundsOver.get(part.id);
+    if (over && over.size > 0) {
+      const byNumber = sourceIndexByNumber(part);
+      for (const n of over) {
+        const j = byNumber.get(n);
+        if (j !== undefined) set.add(j);
+      }
     }
     return [...set].sort((a, b) => a - b);
   }, [limits, part]);

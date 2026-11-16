@@ -127,11 +127,14 @@ jobs:
       # puntos al cambiar repeticiones, por 1,5); el umbral de CA-P1 y CA-P3 (100 ms) se exige en local y en
       # el equipo de referencia (CA-P6). Ver apps/web/e2e/README.md.
       E2E_LATENCY_BUDGET_MS: "160"
-      # Presupuesto de latencia del visor 3D con WebGL por software (SwiftShader, sin GPU), en ms. Lo leerán las
-      # pruebas del visor (fase 4, T3b y siguientes), igual que E2E_LATENCY_BUDGET_MS. Valor provisional, sin medir:
-      # se calibra con la primera corrida real del visor y es una guardia de regresiones; el umbral de la regla de
-      # oro 7 (100 ms) se exige en el equipo de referencia. Ver apps/web/e2e/README.md.
-      E2E_VIEWER_BUDGET_MS: "400"
+      # Presupuesto de latencia del visor 3D con WebGL por software (SwiftShader, sin GPU), en ms: p95 de
+      # edit-to-paint-3d y hover-to-paint-3d en e2e/latencia-visor.spec.ts (fase 4, T12). Es una guardia de
+      # regresiones; el umbral de la regla de oro 7 (100 ms) se exige en el equipo de referencia. Se fijó sin una
+      # corrida de GitHub: el peor p95 local con SwiftShader y CPU ×4 (65 ms, bloques) por la mayor razón entre la
+      # CI y el local con CPU ×4 del colorwork (1,4) da unos 91 ms, y el umbral es eso por 1,5, redondeado. Con la
+      # primera corrida real, bajarlo a 1,5 × su peor p95. edit-to-feedback fuera de los límites (CA4-P8) usa 100 ms
+      # fijos. Ver docs/qa-fase-4.md.
+      E2E_VIEWER_BUDGET_MS: "150"
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
       - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4.3.0
@@ -166,7 +169,7 @@ jobs:
             sleep 20
           done
           exit 1
-      - name: Pruebas E2E del estudio (/dev/estudio) y de WebGL por software (/dev/webgl)
+      - name: Pruebas E2E del estudio (/dev/estudio) y de WebGL por software (/dev/webgl, visor 3D y su latencia)
         # El proyecto "webgl" lanza Chromium con los flags de SwiftShader (playwright.config.ts, `webglLaunch`) y en la CI
         # exige que el renderer sea SwiftShader. El servidor (next build + next start con LOOPITA_DEV_PAGES=1 y variables de ejemplo) lo levanta playwright.config.ts.
         run: pnpm --filter @loopitalab/web e2e

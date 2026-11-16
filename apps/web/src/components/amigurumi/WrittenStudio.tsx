@@ -20,6 +20,7 @@ import { concreteIndexOf, sourceIndexOfNumber, sourceOfConcrete } from "@/lib/am
 import { WrittenStore, type ActionResult, type WrittenAction } from "@/lib/amigurumi/store.ts";
 import { TextBuffers } from "@/lib/amigurumi/text-buffers.ts";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { viewerPerfSpan } from "@/lib/amigurumi/viewer-perf.ts";
 import { nextTabId } from "@/lib/studio/a11y.ts";
 import type { Recovery } from "@/lib/studio/backup-recovery.ts";
 import type { ViewerHandle, ViewerPick } from "./AmigurumiViewer.tsx";
@@ -34,6 +35,7 @@ import { PositionPanel, roundWord } from "./PositionPanel.tsx";
 import { Shortcuts } from "./Shortcuts.tsx";
 import { UnreadTextDialog } from "./UnreadTextDialog.tsx";
 import { WrittenGauge } from "./WrittenGauge.tsx";
+import { installViewerPerfProbe } from "./viewer-perf-probe.ts";
 
 const T = AMIGURUMI_TEXTS;
 const A11Y = AMIGURUMI_TEXTS.a11y;
@@ -190,7 +192,7 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     const weight = described.yarns[0]?.weight;
     const s = typeof weight === "number" ? suggestedGauge(weight, "crochet") : undefined;
     const assumedGauge = s ? { stitchesPer10cm: s.stitchesPer10cm, rowsPer10cm: s.rowsPer10cm, gaugeStitch: s.assumption === "crochet-pa" ? ("dc" as const) : ("sc" as const) } : undefined;
-    return describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) });
+    return viewerPerfSpan("describe", () => describeWritten(described, { dialect, ...(assumedGauge ? { assumedGauge } : {}) }));
   }, [described, dialect]);
 
   // ---------------------------------------------------------------- 3D: resaltado y selección
@@ -342,6 +344,9 @@ export function WrittenStudio({ document: initial, updatedAt, ownerId, draftIssu
     },
     [store, buffers, positioning, placeFromPick, compact],
   );
+
+  // Modo de medición (`?perf=1` en /dev/amigurumi; T12): `edit-to-feedback`, `edit-to-paint-3d` y `hover-to-paint-3d`.
+  useEffect(() => (perf ? installViewerPerfProbe() : undefined), [perf]);
 
   // E2E de la página de desarrollo: acceso al almacén y al visor.
   useEffect(() => {

@@ -87,6 +87,81 @@ export function ruffleText(): string {
   return lines.join("\n");
 }
 
+/**
+ * Pieza redonda generalizada (T12): +6 por vuelta hasta `6 × widest` puntos (V1 a V`widest`), meseta de `plateau`
+ * vueltas y −6 por vuelta hasta 6. Con `widest = 10` y `plateau = 20` es el fixture A. Vueltas: `2 × widest − 1 +
+ * plateau`; puntos: `6 × widest² + 6 × widest × plateau` (lo cuenta el motor al leerla).
+ */
+export function roundBodyText(name: string, widest: number, plateau: number, opts: { yarn?: string; copies?: number } = {}): string {
+  const max = 6 * widest;
+  const lines = [...head(name, { yarn: opts.yarn ?? "A", ...(opts.copies ? { copies: opts.copies } : {}) }), "V1: 6 pb en AM (6)", "V2: aum x6 (12)"];
+  for (let k = 3; k <= widest; k++) lines.push(`V${k}: [${sc(k - 2)}, aum] x6 (${6 * k})`);
+  let n = widest + 1;
+  if (plateau > 0) {
+    lines.push(plateau > 1 ? `V${n}-${n + plateau - 1}: ${max} pb (${max})` : `V${n}: ${max} pb (${max})`);
+    n += plateau;
+  }
+  for (let before = widest - 2; before >= 1; before--, n++) lines.push(`V${n}: [${sc(before)}, dism] x6 (${6 * (before + 1)})`);
+  lines.push(`V${n}: dism x6 (6)`);
+  return lines.join("\n");
+}
+
+/** Pieza chica del escenario de referencia (como `roundPieceText` de `viewer-3d/test/support/fixtures.ts`). */
+function smallPieceText(name: string, b: number, m: number, plateau: number, yarnId: string, copies?: number): string {
+  const lines = [...head(name, { yarn: yarnId, ...(copies ? { copies } : {}) }), `V1: ${b} pb en AM (${b})`];
+  let n = 2;
+  for (let i = 2; i <= m; i++, n++) lines.push(i === 2 ? `V${n}: aum x${b} (${2 * b})` : `V${n}: [${sc(i - 2)}, aum] x${b} (${b * i})`);
+  if (plateau > 0) {
+    lines.push(plateau > 1 ? `V${n}-${n + plateau - 1}: ${b * m} pb (${b * m})` : `V${n}: ${b * m} pb (${b * m})`);
+    n += plateau;
+  }
+  for (let i = m; i >= 2; i--, n++) lines.push(i === 2 ? `V${n}: dism x${b} (${b})` : `V${n}: [${sc(i - 2)}, dism] x${b} (${b * (i - 1)})`);
+  return lines.join("\n");
+}
+
+/**
+ * Escenario de referencia del ADR 0010, sección 6 (T12): el fixture A con cambios de color en 5 vueltas, 9 partes más
+ * de 10 a 25 vueltas (2 copias en orejas, brazos, piernas y ojos) y 3 lanas: algodón, lana con mohair y seda, para
+ * que el aspecto por fibra trabaje. 14 piezas y 4.036 puntos, dentro de los límites recomendados.
+ */
+export const REFERENCE_YARNS: readonly Yarn[] = [
+  YARN_A,
+  yarn("B", "#BA222C", "rojo", [{ fiber: "lana", percent: 70 }, { fiber: "mohair", percent: 30 }]),
+  yarn("C", "#1A2540", "azul-marino", [{ fiber: "seda", percent: 100 }]),
+];
+function referenceScene(): WrittenPattern {
+  const pieces: Array<[string, string, number, number, number, string, number?]> = [
+    ["cabeza", "Cabeza", 6, 8, 9, "A"],
+    ["hocico", "Hocico", 6, 3, 4, "A"],
+    ["oreja", "Oreja", 6, 3, 5, "B", 2],
+    ["brazo", "Brazo", 5, 2, 14, "C", 2],
+    ["pierna", "Pierna", 6, 2, 12, "C", 2],
+    ["cola", "Cola", 4, 2, 8, "B"],
+    ["ojo", "Ojo", 6, 2, 0, "C", 2],
+    ["nariz", "Nariz", 5, 2, 1, "B"],
+    ["panza", "Panza", 6, 4, 4, "A"],
+  ];
+  const parts = [readDemoPart(fixtureAText(30, { stripes: true }), "cuerpo"), ...pieces.map(([id, name, b, m, p, y, c]) => readDemoPart(smallPieceText(name, b, m, p, y, c), id))];
+  return pattern("Escenario de referencia", parts, [...REFERENCE_YARNS]);
+}
+
+/**
+ * Fuera de los límites recomendados (CA4-P8, T12): una parte de 120 vueltas con vueltas de 300 puntos (21.300
+ * puntos) y el fixture A con 22 copias (39.600): 60.900 puntos en la escena.
+ */
+function overLimits(): WrittenPattern {
+  return pattern("Fuera de los límites", [readDemoPart(roundBodyText("Grande", 50, 21), "grande"), readDemoPart(fixtureAText(30, { name: "Cuerpo", copies: 22, yarn: "B" }), "cuerpo")], [YARN_A, YARN_B, YARN_C]);
+}
+
+/**
+ * Cerca de `SCENE_HARD_STITCH_CAP` (R4-20, T12): una sola parte grande y sin copias (vueltas de 300 puntos, 449
+ * vueltas, 120.000 puntos) que se rearma en cada edición, más el fixture A con 41 copias (73.800): 193.800 puntos,
+ * bajo el tope.
+ */
+function nearCap(): WrittenPattern {
+  return pattern("Cerca del tope", [readDemoPart(roundBodyText("Grande", 50, 350), "grande"), readDemoPart(fixtureAText(30, { name: "Cuerpo", copies: 41, yarn: "B" }), "cuerpo")], [YARN_A, YARN_B, YARN_C]);
+}
+
 export function readDemoPart(text: string, id: string): Part {
   const r = parsePart(text, { id });
   if (!r.ok) throw new Error(`La parte ${id} no se lee: ${r.issues.map((i) => i.message).join("; ")}`);
@@ -159,6 +234,9 @@ export const DEMOS: DemoEntry[] = [
   { key: "ondula", label: "Pieza que ondula (aumentos de más)", build: () => pattern("Ondula", [readDemoPart(ruffleText(), "volado")], [YARN_D]) },
   { key: "muneco", label: "Muñeco armado (partes, copias y anclas)", build: doll },
   { key: "armar", label: "Cabeza y orejas sin ubicar (para posicionar)", build: headAndEars },
+  { key: "referencia", label: "Escenario de referencia (14 piezas, 4.036 puntos, algodón, mohair y seda)", build: referenceScene },
+  { key: "limites-60k", label: "Fuera de los límites: 120 vueltas, vueltas de 300 puntos (60.900 puntos)", build: overLimits },
+  { key: "cerca-del-tope", label: "Cerca del tope: una parte de 120.000 puntos (193.800 en la escena)", build: nearCap },
   {
     key: "grande",
     label: "Escena sobre el límite recomendado (61.200 puntos)",

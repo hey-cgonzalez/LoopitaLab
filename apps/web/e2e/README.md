@@ -35,9 +35,10 @@ Variables opcionales:
 | `E2E_PORT` | `3100` | Puerto del servidor de pruebas |
 | `E2E_SKIP_BUILD` | — | `1`: no vuelve a hacer `next build` (usa el `.next` existente; tiene que haberse construido con las variables de ejemplo) |
 | `E2E_LATENCY_BUDGET_MS` | `100` | Umbral del p95 de latencia (CA-P1 y CA-P3) |
-| `E2E_VIEWER_BUDGET_MS` | `100` | Presupuesto de latencia del visor 3D (fase 4). La CI lo fija en `400` (provisional: WebGL por software, sin medir todavía). Lo leen las pruebas del visor cuando existan (T3b y siguientes) |
+| `E2E_VIEWER_BUDGET_MS` | `100` | Umbral del p95 de `edit-to-paint-3d` y `hover-to-paint-3d` en `latencia-visor.spec.ts` (CA4-P1 a CA4-P3 y CA4-P10). La CI lo fija en `150` (WebGL por software; razonamiento en `docs/qa-fase-4.md`). `edit-to-feedback` fuera de los límites usa 100 ms fijos |
 | `E2E_CPU_RATE` | `1` | CPU limitada por CDP. `4` reproduce las condiciones del ADR 0004 |
-| `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` mide con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
+| `E2E_FLAT_COLORS` | — | `1`: `latencia.spec.ts` y `latencia-visor.spec.ts` miden con "Colores planos" (sin aspecto por fibra), para comparar A/B cuánto cuesta el aspecto |
+| `E2E_R420_STRICT` | — | `1`: `latencia-visor.spec.ts` exige también `edit-to-feedback` < 100 ms cerca de `SCENE_HARD_STITCH_CAP` (R4-20; sin la variable, solo informa) |
 
 Si una prueba falla con `browserType.launch: Timeout`, es el arranque de Chromium y no el estudio. Pasó una vez en macOS, en la primera corrida después de descargar Chromium. Vuelve a correr las pruebas.
 
@@ -68,6 +69,7 @@ Todas las pruebas fallan si en la página hubo un `console.error` o una excepci�
 | `selector-lanas.spec.ts` | Selector de lanas del estudio: paleta, vista previa al pasar el cursor, grosor con equivalencia en inglés, composición con avisos por fibra, panel de metraje y muestra supuesta (13 pruebas) | T9, F3-23 a F3-27 |
 | `qa-grupo-c.spec.ts` | Selector de lanas entero con el teclado (pestañas, paleta con foco itinerante, Esc, un paso de deshacer por elección), táctil sin vista previa y Colores planos que sobrevive a recargar (3 pruebas) | T8, T9 |
 | `amigurumi.spec.ts` | Estudio amigurumi en `/dev/amigurumi` (T14 de la fase 4): límites recomendados visibles desde el inicio y diálogo «Seguir igual» o «Cancelar»; lectura en cada cambio, error en su línea, forma canónica solo al salir de la línea; aviso de `#`; dialecto UK; partes (agregar, renombrar, cantidad, ordenar, borrar); quitar una lana usada actualiza los `@`; el 3D sigue al documento; Bloques y Posicionar activos; Posicionar sin puntero (vuelta y punto con campos, errores de vuelta o punto inexistente, giro acotado a ±180, extremo, separar, «Quitar posición», deshacer, pieza principal libre y ciclo rechazado) y «Dónde va cada pieza»; pasos de armado; siluetas sin WebGL (12 pruebas) | CA4-E1, CA4-E2, CA4-E5, CA4-E7, CA4-E8, CA4-E10, CA4-E12, CA4-V4 |
+| `latencia-visor.spec.ts` | Estudio amigurumi con WebGL por software (proyecto `webgl`, en orden en un trabajador; T12 de la fase 4): escenario de referencia del ADR 0010 (14 piezas, 4.036 puntos, algodón, lana con mohair y seda) con 50 ediciones de texto, 50 acciones de bloques, 50 cambios `@B` ↔ `@C`, 50 colores y 50 «Colores planos» (`edit-to-paint-3d` bajo `E2E_VIEWER_BUDGET_MS`, contadores de mallas, atributos y programas, ninguna validación dentro de una edición); 50 colores al pasar el cursor (`hover-to-paint-3d`); fuera de los límites (60.900 puntos: `edit-to-feedback` bajo 100 ms, `"smooth"`, «Actualizando 3D…» y el 3D llega a la última edición); sobre `SCENE_HARD_STITCH_CAP` (siluetas, ninguna tarea de más de 500 ms, se sigue editando); y R4-20 cerca del tope (solo informa); el colorwork no pide el fragmento de `three` y se informa su tamaño | CA4-P1 a CA4-P3, CA4-P5, CA4-P7 a CA4-P10, R4-20 |
 | `latencia.spec.ts` | Plano, tubo, círculo de rombos (40.000 puntos) y copa, con el aspecto por fibra activado: 50 entradas de pintar (clic y teclado), 20 cambios de repeticiones de 5 a 10, 50 colores al pasar el cursor (`hover-to-paint`) y 50 avances de la fila resaltada (`row-to-paint`), estos dos con el banco de medición de la vista previa (`?perf=1`). Exige p95 bajo el umbral, ninguna edición sin pintar y **ninguna validación dentro de una ventana de edición** | CA-P1, CA-P3, CA-P7, CA3-P1 a CA3-P3, CA3-P5 |
 
 ### Latencia
@@ -97,6 +99,16 @@ Validaciones dentro de una ventana de edición: 0 en todos los casos.
 | Tubo | 25,5 | 83,6 |
 | Círculo de rombos (40.000 puntos) | 88,6 | 102,2 |
 | Copa | 31,2 | 50,4 |
+
+### Latencia del visor 3D (fase 4, T12)
+
+`latencia-visor.spec.ts` usa el recolector del estudio amigurumi (`/dev/amigurumi?perf=1`, `window.__loopitaViewerPerf`, `src/lib/amigurumi/viewer-perf.ts`), con tres métricas desde `event.timeStamp` de la entrada hasta lo primero que corre después del frame pintado: `edit-to-paint-3d` (el frame del visor que ya dibuja el cambio), `edit-to-feedback` (el editor muestra el texto, el conteo y los errores de lectura, sin esperar al 3D) y `hover-to-paint-3d`. Quedan también como `performance.measure` (`loopita:edit-to-paint-3d:<origen>`, `loopita:edit-to-feedback:<origen>`, `loopita:hover-to-paint-3d`). Las ediciones son de teclado y puntero reales, sin `evaluate` entre teclas: un `evaluate` espera a que el hilo principal se libere y escondería el tiempo que una tecla espera detrás de una reconstrucción del 3D. Las ayudas están en `support/visor-latencia.ts` y las usa también `medir-visor-3d.ts`. Los números salen en la consola (`[latencia-visor] {...}`) y como adjuntos `latencia-visor-<escenario>.json`. Corre en orden en un trabajador y, en local, conviene `--workers=1` (con otras pruebas en paralelo, la CPU compartida falsea las cifras):
+
+```sh
+pnpm --filter @loopitalab/web e2e --project=webgl --workers=1 e2e/latencia-visor.spec.ts
+```
+
+Umbrales: `E2E_VIEWER_BUDGET_MS` para el 3D (100 ms por defecto) y 100 ms fijos para `edit-to-feedback` fuera de los límites (CA4-P8). **Sin traza** (`test.use({ trace: "off" })`): grabarla toma instantáneas del DOM en cada acción y falsea la medición (con 60.900 puntos, `edit-to-feedback` p50 de 60–66 ms con traza y 16–17 ms sin ella). `latencia.spec.ts` (colorwork) sí graba la traza al fallar; sus cifras de la CI pueden estar infladas por eso. Cifras, presupuesto de la CI y guía para el equipo de referencia: `docs/qa-fase-4.md`.
 
 **Chromium completo, no el shell.** Por defecto Playwright usa `chromium-headless-shell`, que dibuja el canvas mucho más lento: con CPU ×4, el círculo de rombos daba p95 de 177 ms al pintar y 202 ms en repeticiones, contra 63,5 ms y 86,7 ms con Chromium completo. Por eso la configuración usa `channel: "chromium"`.
 

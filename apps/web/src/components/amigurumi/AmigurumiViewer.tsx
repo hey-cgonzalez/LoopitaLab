@@ -12,6 +12,7 @@ import { applyCameraAction, cameraKeyAction, framing, type Vec3 } from "./camera
 import { ViewerController, type ViewerStatus } from "./controller.ts";
 import { Silhouettes } from "./Silhouettes.tsx";
 import { AMIGURUMI_TEXTS } from "@/lib/amigurumi/texts.ts";
+import { activeViewerPerf } from "@/lib/amigurumi/viewer-perf.ts";
 import { measureText, VIEWER_3D_TEXTS as T } from "./texts.ts";
 
 const A11Y = AMIGURUMI_TEXTS.a11y;
@@ -249,6 +250,7 @@ export default function AmigurumiViewer({ source, controls, perf = false, onHand
     // Fin de frame (para mediciones): lo primero que corre después de que r3f dibujó.
     const channel = new MessageChannel();
     state.scene.onAfterRender = () => {
+      activeViewerPerf()?.viewerFrameEnd(); // `edit-to-paint-3d` y `hover-to-paint-3d` (T12, solo con ?perf=1)
       const waiters = paintWaiters.current;
       if (waiters.length === 0) return;
       paintWaiters.current = [];
