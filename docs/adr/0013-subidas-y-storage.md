@@ -1,6 +1,6 @@
 # ADR 0013: Subidas de imágenes y Storage
 
-- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). Las dependencias de la sección 8 quedan sujetas a la puerta de viabilidad T2. Pasa por `revisor-seguridad` (T21).
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16) y [Enmiendas por el grupo A del hito 1](#enmiendas-por-el-grupo-a-del-hito-1-t1-t2-y-t4-2026-11-16). La puerta de viabilidad T2 **pasó** el 2026-11-16: la opción E y los códecs de la sección 8 quedan confirmados. Pasa por `revisor-seguridad` (T21).
 - Fecha: 2026-11-16
 - Paquetes: `supabase/functions` (nuevo), `supabase/migrations`, `packages/image-chart` (nuevo), `apps/web`
 - Relacionado: [ADR 0012](0012-pipeline-imagen-a-patron.md) (pipeline), [ADR 0014](0014-costos-y-cuotas-de-ia.md) (cuotas), [docs/seguridad.md](../seguridad.md) (M3, F2-M1, F2-M2, BAJO-3, BAJO-4), [docs/despliegue-publico.md](../despliegue-publico.md) (D1, Workers Free)
@@ -46,18 +46,18 @@ En este orden. Lo que falle después del paso 4 cuenta como intento (F2-M2).
 
 1. `LOOPITA_UPLOADS_ENABLED` (secreto de la función) apagado: responde 404.
 2. `Origin` en la lista permitida (ADR 0012, sección 7); si no, 403 `cross_site`.
-3. JWT verificado y `auth.getUser()`; si no, 401.
+3. JWT verificado y `auth.getUser()`, **obligatorio** (E-T2-4: con `verify_jwt = true` la plataforma acepta la clave publicable sin autenticar a nadie); si no hay usuario, 401.
 4. `begin_operation(uid, 'upload')`: una subida a la vez, más los topes. **Cambio**: 30 intentos y **10 imágenes guardadas cada 24 h**. Con una cuota de 2 trabajos de IA al día (ADR 0014, decisión 3), 30 imágenes no tienen uso; 10 dejan margen para recortar de nuevo sin gastar intentos de IA.
-5. Cuerpo de **≤ 6 MB** en ≤ 30 s (un JPEG de 2048 × 2048 con calidad 0,9 pesa típicamente de 1 a 2 MB). Si no, 413 o 408.
+5. Cuerpo de **≤ 6 MB** en ≤ 30 s (un JPEG de 2048 × 2048 con calidad 0,9 pesa típicamente de 1 a 2 MB; el fixture de T2 pesó 1,3 MB). Si no, 413 o 408. El tope lo impone la función leyendo el cuerpo con límite: la plataforma deja pasar 10 MB y con 12,5 MB responde 503 después de unos 160 s, así que no se puede confiar en ella (T2, R5-8).
 6. `rightsAck` igual a la versión vigente del aviso; si no, 400 `rights_required`.
-7. **Tipo real**: `sniffImageHeader` (puro, en `image-chart`) lee los bytes mágicos y las **dimensiones del encabezado sin decodificar**: SOF0 a SOF2 en JPEG, IHDR en PNG, y VP8, VP8L o VP8X en WebP. Solo JPEG, PNG o WebP; si no, 415 `unsupported_type`. Si el lado mayor pasa de 2048 px, los píxeles pasan de 4.194.304 o el lado menor baja de 64 px, 413 `dimensions_out_of_range`. **Antes de decodificar**: así una bomba de descompresión nunca llega al códec.
-8. **Decodificación** con el códec del formato detectado. Si el decodificador falla, o las dimensiones decodificadas no coinciden con las del encabezado (políglotas), 415 `unreadable_image`. El PNG o WebP con transparencia se conserva como RGBA: `image-chart` trata el alfa < 128 como fondo (regla que confirma T1).
+7. **Tipo real**: `sniffImageHeader` (puro, en `image-chart`) lee los bytes mágicos y las **dimensiones del encabezado sin decodificar**: SOF0 a SOF2 en JPEG, IHDR en PNG, y VP8, VP8L o VP8X en WebP. Solo JPEG, PNG o WebP; si no, 415 `unsupported_type`. Si el lado mayor pasa de 2048 px, los píxeles pasan de 4.194.304 o el lado menor baja de **16 px** (E-14; antes 64), 413 `dimensions_out_of_range`. Con el lado menor bajo 64 px la subida se acepta y la respuesta lo indica por `width` y `height`: la interfaz avisa "Poca resolución: el resultado puede salir irreconocible". **Antes de decodificar**: así una bomba de descompresión nunca llega al códec.
+8. **Decodificación** con el códec del formato detectado. Si el decodificador falla, o las dimensiones decodificadas no coinciden con las del encabezado (políglotas), 415 `unreadable_image`. El PNG o WebP con transparencia se conserva como RGBA: `image-chart` trata el alfa < 128 como el **color de fondo del diseño**, nunca como `NO_STITCH`, y compone el alfa parcial sobre blanco antes de cuantizar (E-13, confirmado por T1 en F5-22 y F5-23).
 9. **Orientación**: el servidor **ignora** la orientación EXIF. El navegador ya la aplicó; quien llame directo a la API con un JPEG rotado recibe la imagen rotada, sin riesgo.
-10. **Raster de trabajo**: `resizeArea` (puro, promedio por área) a **≤ 1024 px por lado**, y codificación **PNG sin pérdida**, que tiene solo los fragmentos IHDR, IDAT e IEND. Re-codificar desde los píxeles descarta EXIF, GPS, XMP, IPTC, ICC y miniaturas. Una prueba lo verifica sobre la salida: `assertMinimalPng`, sin ningún otro fragmento.
+10. **Raster de trabajo**: `resizeArea` (puro, promedio por área, ponderado por el alfa) a **≤ 1024 px por lado** (promedia en sRGB; ver E-15), y codificación **PNG sin pérdida**, que tiene solo los fragmentos IHDR, IDAT e IEND. Re-codificar desde los píxeles descarta EXIF, GPS, XMP, IPTC, ICC y miniaturas. Una prueba lo verifica sobre la salida: `assertMinimalPng`, sin ningún otro fragmento.
 11. Guarda `uploads/<uid>/<uuid>.png` con `service_role`, con `upsert: false` y `cache-control: private, max-age=0`, e inserta la fila en `uploads` (sección 5). Si la inserción falla, borra el objeto (como hoy). Responde 201 `{ id, width, height }`.
 12. **La foto recibida nunca se guarda**: vive solo en la memoria de la invocación.
 
-- **Códigos de error**: los mismos de la ruta actual, más `dimensions_out_of_range` y `rights_required`. La interfaz los traduce. Los mensajes no llevan detalles del códec ni de la base.
+- **Códigos de error**: los mismos de la ruta actual, más `dimensions_out_of_range`, `rights_required` y `raster_too_large` (sección 4, E-T2-3). La interfaz los traduce. Los mensajes no llevan detalles del códec ni de la base.
 - **Logs**: solo códigos de error. Sin `user.id`, sin rutas (empiezan con el uid; BAJO-3), sin bytes y sin nombres de archivo.
 - **Concurrencia**: sin semáforo por instancia (Deno aísla cada invocación). El tope real son el candado por usuaria y las cuotas en la base.
 - **Borrado**: `DELETE` en `subir-imagen/<id>`, con la misma verificación de sesión y `Origin`. Borra el objeto y la fila juntos, y deja `ai_jobs.upload_id` en `null` por la clave foránea.
@@ -70,7 +70,7 @@ En este orden. Lo que falle después del paso 4 cuenta como intento (F2-M2).
 
 ### 4. Bucket `uploads` (migración de T9)
 
-- Sigue **privado**. `file_size_limit` = 4 MB: un PNG de 1024 × 1024 de una foto pesa típicamente de 1 a 2 MB. Si T2 mide PNG de más de 4 MB, se ajusta por enmienda. `allowed_mime_types` = `['image/png']`. Hoy no hay filas, porque las subidas están apagadas desde el inicio. T9 lo verifica con una consulta y, si hubiera filas `webp`, las deja y amplía la lista.
+- Sigue **privado**. `file_size_limit` = **5 MB** (E-T2-3; antes 4 MB). El PNG de 1024 × 1024 de la foto ruidosa de T2 pesó 2,6 MB, y el peor caso de un PNG RGBA de 1024 × 1024 incompresible ronda los **4,2 MB** (4.194.304 bytes de píxeles más un byte de filtro por fila y los encabezados de deflate), que no cabía en 4 MB. Con 5 MB el peor caso cabe por construcción. Si aun así la codificación pasara el tope, la función falla cerrado antes de guardar, con el código nuevo `raster_too_large` (no cuenta como imagen guardada). T11 lo confirma con fotos reales. `allowed_mime_types` = `['image/png']`. Hoy no hay filas, porque las subidas están apagadas desde el inicio. T9 lo verifica con una consulta y, si hubiera filas `webp`, las deja y amplía la lista.
 - **Políticas**: sin cambios. Hay lectura en la carpeta propia y ninguna inserción, actualización ni borrado del cliente. `10_rls_check.sql` comprueba que `authenticated` no puede subir, sobrescribir ni borrar, y que no lee la carpeta ajena.
 - `uploads.mime_type` admite `image/png`, que ya está en la lista del CHECK.
 
@@ -103,14 +103,15 @@ Es una **casilla obligatoria, sin marcar, en cada subida**, con un texto version
 
 > Confirmo que esta imagen es mía o que tengo permiso para usarla, y que no muestra a otras personas sin su consentimiento. Entiendo que una versión reducida se envía a un proveedor de inteligencia artificial (Anthropic) solo para analizarla, y que la foto se borra a más tardar en 7 días.
 
-- **Versión**: `rights-v1`. Cambiar el texto sube la versión y vuelve a pedir la casilla.
+- **Texto vigente (T4, 2026-11-16)**: el borrador de arriba quedó como registro. El texto que usa el producto está en `apps/web/src/lib/ai/rights.ts` (`RIGHTS_VERSION = "rights-v1"`, `RIGHTS_LABEL` y `RIGHTS_HELP`), marcado `[PENDIENTE DE REVISIÓN LEGAL]`. Ya dice que la imagen no muestra a personas identificables y que esas fotos se rechazan (decisión 10). Es la única fuente del texto. `subir-imagen` compara `rightsAck` con la misma versión; T11 decide cómo compartir la constante sin que la función dependa de `apps/web` (por ejemplo, moviendo `RIGHTS_VERSION` a un paquete o comprobándolo con una prueba).
+- **Versión**: `rights-v1`. Cambiar el texto sube la versión y vuelve a pedir la casilla. Si T1c confirma `third_party_ip` (ADR 0012, E-5), el texto pasa a `rights-v2` para mencionar logotipos y personajes de terceros (E-16).
 - **Personas en la imagen** (decisión 10 de la fase 5, aprobada en su opción b): en la v1, el triaje rechaza las imágenes en que una persona identificable es el tema principal (`reasons: ["identifiable_person"]`), hasta la revisión legal. El texto del aviso ya pide no mostrar a otras personas sin su consentimiento; T4 agrega que esas fotos se rechazan.
 
 ### 8. Dependencias de imagen (justificación para el PR de T11)
 
 | Paquete | Para qué | Por qué este | Condiciones |
 |---|---|---|---|
-| `@jsquash/jpeg` | Decodificar JPEG | Códec de Squoosh (libjpeg-turbo o MozJPEG) compilado a WebAssembly. Sin binarios nativos ni scripts de instalación. Funciona en Deno y en Workers, porque es WebAssembly | Versión fijada, `integrity` en el lockfile y en `deno.lock`, licencia (Apache-2.0 según el proyecto, **a verificar en el PR**), sin `postinstall`. Edad mínima de publicación de 7 días (T20-I6) |
+| `@jsquash/jpeg` | Decodificar JPEG | Códec de Squoosh (libjpeg-turbo o MozJPEG) compilado a WebAssembly. Sin binarios nativos ni scripts de instalación. Funciona en Deno y en Workers, porque es WebAssembly | Versión fijada (T2 probó `1.6.0`, `png@3.1.1` y `webp@1.5.0`), `integrity` de npm registrada en el paso de empaquetado (E-T2-1), licencia **Apache-2.0 (verificada en T2** en el metadato de npm y en el `package.json` de cada tarball), sin `postinstall`. Edad mínima de publicación de 7 días (T20-I6) |
 | `@jsquash/png` | Decodificar PNG y codificar el raster | Ídem | Ídem |
 | `@jsquash/webp` | Decodificar WebP | Ídem; solo se usa el decodificador | Ídem |
 | (ninguno) | Redimensionar | `resizeArea` propio en `image-chart`: es puro, determinista y probado con propiedades, y garantiza el mismo resultado en el navegador y en Deno (IA-P3) | — |
@@ -118,7 +119,8 @@ Es una **casilla obligatoria, sin marcar, en cada subida**, con un texto version
 
 - **Descartadas**: `sharp`, que es nativo y no corre en workerd ni en Deno Deploy (solo con R). `imagescript`, por menos formatos verificados: queda como alternativa si T2 encuentra un problema con jSquash. Cloudflare Images (opción C).
 - **`image-chart` sigue sin dependencias.** Los códecs viven solo en `supabase/functions/_shared/codec.ts` (infraestructura) y en el navegador, que usa los decodificadores nativos (`createImageBitmap`) para el recorte y el PNG del raster para la vista previa.
-- **T2 mide** el CPU de decodificar un JPEG de 2048 × 2048, redimensionar y codificar el PNG de 1024 px. El criterio es p99 < 1 s de CPU. Si no se cumple, se baja el máximo de entrada a 1600 px por lado.
+- **El WebAssembly va embebido en el paquete en producción (E-T2-1).** El despliegue por la API no admite archivos estáticos, y descargar el `.wasm` de jsDelivr en cada arranque en frío depende de un tercero y llegó a 371 ms desplegado. El paso de empaquetado genera, desde el tarball de npm con `integrity` fijada, un módulo `.ts` con cada `.wasm` en base64 (unos 650 KB en total) y copia el JavaScript de jSquash (Apache-2.0) en vez de resolver `npm:` al desplegar. El paquete queda bajo 1 MB, dentro de los 5 MB del despliegue por la API. Reemplaza "`integrity` en `deno.lock`" y quita la dependencia transitiva `wasm-feature-detect@^1.2.11` (un rango) de `@jsquash/webp`, que el decodificador no usa. **En producción no hay descargas en tiempo de ejecución.** T11 mide el costo de decodificar el base64 en frío.
+- **T2 midió** el CPU de decodificar un JPEG de 2048 × 2048, redimensionar y codificar el PNG de 1024 px: **p99 de unos 0,24 s desplegado** (152 / 191 / 242 ms en p50 / p95 / p99), bajo el criterio de 1 s. No hace falta bajar la entrada a 1600 px. La memoria externa llegó a unos 119 MB en una instancia caliente (tope 256 MB): `subir-imagen` no guarda referencias al raster decodificado entre peticiones.
 
 ## Consecuencias
 
@@ -139,7 +141,7 @@ Es una **casilla obligatoria, sin marcar, en cada subida**, con un texto version
 
 | ID | Riesgo | Mitigación |
 |---|---|---|
-| R5-8 | El cuerpo máximo de la petición de una Edge Function en el plan gratuito es menor que 6 MB | T2 lo mide; si hace falta, se baja la reducción del navegador a 1600 px y JPEG con calidad 0,85, o se usa la opción S |
+| R5-8 | El cuerpo máximo de la petición de una Edge Function en el plan gratuito es menor que 6 MB | **Cerrado (T2, 2026-11-16).** No está documentado; desplegado, 1, 5,9, 6,5 y 10 MB responden 200 y 12,5 MB da 503 después de unos 160 s. El tope de 6 MB cabe con margen. La función impone su propio tope (sección 2, paso 5) |
 | R5-9 | Un códec WebAssembly con una vulnerabilidad de memoria | El tamaño y las dimensiones se acotan antes de decodificar. La invocación está aislada y sin secretos en memoria salvo los de la función. Se fija la versión y se actualiza con edad mínima. `revisor-seguridad` revisa la procedencia en T21 |
 | R5-10 | pg_net o pg_cron dejan de llamar a la purga y las fotos superan los 7 días | `ia-mantenimiento` registra la última corrida; una alerta (ADR 0014) avisa si pasan 2 horas sin purga; `/privacidad` promete el plazo solo después de que T20 lo verifique |
 | R5-11 | La revisión legal pide otro texto o prohíbe enviar fotos a un tercero fuera de Chile | El aviso está versionado; la IA arranca solo para la cuenta de la usuaria hasta T4 (decisión 11) |
@@ -154,3 +156,26 @@ La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md
 - **T0-8 (decisión 8, opción a).** Casilla obligatoria en cada subida, con la versión del texto guardada (sección 7). Sin cambios.
 - **T0-10 (decisión 10, opción b).** Rechazo de las imágenes cuyo tema principal es una persona identificable en la v1, hasta la revisión legal (sección 7).
 - **Decisión 2 (dos hitos).** Este ADR se implementa entero en el hito 1 (T9 y T11), porque las subidas sirven a las dos rutas. En el hito 1, `route` solo acepta `chart`; `amigurumi` se rechaza con `route_disabled` hasta el hito 2.
+
+## Enmiendas por el grupo A del hito 1 (T1, T2 y T4, 2026-11-16)
+
+Registradas por `arquitecto` el 2026-11-16 con los resultados de T1 (`experto-tejido`, anexo de [casos-dominio-fase-5.md](../casos-dominio-fase-5.md), commit `417dd2a`), T2 (`devops`, [qa-fase-5.md, Puerta T2](../qa-fase-5.md#puerta-t2), commits `04f8427` y `e3ee051`) y T4 (`documentador`, commit `24d0710`).
+
+### Por T1
+
+- **E-13. Alfa.** Confirmado por T1 (F5-22, F5-23): alfa menor que 128 es el color de fondo del diseño, nunca `NO_STITCH`, y el alfa parcial se compone sobre blanco antes de cuantizar (sección 2, paso 8). La regla vive en `image-chart` (ADR 0012, E-12).
+- **E-14. Mínimo de 16 px por lado (antes 64).** Aceptada. El rechazo de 64 px dejaba fuera los íconos y el pixel art de 16 a 48 px, que son los que mejor mapean a un gráfico. La defensa contra bombas de descompresión está en los máximos (2048 px y 4.194.304 píxeles), que no cambian; una imagen chica no agrega riesgo. Bajo 64 px se acepta con el aviso "Poca resolución" (sección 2, paso 7).
+- **E-15. Promedio por área en sRGB.** Se mantiene: es aceptable para el gráfico y es lo que fija la prueba cruzada de T2 (los SHA-256 de `cross-expected.json`). Los bordes entre colores muy distintos salen algo oscuros; se valida con tejedora con IMG-02 e IMG-05. Si T7 pasa a promediar en luz lineal, vuelve a fijar los hashes y lo registra por enmienda.
+- **E-16. Aviso de derechos y terceros.** Si T1c confirma `third_party_ip`, el aviso sube a `rights-v2` (sección 7).
+
+### Por T2 (la puerta pasa)
+
+- **Resultado**: en la subida, CPU p99 de unos 0,24 s; el cuerpo tolera hasta 10 MB y falla en 12,5 MB; los códecs de jSquash funcionan con el empaquetado del servidor; la prueba cruzada de `resizeArea` da los mismos bytes desplegada. Se confirma la opción E (T0-5). Cierra R5-8. Los límites oficiales del plan gratuito, con su fuente, están en el ADR 0012, sección 7.
+- **E-T2-1. El `.wasm` va embebido en el paquete en producción** (sección 8). Sin descargas en tiempo de ejecución.
+- **E-T2-3. Bucket de 5 MB** (sección 4), porque el peor caso de un PNG RGBA de 1024 px ronda los 4,2 MB. Cambia el valor de la migración de T9.
+- **E-T2-4. `auth.getUser()` obligatorio** en `subir-imagen` y en su `DELETE` (sección 2, paso 3).
+- E-T2-2 (despliegue con paso de empaquetado, probado en local antes de subir) está en el ADR 0012, sección 7, y vale también para `subir-imagen`.
+
+### Por T4
+
+- Los textos legales quedaron en borrador, marcados `[PENDIENTE DE REVISIÓN LEGAL]`: `/privacidad` (`apps/web/src/app/privacidad/page.tsx`), `/terminos` (`apps/web/src/app/terminos/page.tsx`) y el aviso `rights-v1` (`apps/web/src/lib/ai/rights.ts`). La usuaria los lleva a la revisión legal (T1c). Enlazarlos desde el flujo pasa a T16, porque el flujo todavía no existe.

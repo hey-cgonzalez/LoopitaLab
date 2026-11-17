@@ -1,6 +1,6 @@
 # ADR 0014: Costos, cuotas y estados de los trabajos de IA
 
-- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), con un presupuesto de USD 5 al mes (decisión 3, opción a, no la recomendada). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). Las cifras de la sección 6 se ajustan en T3, con los tokens de pensamiento medidos, y en T23, con trabajos reales.
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), con un presupuesto de USD 5 al mes (decisión 3, opción a, no la recomendada). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16), [Enmiendas por T3](#enmiendas-por-t3-2026-11-16) y [Aprobación de las enmiendas T3](#aprobación-de-las-enmiendas-t3-arquitecto-2026-11-16). Las cifras de la sección 6 quedaron recalculadas en T3 con el pensamiento como cota (`maxOutputTokens`), y se ajustan en T23 con trabajos reales.
 - Fecha: 2026-11-16
 - Paquetes: `supabase/migrations`, `supabase/functions`, `packages/ai-router`, `apps/web`
 - Relacionado: [ADR 0012](0012-pipeline-imagen-a-patron.md), [ADR 0013](0013-subidas-y-storage.md), [docs/agentes-runtime.md](../agentes-runtime.md), [docs/seguridad.md](../seguridad.md) (T15 B-2: cupo de patrones), `packages/ai-router/src/router.config.ts`
@@ -147,7 +147,7 @@ create table public.ai_alerts (
 - **La reserva de cada llamada** = `entrada estimada × precio de entrada + maxOutputTokens × precio de salida`. La entrada estimada es la del sistema y el esquema (medida una vez por versión de prompt), más la imagen (por la regla de tokens que confirme T3) y la entrada JSON.
 - **Modo ahorro**: con `budgetUsed ≥ saving_threshold` del día (la función devuelve la fracción), `selectModel` usa el modelo base y no sube por complejidad. Sí sube por reintento, dentro del tope del trabajo (regla actual del router).
 - **Tope por trabajo** (`job_cap_*`): es la cota que impide que un texto incrustado o una cadena de reintentos gaste de más. Se fija con la cifra del peor caso de la sección 6, redondeada hacia arriba.
-- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic de la usuaria, **sin recarga automática**, por el monto mensual decidido (USD 5). El crédito no se renueva cada mes: la usuaria lo recarga a mano, así que el corte mensual lo hace el interno (`monthly_cap_usd`), y el crédito es la red de seguridad. Además, un límite de gasto mensual del espacio de trabajo en la consola (existe; T3-4), igual al tope mensual interno. Se usa una clave de API exclusiva de producción en un espacio de trabajo propio. Si el corte interno fallara, el proveedor corta igual.
+- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic de la usuaria, **sin recarga automática**, por el monto mensual decidido (USD 5). El crédito no se renueva cada mes: la usuaria lo recarga a mano, así que el corte mensual lo hace el interno (`monthly_cap_usd`), y el crédito es la red de seguridad. Además, un límite de gasto mensual del espacio de trabajo en la consola (existe; T3-4): el espacio de trabajo de producción lleva un límite de **USD 5**, igual a `monthly_cap_usd`. Se usa una clave de API exclusiva de producción en ese espacio de trabajo propio (el límite no se puede poner en el espacio por defecto). El conjunto de evaluación (R5-22) corre en **otro espacio de trabajo, con su propio límite** y su propia clave, para que su gasto no consuma el límite de producción. Si el corte interno fallara, el proveedor corta igual: la API responde 400 `invalid_request_error`, que `runStage` trata como `provider_error` y no reintenta.
 - **Interruptor**: `ai_settings.enabled` (lo cambia la usuaria con SQL desde el panel) y el secreto `LOOPITA_AI_ENABLED` de las funciones. La interfaz oculta "Crear desde una imagen" si cualquiera de los dos está apagado (lo lee una Server Action).
 
 ### 5. Registro y alertas
@@ -189,7 +189,7 @@ create table public.ai_alerts (
 | Descomponedor | 3.500 | 2.000 | Adaptativo, `low` | 1.500 | — | 0,027 | 0,054 |
 | Redactor 3D | 3.000 | 2.000 | Apagado (`between_tools`), `low` | 1.200 | — | 0,026 | — |
 
-**Composición del peor caso** (la que debe usar `jobCapUSD`; enmienda T3-2). Sigue la sección 4 del ADR 0012, con dos reglas explícitas:
+**Composición del peor caso** (la que debe usar `jobCapUSD`; enmienda T3-2, **aprobada por `arquitecto` el 2026-11-16** y registrada en la sección 4 del ADR 0012). Sigue la sección 4 del ADR 0012, con dos reglas explícitas, más el redactor 3D en un intento (T3-3):
 - **Como mucho dos intentos con el mismo modelo en una etapa.** Si la subida pasaría el techo, la etapa termina agotada, sin tercer intento.
 - **Opus una sola vez por etapa.**
 
@@ -293,7 +293,7 @@ Con dos intentos de Opus, el descomponedor solo cabe con unos 400 tokens de sali
 La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16)). Cambios al texto propuesto:
 
 - **T0-3 (decisión 3, opción a, no la recomendada).** USD 5 al mes y USD 0,25 al día; 2 trabajos por día y 10 cada 30 días por usuaria, uno a la vez; tope por trabajo de USD 0,05 (plana) y USD 0,15 (3D); crédito prepagado sin recarga automática. Cambian la sección 3 (valores de la cuota), la 4 (corte externo), la 6 (lo que cubre el presupuesto, alertas y la comprobación del peor caso 3D) y la 7 (texto de la cuota). Se agrega la nota "Quién paga la IA" al inicio. Valores iniciales de `ai_settings` para T9: `daily_cap_usd = 0.25`, `monthly_cap_usd = 5`, `job_cap_chart_usd = 0.05`, `job_cap_amigurumi_usd = 0.15`, `jobs_per_day = 2`, `jobs_per_30d = 10`, `saving_threshold = 0.80` y `allowlist_only = true`. Criterio nuevo CA5-B9 en el roadmap.
-- **T0-6 (decisión 6, opción a).** Los precios quedan verificados (nota del inicio); se quitan los rótulos de "no verificado" del contexto y de la sección 6. Se agrega a la sección 6 que el pensamiento no está en la tabla, porque no se puede apagar en Haiku 5.5 ni en Opus 5.5, y se cobra como salida. `jobCapUSD` lo incluye por `maxOutputTokens`, y T3 lo mide. Fable 5.2 queda fuera.
+- **T0-6 (decisión 6, opción a).** Los precios quedan verificados (nota del inicio); se quitan los rótulos de "no verificado" del contexto y de la sección 6. Se agrega a la sección 6 que el pensamiento se cobra como salida (el texto original decía que no se puede apagar en Haiku 5.5 ni en Opus 5.5; **corregido por T3-1**: en Haiku 5.5 sí se apaga, y solo en Opus 5.5 está siempre activo). `jobCapUSD` lo incluye por `maxOutputTokens`, y T3 lo mide. Fable 5.2 queda fuera.
 - **T0-7 (decisión 7, opción a).** La prueba real se hace en dos corridas (T23 y T23-3D), con un tope total de USD 2 fuera del libro del producto (sección 6).
 - **T0-11 (decisión 11, opción a).** `allowlist_only = true`, con solo la cuenta de la usuaria. El tope diario es global, así que abrir la lista obliga a revisarlo.
 - **Decisión 2 (dos hitos).** La migración de T9 crea todos los estados de `stage`, también los de la ruta 3D, en el hito 1; el hito 2 no necesita otra migración. Hasta el hito 2, `ai_job_begin` (o `iniciar`) rechaza `p_kind = 'amigurumi'` con el detalle `route_disabled`, **antes** de insertar el `rate_events`, así que no cobra cupo.
@@ -329,3 +329,16 @@ T3 verificó los datos de la API que faltaban, con el skill `claude-api` (versi�
   - `refusal` llega con HTTP 200. La salida puede no cumplir el esquema y se cobra lo generado; un rechazo previo a cualquier salida solo se cobra en las categorías `bio`, `frontier_llm` y `reasoning_extraction`. Cuenta como fallo de forma.
   - **Sin respaldo del lado del servidor (`fallbacks`) en la v1.** Haiku 5.5 no lo tiene. En Sonnet 5.5 solo reintenta `cyber` y `frontier_llm`, que no corresponden a este producto. En Opus 5.5 iría a modelos fuera de la escalera, con un costo que `ai_reserve` no reservó.
   - Los esquemas no deben pedir el razonamiento del modelo en un campo (evita `reasoning_extraction`).
+
+## Aprobación de las enmiendas T3 (`arquitecto`, 2026-11-16)
+
+T3 quedó hecha el 2026-11-16 (commit `578985a`). `arquitecto` revisó las enmiendas T3-1 a T3-5 contra los ADR 0012 y 0013:
+
+- **T3-1**: corregida también en el ADR 0012 (nota del inicio, sección 3, R5-3 y T0-6) y en el roadmap (decisión 6 y R5-19). La enmienda T0-6 de este ADR también la tenía y quedó corregida.
+- **T3-2: aprobada.** Las tres reglas (dos intentos como máximo con el mismo modelo por etapa, Opus una sola vez por etapa y el redactor 3D en un intento) quedan en la sección 4 del ADR 0012, que es donde vive la política de reintentos, con la justificación de por qué son coherentes con el resto de ese ADR. Los peores casos, USD 0,0401 (plana) y 0,1446 (3D), quedan bajo los topes aprobados (0,05 y 0,15), sin tocarlos. Consecuencia aceptada: en la ruta 3D con complejidad ≥ 4, el descomponedor tiene un solo intento, en Opus.
+- **T3-3**: se adopta un intento para `jobCapUSD`. El segundo intento en Haiku (+0,0013) queda para el hito 2.
+- **T3-4: aprobada.** Límite del espacio de trabajo de producción en USD 5 y el conjunto de evaluación en otro espacio de trabajo con su propio límite (sección 4). Lo configura la usuaria en la consola antes de T23.
+- **T3-5: aprobada.** Sin `fallbacks` del servidor en la v1 (ADR 0012, sección 3).
+- **Caché**: apagada en la v1 (sección 6). Sin cambios.
+- **Esfuerzo y `maxOutputTokens` por agente**: la tabla de la sección 6 queda como valor aprobado, también en el ADR 0012, sección 3. T8 los lleva a `AGENT_POLICIES`, con el redactor plano separado del 3D.
+- **Pendiente para T8**: `jobCapUSD` usa `ceiling`. Hoy `AGENT_POLICIES` tiene un `freeCeiling` más bajo en el triaje, la paleta y el descomponedor, y el producto no tiene planes pagos. Si `runStage` pasa `plan: "free"`, el gasto real queda por debajo de `jobCapUSD` (cota conservadora, sin riesgo para los topes), pero Opus no se usaría nunca. T8 lo decide y lo registra en el ADR 0012, sección 4.

@@ -1045,3 +1045,24 @@ Revisa el anexo. Tiene puntos que faltan por confirmar, y algunos afectan lo que
 14. **Privacidad de las respuestas.** Las fuentes no dicen cómo se guardan las respuestas de las tejedoras, ni si se publican o se asocian a un nombre. La hoja no pide nombre. Antes de la primera sesión, definir el tratamiento de las respuestas con la usuaria. El roadmap (fase 7 y decisión abierta) menciona la Ley 21.719, que entraría en vigencia el 1 de diciembre de 2026.
 15. **Duraciones.** Las estimaciones de la sección 5 son de criterio, no mediciones. Conviene probar la hoja con una persona antes de la primera sesión y ajustar los tiempos.
 16. **Ruta corta.** Las 40 preguntas prioritarias salen de las marcas "validar con tejedora" y de las decisiones abiertas del roadmap. La usuaria puede cambiar la selección.
+
+### Ítems de la fase 5, hito 1 (T1, 2026-11-16)
+
+Vienen de la revisión T1 de `experto-tejido` (anexo de [casos-dominio-fase-5.md](casos-dominio-fase-5.md#ítems-para-la-hoja-t1b-validar-con-tejedora)) y son de la ruta "Imagen a gráfico de colorwork". Registrados por `arquitecto`. **Todavía no están redactados como preguntas**: los que amplían una pregunta existente se agregan a ella, y los nuevos van en un tema K ("Gráfico desde una imagen") que redacta `documentador` (T19) con el formato de esta hoja. Se validan en la misma ronda T1b, después de T1c.
+
+| # | Ítem | Valor actual | Dónde va en la hoja |
+|---|---|---|---|
+| 1 | Máximo de colores por fila en un gráfico generado: 2 por defecto y 3 con aviso. ¿Es honesto ofrecer 3? | 2 / 3 | Amplía **F3** |
+| 2 | Dos colores a ΔE2000 menor que 10 se fusionan: ¿se confunden en lana real? | `MERGE_MAX_DELTA_E` = 10 | Nueva (K), con muestras de color impresas |
+| 3 | Umbrales de las métricas (aviso / bloqueo): `noiseRatio` 2 % / 15 %, `floatRowRatio` 0 % / 40 %, `rowsSimplified` 10 % / 60 %, `quantError` 12 / 25 | Ver valor | Nueva (K), con las capturas de las 20 imágenes de prueba; no se pregunta la cifra sino "¿lo tejerías?" |
+| 4 | Proporción filas/puntos del colorwork a hebras: 1,25 a 1,3 frente a 1,35 del punto jersey | 1,333 con la muestra supuesta del grosor 4 | Amplía **B3b** |
+| 5 | Texto `gauge_colorwork_note` ("suele salir más apretado") | Texto de T1 | Amplía **B3a** |
+| 6 | Altura mínima de una letra legible | 7 puntos | Nueva (K) |
+| 7 | Ancho mínimo para reconocer algo | Aviso bajo 20 puntos | Nueva (K) |
+| 8 | Lana que desaparece por muchas filas: ¿desde cuántas se corta? | Sin valor (aviso propuesto) | Amplía **F4** o nueva (K) |
+| 9 | Limpieza de hebras largas recoloreando la casilla del medio: ¿lo haría una tejedora o prefiere enganchar? | Opcional, apagada | Amplía **F2** |
+| 10 | Tamaño de referencia por uso (parche, cojín, bufanda, gorro, manta) | Tabla de la sección 5 de T1 | Amplía **G2** |
+| 11 | Cómo se ve en "Tejiendo" un gráfico `top_down` | Pendiente desde F3-4 | Amplía **E1b** / **D1** |
+| 12 | Palabras regionales del filtro de cifras (vareta, media vareta, punto raso, punto bajísimo, punto enano, medio punto) y si `doble` nombra un punto | Se rechazan todas | Amplía **C** (vocabulario), pregunta nueva |
+| 13 | Rótulo "Fibras sugeridas por la IA" y los textos de los supuestos | Textos de T1 | Nueva (K) |
+| 14 | Contraste entre colores vecinos: ¿las hebras claras se transparentan bajo las oscuras? | Aviso informativo | Amplía **F3** o nueva (K) |
