@@ -1,12 +1,12 @@
 # ADR 0014: Costos, cuotas y estados de los trabajos de IA
 
-- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), con un presupuesto de USD 5 al mes (decisión 3, opción a, no la recomendada). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16). Las cifras de la sección 6 se ajustan en T3, con los tokens de pensamiento medidos, y en T23, con trabajos reales.
+- Estado: **aceptado (2026-11-16, T0)**. Propuesto el 2026-11-16 por `arquitecto`; la usuaria lo aprobó con las [decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16), con un presupuesto de USD 5 al mes (decisión 3, opción a, no la recomendada). Ver [Enmiendas por las decisiones de la usuaria](#enmiendas-por-las-decisiones-de-la-usuaria-2026-11-16), [Enmiendas por T3](#enmiendas-por-t3-2026-11-16) y [Aprobación de las enmiendas T3](#aprobación-de-las-enmiendas-t3-arquitecto-2026-11-16). Las cifras de la sección 6 quedaron recalculadas en T3 con el pensamiento como cota (`maxOutputTokens`), y se ajustan en T23 con trabajos reales.
 - Fecha: 2026-11-16
 - Paquetes: `supabase/migrations`, `supabase/functions`, `packages/ai-router`, `apps/web`
 - Relacionado: [ADR 0012](0012-pipeline-imagen-a-patron.md), [ADR 0013](0013-subidas-y-storage.md), [docs/agentes-runtime.md](../agentes-runtime.md), [docs/seguridad.md](../seguridad.md) (T15 B-2: cupo de patrones), `packages/ai-router/src/router.config.ts`
 
 
-> **Verificación de precios y modelos (2026-11-16, orquestador, skill `claude-api`, tabla de modelos del 2026-11-03):** Haiku 5.5 (`claude-haiku-5-5`) USD 0,10 / 0,50 por millón de tokens (prompts de hasta 100 K; 0,50 / 2,50 por encima), Sonnet 5.5 (`claude-sonnet-5-5`) 2 / 10, Opus 5.5 (`claude-opus-5-5`) 4 / 20, Fable 5.2 (`claude-fable-5-2`) 8 / 40. Coinciden con `PRICE_PER_MTOK`, así que las estimaciones de este documento quedan confirmadas. Los cuatro aceptan imágenes y salidas estructuradas (`output_config.format`). Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado (`any`/`tool`): la salida JSON va por salidas estructuradas, no forzando una herramienta. T3 sigue confirmando la regla de tokens de imagen y la caché antes de escribir código.
+> **Verificación de precios y modelos (2026-11-16, orquestador, skill `claude-api`, tabla de modelos del 2026-11-03):** Haiku 5.5 (`claude-haiku-5-5`) USD 0,10 / 0,50 por millón de tokens (prompts de hasta 100 K; 0,50 / 2,50 por encima), Sonnet 5.5 (`claude-sonnet-5-5`) 2 / 10, Opus 5.5 (`claude-opus-5-5`) 4 / 20, Fable 5.2 (`claude-fable-5-2`) 8 / 40. Coinciden con `PRICE_PER_MTOK`, así que las estimaciones de este documento quedan confirmadas. Los cuatro aceptan imágenes y salidas estructuradas (`output_config.format`). Opus 5.5 y Sonnet 5.5 rechazan `tool_choice` forzado (`any`/`tool`): la salida JSON va por salidas estructuradas, no forzando una herramienta. T3 confirmó el 2026-11-16 la regla de tokens de imagen, la caché, el pensamiento y el corte externo: ver las [enmiendas por T3](#enmiendas-por-t3-2026-11-16) (el pensamiento de Haiku 5.5 sí se puede apagar).
 
 > **Quién paga la IA.** El costo de la API de Anthropic lo paga la dueña de la plataforma (la usuaria de este proyecto), en su propia cuenta de Anthropic y con crédito prepagado. No es un costo por tejedora: las usuarias de LoopitaLab no pagan nada ni necesitan una cuenta de Anthropic. La cuota por usuaria de la sección 3 (2 trabajos por día y 10 cada 30 días) solo reparte ese presupuesto entre ellas para que nadie lo agote; no es un cobro. La usuaria lo preguntó al aprobar este ADR (decisión 3).
 
@@ -109,7 +109,7 @@ create table public.ai_settings (                          -- una sola fila (id 
   allowlist_only boolean not null default true             -- decisión 11: solo cuentas de la lista hasta T4
 );
 create table public.ai_allowlist (owner_id uuid primary key references auth.users (id) on delete cascade);
-create table public.ai_spend_days (                        -- día UTC, como la facturación del proveedor (a confirmar en T3)
+create table public.ai_spend_days (                        -- día UTC; el proveedor renueva el mes a las 00:00 UTC y no tiene tope diario (T3)
   day date primary key, reserved_usd numeric(12,6) not null default 0, spent_usd numeric(12,6) not null default 0
 );
 create table public.ai_alerts (
@@ -143,11 +143,11 @@ create table public.ai_alerts (
   - `daily_cap`: `reserved + spent` del día UTC `+ p_usd > daily_cap_usd`;
   - `monthly_cap`: la suma del mes UTC `+ p_usd > monthly_cap_usd`.
   Si todo pasa, suma la reserva al día y al trabajo. **Sin `ok` no se llama al modelo.** La etapa termina con `budget_denied`; el trabajo pasa a `failed`/`budget` (o a `delivered` con el respaldo determinista, si la etapa era la del redactor) y se devuelve el cupo.
-- **`ai_settle(p_call, p_usd)`**: mueve la reserva a gastado con el costo real (`estimateCostUSD` con la `usage` de la respuesta, incluidos los tokens de caché, que T3 confirma si se cobran distinto). Si al liquidar se cruza el 50, 80 o 100 % del mes, o el 100 % del día, inserta en `ai_alerts` (único por periodo).
+- **`ai_settle(p_call, p_usd)`**: mueve la reserva a gastado con el costo real (`estimateCostUSD` con la `usage` de la respuesta, incluidos los tokens de caché, que se cobran distinto: `CACHE_PRICE_PER_MTOK`, T3). Si al liquidar se cruza el 50, 80 o 100 % del mes, o el 100 % del día, inserta en `ai_alerts` (único por periodo).
 - **La reserva de cada llamada** = `entrada estimada × precio de entrada + maxOutputTokens × precio de salida`. La entrada estimada es la del sistema y el esquema (medida una vez por versión de prompt), más la imagen (por la regla de tokens que confirme T3) y la entrada JSON.
 - **Modo ahorro**: con `budgetUsed ≥ saving_threshold` del día (la función devuelve la fracción), `selectModel` usa el modelo base y no sube por complejidad. Sí sube por reintento, dentro del tope del trabajo (regla actual del router).
 - **Tope por trabajo** (`job_cap_*`): es la cota que impide que un texto incrustado o una cadena de reintentos gaste de más. Se fija con la cifra del peor caso de la sección 6, redondeada hacia arriba.
-- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic de la usuaria, **sin recarga automática**, por el monto mensual decidido (USD 5). El crédito no se renueva cada mes: la usuaria lo recarga a mano, así que el corte mensual lo hace el interno (`monthly_cap_usd`), y el crédito es la red de seguridad. Además, si T3 confirma que existe, un límite de gasto del espacio de trabajo. Se usa una clave de API exclusiva de producción en un espacio de trabajo propio. Si el corte interno fallara, el proveedor corta igual.
+- **Corte externo (K3)**: crédito prepagado en la consola de Anthropic de la usuaria, **sin recarga automática**, por el monto mensual decidido (USD 5). El crédito no se renueva cada mes: la usuaria lo recarga a mano, así que el corte mensual lo hace el interno (`monthly_cap_usd`), y el crédito es la red de seguridad. Además, un límite de gasto mensual del espacio de trabajo en la consola (existe; T3-4): el espacio de trabajo de producción lleva un límite de **USD 5**, igual a `monthly_cap_usd`. Se usa una clave de API exclusiva de producción en ese espacio de trabajo propio (el límite no se puede poner en el espacio por defecto). El conjunto de evaluación (R5-22) corre en **otro espacio de trabajo, con su propio límite** y su propia clave, para que su gasto no consuma el límite de producción. Si el corte interno fallara, el proveedor corta igual: la API responde 400 `invalid_request_error`, que `runStage` trata como `provider_error` y no reintenta.
 - **Interruptor**: `ai_settings.enabled` (lo cambia la usuaria con SQL desde el panel) y el secreto `LOOPITA_AI_ENABLED` de las funciones. La interfaz oculta "Crear desde una imagen" si cualquiera de los dos está apagado (lo lee una Server Action).
 
 ### 5. Registro y alertas
@@ -165,52 +165,107 @@ create table public.ai_alerts (
 
 ### 6. Estimación de costo por trabajo
 
-**Supuestos, a medir en T23.**
+**Recalculada en T3 (2026-11-16) con el pensamiento incluido** (enmiendas T3-1 a T3-5). No se llamó a la API: las cifras de entrada y de salida esperada siguen siendo estimaciones, y se miden con el conjunto de evaluación (R5-22) y en T23.
 
-- **Precios**: `PRICE_PER_MTOK` del repositorio, en USD por millón de tokens de entrada y de salida, verificados el 2026-11-16 (nota del inicio): Haiku 5.5 a 0,1 y 0,5; Sonnet 5.5 a 2 y 10; Opus 5.5 a 4 y 20. Ninguna llamada pasa de 100 K tokens de prompt, así que el recargo de Haiku no aplica.
-- **Tokens de imagen**: alrededor de ancho × alto / 750, la regla publicada para las familias anteriores; T3 la confirma para la 5.5. Eso da unos 600 tokens para 768 × 576 y unos 1.050 para 1024 × 768.
-- **Tokens de texto**: estimados por agente (sistema, esquema y entrada).
-- **Pensamiento: no está incluido en la tabla.** No se puede apagar en Haiku 5.5 ni en Opus 5.5, y se cobra como salida; en Sonnet 5.5 se usa `between_tools`. T3 lo mide por etapa (enmienda T0-6).
+**Datos de la API verificados en T3** (detalle y fuentes en el [README de `ai-router`](../../packages/ai-router/README.md#datos-verificados-de-la-api-t3-2026-11-16)):
 
-| Llamada | Modelo | Entrada | Salida | Costo (USD) |
+- **Precios** (USD por millón de tokens, entrada / salida): Haiku 5.5 a 0,10 / 0,50, Sonnet 5.5 a 2 / 10 y Opus 5.5 a 4 / 20. Ninguna llamada pasa de 100 K tokens de prompt, así que no aplica el recargo de Haiku (0,50 / 2,50).
+- **Pensamiento**: se cobra como salida y cuenta dentro de `max_tokens`. Por eso la reserva por `maxOutputTokens` (sección 4) es una cota dura del costo de salida, piense lo que piense el modelo.
+  - Haiku 5.5 **sí** permite apagarlo (`disabled`, con esfuerzo ≤ `high`; corrige el texto anterior).
+  - Sonnet 5.5 usa `between_tools`.
+  - Opus 5.5 no lo apaga.
+- **Imágenes**: `⌈ancho / 28⌉ × ⌈alto / 28⌉` tokens; ninguna imagen del pipeline se reduce en el servidor.
+  - Triaje, peor caso de 768 × 768: 784 tokens.
+  - Descomponedor, peor caso de 1024 × 1024: 1.369 tokens.
+  - Gráfico del asistente de paleta, ≤ 448 px: ≤ 256 tokens.
+
+**Supuestos por llamada.** La entrada es texto (sistema, esquema y JSON, como antes) más la imagen en el peor caso, redondeada. La reserva es entrada × precio + `maxOutputTokens` × precio de salida.
+
+| Agente | Entrada | `maxOutputTokens` | Pensamiento y esfuerzo | Salida esperada | Reserva Haiku | Reserva Sonnet | Reserva Opus |
+|---|---|---|---|---|---|---|---|
+| Triaje | 1.800 | 600 | Apagado, `low` | 200 | 0,00048 | 0,0096 | — |
+| Asistente de paleta | 2.900 | 800 | Apagado, `low` | 600 | 0,00069 | 0,0138 | — |
+| Redactor, ruta plana | 2.300 | 1.500 | Apagado, `low` | 800 | 0,00098 | 0,0196 | — |
+| Descomponedor | 3.500 | 2.000 | Adaptativo, `low` | 1.500 | — | 0,027 | 0,054 |
+| Redactor 3D | 3.000 | 2.000 | Apagado (`between_tools`), `low` | 1.200 | — | 0,026 | — |
+
+**Composición del peor caso** (la que debe usar `jobCapUSD`; enmienda T3-2, **aprobada por `arquitecto` el 2026-11-16** y registrada en la sección 4 del ADR 0012). Sigue la sección 4 del ADR 0012, con dos reglas explícitas, más el redactor 3D en un intento (T3-3):
+- **Como mucho dos intentos con el mismo modelo en una etapa.** Si la subida pasaría el techo, la etapa termina agotada, sin tercer intento.
+- **Opus una sola vez por etapa.**
+
+| Trabajo | Composición | `jobCapUSD` (USD) | Tope | Margen |
 |---|---|---|---|---|
-| Triaje (imagen de 768 px) | Haiku | 1.600 | 200 | 0,00026 |
-| Asistente de paleta (gráfico reducido) | Haiku | 2.600 | 600 | 0,00056 |
-| Asistente de paleta, escalado | Sonnet | 2.600 | 600 | 0,0112 |
-| Redactor, ruta plana | Haiku | 2.300 | 800 | 0,00063 |
-| Redactor, ruta plana, escalado | Sonnet | 2.300 | 800 | 0,0126 |
-| Descomponedor (imagen de 1024 px) | Sonnet | 3.200 | 1.500 | 0,0214 |
-| Descomponedor, escalado o con complejidad ≥ 4 | Opus | 3.200 | 1.500 | 0,0428 |
-| Redactor, ruta 3D (armado) | Sonnet | 3.000 | 1.200 | 0,018 |
+| Ruta plana, peor caso | Triaje H, H, S + paleta S, S (complejidad ≥ 4) + redactor H, H | **0,0401** | 0,05 | 0,0099 |
+| Ruta plana, otra rama | Triaje H, H, S + paleta H, H, S + redactor H, H | 0,0277 | 0,05 | — |
+| Ruta 3D, peor caso | Triaje H, H, S + descomponedor S, S, O + redactor 3D S (un intento) | **0,1446** | 0,15 | 0,0054 |
+| Ruta 3D, complejidad ≥ 4 | Triaje H, H, S + descomponedor O + redactor 3D S | 0,0906 | 0,15 | — |
+
+H, S y O son Haiku, Sonnet y Opus.
+
+**Lo que no cabe** (por eso las reglas nuevas):
+
+| Composición | USD | Tope |
+|---|---|---|
+| Ruta plana con un tercer intento de paleta en Sonnet (S, S, S) | 0,0539 | 0,05 |
+| Ruta plana con la composición anterior (redactor H + S × 2, con el pensamiento) | 0,0694 | 0,05 |
+| Ruta 3D con la composición anterior (descomponedor S + O × 2, redactor 3D S × 2) | 0,1976 | 0,15 |
+
+Con dos intentos de Opus, el descomponedor solo cabe con unos 400 tokens de salida, sin lugar para pensar. Opus no permite apagar el pensamiento.
+
+**Trabajos típicos** (salida esperada, sin reintentos):
 
 | Trabajo | Composición | Costo (USD) |
 |---|---|---|
-| Ruta plana, típico | Triaje + paleta + redactor, todo en Haiku | **≈ 0,0015** |
-| Ruta plana, peor caso | Triaje ×2, paleta Haiku + Sonnet ×2, redactor Haiku + Sonnet ×2 | **≈ 0,049** → tope por trabajo **0,05** |
-| Ruta 3D, típico | Triaje + descomponedor Sonnet + redactor Sonnet | **≈ 0,040** |
-| Ruta 3D, complejidad ≥ 4 | Triaje + descomponedor Opus + redactor Sonnet | **≈ 0,061** |
-| Ruta 3D, peor caso | Triaje ×2, descomponedor Sonnet + Opus ×2, redactor Sonnet ×2 | **≈ 0,144** → tope por trabajo **0,15** |
+| Ruta plana, típico | Triaje + paleta + redactor, todo en Haiku | ≈ 0,0015 |
+| Ruta 3D, típico | Triaje Haiku + descomponedor Sonnet + redactor 3D Sonnet | ≈ 0,040 |
+| Ruta 3D, complejidad ≥ 4 | Triaje Haiku + descomponedor Opus + redactor 3D Sonnet | ≈ 0,062 |
 
 **Lo que cubre el presupuesto aprobado** (decisión 3, opción a: USD 5 al mes y USD 0,25 al día; enmienda T0-3):
 
 | Trabajo | Costo (USD) | En el mes (USD 5) | En el día (USD 0,25) |
 |---|---|---|---|
 | Ruta plana, típico | 0,0015 | unos 3.300 | unos 160 |
-| Ruta plana, peor caso (tope 0,05) | 0,049 | unos 100 | 5 |
-| Ruta 3D, típico | 0,040 | unos 125 | 6 |
-| Ruta 3D, complejidad ≥ 4 | 0,061 | unos 80 | 4 |
-| Ruta 3D, peor caso (tope 0,15) | 0,144 | unos 34 | **1** |
+| Ruta plana, peor caso (tope 0,05) | 0,0401 | unos 120 | 6 |
+| Ruta 3D, típico | 0,040 | unos 120 | 6 |
+| Ruta 3D, complejidad ≥ 4 | 0,062 | unos 80 | 4 |
+| Ruta 3D, peor caso (tope 0,15) | 0,1446 | unos 34 | **1** |
+
+**CA5-B9 con estos valores:**
+- `jobCapUSD("chart") = 0,0401 ≤ 0,05` y `jobCapUSD("amigurumi") = 0,1446 ≤ 0,15`.
+- En un día vacío, un trabajo 3D en el peor caso termina sin `daily_cap`: la reserva del trabajo nunca pasa de su `job_cap_usd`, y 0,15 ≤ 0,25.
+- Un segundo trabajo 3D en el peor caso el mismo día se corta con `budget` (0,30 > 0,25) y devuelve el cupo.
+- Un plano y un 3D en el peor caso caben juntos (0,20 ≤ 0,25 con los topes; 0,185 con los `jobCapUSD`).
+- Se cumple solo si T8 implementa las dos reglas de la composición y los `maxOutputTokens` de la tabla, y si T8-3D deja el redactor 3D en un intento.
+- La prueba de CA5-B9 en T8 debe recorrer todas las ramas de reintento con el doble del modelo, no solo la de arriba, y quedarse con la mayor.
 
 - **Alertas** (sección 5): 50 % del mes = USD 2,50; 80 % = USD 4,00; 100 % = USD 5,00, con corte. 100 % del día = USD 0,25, con corte. El modo ahorro empieza al 80 % del día (USD 0,20).
-- **El tope diario deja pasar un trabajo 3D en el peor caso**: en un día sin gasto previo, 0,15 ≤ 0,25, con USD 0,10 de margen, porque la reserva de un trabajo nunca pasa de su `job_cap_usd`. También caben un plano y un 3D en el peor caso el mismo día (0,20). **No caben dos 3D en el peor caso** (0,30): el segundo se corta con `failed`/`budget` y se devuelve el cupo (R5-15). Dos 3D típicos (0,08) o uno típico y uno en el peor caso (0,184) sí caben.
+- **El tope diario deja pasar un trabajo 3D en el peor caso**: en un día sin gasto previo, 0,15 ≤ 0,25, con USD 0,10 de margen. **No caben dos 3D en el peor caso** (0,30): el segundo se corta con `failed`/`budget` y se devuelve el cupo (R5-15). Dos 3D típicos (0,08) o uno típico y uno en el peor caso (0,19) sí caben.
 - **Por usuaria**: el peor día, con la cuota de 2, cuesta USD 0,30 y se corta en el tope diario (USD 0,25, el 5 % del mes). El peor mes, con la cuota de 10, cuesta 10 × 0,15 = USD 1,50, el 30 % del presupuesto. Con solo la cuenta de la usuaria en la lista permitida (decisión 11), el tope mensual no se alcanza con el uso del producto.
-- **Con más cuentas**: una beta de 20 tejedoras con la cuota completa (200 trabajos al mes, 30 % de la ruta 3D) gastaría unos USD 2,61 al mes (140 × 0,0015 + 60 × 0,040), dentro del mes. Pero **el tope diario es global**: con 0,25 al día caben unos 6 trabajos 3D típicos o 1 en el peor caso entre todas, y la IA quedaría "en pausa hasta mañana" con frecuencia (riesgo R5-21 del roadmap). Abrir la lista exige revisar el tope diario con las cifras de T23.
+- **Con más cuentas**: una beta de 20 tejedoras con la cuota completa (200 trabajos al mes, 30 % de la ruta 3D) gastaría unos USD 2,6 al mes (140 × 0,0015 + 60 × 0,040), dentro del mes. Pero **el tope diario es global**: con 0,25 al día caben unos 6 trabajos 3D típicos o 1 en el peor caso entre todas, y la IA quedaría "en pausa hasta mañana" con frecuencia (riesgo R5-21 del roadmap). Abrir la lista exige revisar el tope diario con las cifras de T23.
 
-**Sensibilidad y pensamiento.** Los topes por trabajo **no se escriben a mano**: `ai-router` exporta `jobCapUSD(route)`, que calcula el peor caso desde `PRICE_PER_MTOK` y `AGENT_POLICIES` (con `maxOutputTokens`, que **incluye el pensamiento**), y la migración de T9 escribe los valores aprobados. El peor caso estimado deja muy poco margen dentro de cada tope: USD 0,001 en la ruta plana (0,049 de 0,05) y USD 0,006 en la 3D (0,144 de 0,15). Por ejemplo, 1.000 tokens de pensamiento por llamada suman 0,0005 por llamada de Haiku y 0,02 por llamada de Opus: con dos intentos de Opus, el peor caso 3D pasaría a unos 0,18. Si T3 mide que el pensamiento no cabe, **se ajustan los `maxOutputTokens` o el esfuerzo por agente** (por ejemplo, el del descomponedor en Opus), no los topes. Subir un tope por trabajo lo decide la usuaria; el de la ruta 3D no puede pasar de USD 0,25 sin dejar de caber en el tope diario. Una llamada cortada por `max_tokens` cuenta como fallo de forma (ADR 0012, sección 3). CA5-B9 lo verifica.
+**Sensibilidad.**
+- Los topes por trabajo **no se escriben a mano**. `ai-router` exporta `jobCapUSD(route)`, que calcula el peor caso desde `PRICE_PER_MTOK`, `AGENT_POLICIES` y la composición de arriba, y la migración de T9 escribe los valores aprobados.
+- Lo que más pesa son los intentos en Sonnet y en Opus. Cada 100 tokens más de `maxOutputTokens` suman:
+  - paleta: 0,002 en la ruta plana (2 intentos en Sonnet);
+  - descomponedor: 0,004 en la 3D (2 en Sonnet y 1 en Opus);
+  - redactor 3D: 0,001 en la 3D.
+- Lo que más pesa en la entrada es el triaje en Sonnet y el descomponedor: subir el triaje a 1024 px (1.369 tokens) suma 0,0012 por intento en Sonnet.
+- Si el conjunto de evaluación muestra que hace falta más pensamiento, el orden para ajustar es:
+  1. `maxOutputTokens` por modelo, no por agente: Haiku con más margen cuesta casi nada;
+  2. esfuerzo;
+  3. composición.
+  Los topes no se tocan. Subir un tope por trabajo lo decide la usuaria; el de la ruta 3D no puede pasar de USD 0,25 sin dejar de caber en el tope diario.
+- Una llamada cortada por `max_tokens` o con `refusal` cuenta como fallo de forma (ADR 0012, sección 3) y se liquida por la `usage` real: se cobran los tokens generados.
 
-**La prueba real (T23 y T23-3D) va aparte.** Tiene su propio tope total de USD 2, en un script de evaluación con un libro de presupuesto en memoria (roadmap, R5-22): con 2 trabajos al día, el conjunto de evaluación no cabría en la cuota del producto. Ese gasto no pasa por `ai_reserve`, pero sí por el crédito prepagado. Para que el corte externo no quede por debajo del interno, conviene cargar esos USD 2 aparte.
+**La prueba real (T23 y T23-3D) va aparte.**
+- Tiene su propio tope total de USD 2, en un script de evaluación con un libro de presupuesto en memoria (roadmap, R5-22): con 2 trabajos al día, el conjunto de evaluación no cabría en la cuota del producto.
+- Ese gasto no pasa por `ai_reserve`, pero sí por el crédito prepagado. Para que el corte externo no quede por debajo del interno, conviene cargar esos USD 2 aparte.
 
-**Caché de prompts: apagada en la v1.** Con el volumen previsto (unos pocos trabajos por hora como mucho), casi ninguna llamada encontraría la caché vigente, y escribir en caché cuesta más que una entrada normal según la documentación de las familias anteriores (a confirmar en T3). Se registran `cache_read_tokens` y `cache_write_tokens` desde el inicio, y se reevalúa con datos (más de 30 trabajos por hora). Tampoco se usa el procesamiento por lotes: el flujo es interactivo.
+**Caché de prompts: apagada en la v1 (confirmado en T3).**
+- Precios verificados: escribir cuesta 1,25 × la entrada (5 min) o 2 × (1 h); leer cuesta 0,1 × en Haiku 5.5 y 0,05 × en Sonnet 5.5 y Opus 5.5. El mínimo cacheable es de 512 tokens en los tres. La entrada dura 5 min desde el inicio de la petición y cada lectura la renueva.
+- Con unos pocos trabajos por hora, casi ninguna llamada encontraría la caché vigente entre trabajos. El único acierto seguro sería el reintento con el mismo modelo dentro del trabajo, pero el peor caso tendría que reservar la escritura a 1,25 ×, y eso sube `jobCapUSD`.
+- Se registran `cache_read_tokens` y `cache_write_tokens` desde el inicio, con `CACHE_PRICE_PER_MTOK` para liquidarlos, y se reevalúa con datos (más de 30 trabajos por hora).
+- Tampoco se usa el procesamiento por lotes: el flujo es interactivo.
 
 ### 7. Interfaz de cuota y presupuesto
 
@@ -228,7 +283,8 @@ create table public.ai_alerts (
 
 | ID | Riesgo | Mitigación |
 |---|---|---|
-| R5-12 | Los precios quedaron verificados (2026-11-16), pero los tokens de pensamiento, que no se pueden apagar en Haiku 5.5 ni en Opus 5.5, pueden llevar el peor caso por encima de los topes por trabajo | T3 mide el pensamiento por etapa; `jobCapUSD` con `maxOutputTokens` que lo incluye; se ajustan los `maxOutputTokens` o el esfuerzo, no los topes (CA5-B9); crédito prepagado como corte externo || R5-13 | La cuenta del proveedor no permite crédito prepagado sin recarga ni límite de gasto | Queda solo el corte interno, que es atómico; la usuaria revisa la consola en T23 |
+| R5-12 | Los precios quedaron verificados (2026-11-16), pero los tokens de pensamiento, que no se pueden apagar en Opus 5.5 (en Haiku 5.5 sí, y en Sonnet 5.5 con `between_tools`; T3-1), pueden llevar el peor caso por encima de los topes por trabajo | `jobCapUSD` con `maxOutputTokens` que lo incluye, que es un tope duro; con los valores de T3 y su composición los peores casos son 0,0401 y 0,1446 (sección 6, T3-2); se ajustan los `maxOutputTokens` o el esfuerzo, no los topes (CA5-B9); medición del pensamiento real en el conjunto de evaluación y en T23; crédito prepagado como corte externo |
+| R5-13 | La cuenta del proveedor no permite crédito prepagado sin recarga ni límite de gasto | Queda solo el corte interno, que es atómico; la usuaria revisa la consola en T23 |
 | R5-14 | Una invocación muere después de que el proveedor cobró y antes de liquidar | Liquidación por lo reservado al vencer (cota superior); `request_id` para conciliar con la consola |
 | R5-15 | El 100 % del día corta a una usuaria a mitad de un trabajo | La reserva se hace por llamada; el redactor tiene respaldo determinista; las otras etapas devuelven el cupo con un mensaje claro |
 
@@ -237,7 +293,52 @@ create table public.ai_alerts (
 La usuaria aprobó el ADR el 2026-11-16 ([decisiones de la fase 5](../roadmap.md#decisiones-de-la-fase-5-aprobadas-el-2026-11-16)). Cambios al texto propuesto:
 
 - **T0-3 (decisión 3, opción a, no la recomendada).** USD 5 al mes y USD 0,25 al día; 2 trabajos por día y 10 cada 30 días por usuaria, uno a la vez; tope por trabajo de USD 0,05 (plana) y USD 0,15 (3D); crédito prepagado sin recarga automática. Cambian la sección 3 (valores de la cuota), la 4 (corte externo), la 6 (lo que cubre el presupuesto, alertas y la comprobación del peor caso 3D) y la 7 (texto de la cuota). Se agrega la nota "Quién paga la IA" al inicio. Valores iniciales de `ai_settings` para T9: `daily_cap_usd = 0.25`, `monthly_cap_usd = 5`, `job_cap_chart_usd = 0.05`, `job_cap_amigurumi_usd = 0.15`, `jobs_per_day = 2`, `jobs_per_30d = 10`, `saving_threshold = 0.80` y `allowlist_only = true`. Criterio nuevo CA5-B9 en el roadmap.
-- **T0-6 (decisión 6, opción a).** Los precios quedan verificados (nota del inicio); se quitan los rótulos de "no verificado" del contexto y de la sección 6. Se agrega a la sección 6 que el pensamiento no está en la tabla, porque no se puede apagar en Haiku 5.5 ni en Opus 5.5, y se cobra como salida. `jobCapUSD` lo incluye por `maxOutputTokens`, y T3 lo mide. Fable 5.2 queda fuera.
+- **T0-6 (decisión 6, opción a).** Los precios quedan verificados (nota del inicio); se quitan los rótulos de "no verificado" del contexto y de la sección 6. Se agrega a la sección 6 que el pensamiento se cobra como salida (el texto original decía que no se puede apagar en Haiku 5.5 ni en Opus 5.5; **corregido por T3-1**: en Haiku 5.5 sí se apaga, y solo en Opus 5.5 está siempre activo). `jobCapUSD` lo incluye por `maxOutputTokens`, y T3 lo mide. Fable 5.2 queda fuera.
 - **T0-7 (decisión 7, opción a).** La prueba real se hace en dos corridas (T23 y T23-3D), con un tope total de USD 2 fuera del libro del producto (sección 6).
 - **T0-11 (decisión 11, opción a).** `allowlist_only = true`, con solo la cuenta de la usuaria. El tope diario es global, así que abrir la lista obliga a revisarlo.
 - **Decisión 2 (dos hitos).** La migración de T9 crea todos los estados de `stage`, también los de la ruta 3D, en el hito 1; el hito 2 no necesita otra migración. Hasta el hito 2, `ai_job_begin` (o `iniciar`) rechaza `p_kind = 'amigurumi'` con el detalle `route_disabled`, **antes** de insertar el `rate_events`, así que no cobra cupo.
+
+## Enmiendas por T3 (2026-11-16)
+
+T3 verificó los datos de la API que faltaban, con el skill `claude-api` (versión 2.1.325) y la documentación oficial. Hechos y fuentes: [README de `ai-router`](../../packages/ai-router/README.md#datos-verificados-de-la-api-t3-2026-11-16). No se llamó a la API, así que el pensamiento real por etapa queda sin medir (conjunto de evaluación, R5-22, y T23).
+
+- **T3-1. El pensamiento de Haiku 5.5 sí se puede apagar.**
+  - Haiku 5.5 acepta `thinking: { type: "disabled" }` con esfuerzo `low`, `medium` o `high` ([Effort](https://platform.claude.com/docs/en/build-with-claude/effort); [Thinking](https://platform.claude.com/docs/en/build-with-claude/thinking)).
+  - Lo que no se puede apagar es el pensamiento de Opus 5.5. En Sonnet 5.5, `between_tools` lo apaga si no hay herramientas.
+  - Esfuerzo por defecto: `medium` en Haiku y Opus, `high` en Sonnet.
+  - El pensamiento se cobra como salida y cuenta dentro de `max_tokens`.
+  - Corrige el contexto, la sección 6, la enmienda T0-6 y R5-12. El mismo error está en el ADR 0012 (nota del inicio, sección 3, R5-3 y T0-6) y en el roadmap (decisión 6 y R5-19); lo corrige `arquitecto`.
+- **T3-2. Composición del peor caso para `jobCapUSD`.** Dos reglas que la sección 4 del ADR 0012 dejaba implícitas o abiertas:
+  - **Como mucho dos intentos con el mismo modelo en una etapa**: si la subida pasaría el techo, la etapa termina agotada.
+  - **Opus una sola vez por etapa.**
+  - Con ellas, y con el redactor 3D en un intento (T3-3), los peores casos son 0,0401 (plana) y 0,1446 (3D).
+  - Sin ellas, la ruta 3D llega a 0,198 y la plana a 0,054, por encima de los topes.
+  - Lo implementa T8 en `selectModel` y `jobCapUSD`, y lo aprueba `arquitecto` (cambia el ADR 0012, sección 4).
+- **T3-3. Redactor 3D: un intento en Sonnet 5.5 y, si falla, el respaldo determinista** (antes 2 intentos).
+  - El segundo intento en Sonnet costaría 0,026 más y no cabe.
+  - Alternativa barata: un segundo intento en Haiku (+0,0013, total 0,146).
+  - Se decide en T1-3D o T8-3D (hito 2) y no afecta a la ruta plana.
+- **T3-4. Corte externo.**
+  - El crédito prepagado existe y la recarga automática es opcional; se deja apagada.
+  - Existe un límite de gasto **mensual** por espacio de trabajo en la consola (`settings/spend-limits`), con alertas por correo. Al alcanzarlo, la API responde 400 `invalid_request_error`.
+  - El límite no se puede poner en el espacio de trabajo por defecto, así que producción usa uno propio, como ya decía la sección 4.
+  - Propuesta para T23: límite del espacio de trabajo de producción igual a `monthly_cap_usd` (USD 5), y el conjunto de evaluación en otro espacio de trabajo con su propio límite (R5-22).
+  - No hay límite diario en el proveedor.
+  - El tope mensual del nivel se renueva a las 00:00 UTC, y los informes usan días UTC. No está documentado en qué zona se renueva el límite propio del espacio de trabajo. `ai_spend_days` sigue en días UTC.
+- **T3-5. Rechazos.**
+  - `refusal` llega con HTTP 200. La salida puede no cumplir el esquema y se cobra lo generado; un rechazo previo a cualquier salida solo se cobra en las categorías `bio`, `frontier_llm` y `reasoning_extraction`. Cuenta como fallo de forma.
+  - **Sin respaldo del lado del servidor (`fallbacks`) en la v1.** Haiku 5.5 no lo tiene. En Sonnet 5.5 solo reintenta `cyber` y `frontier_llm`, que no corresponden a este producto. En Opus 5.5 iría a modelos fuera de la escalera, con un costo que `ai_reserve` no reservó.
+  - Los esquemas no deben pedir el razonamiento del modelo en un campo (evita `reasoning_extraction`).
+
+## Aprobación de las enmiendas T3 (`arquitecto`, 2026-11-16)
+
+T3 quedó hecha el 2026-11-16 (commit `578985a`). `arquitecto` revisó las enmiendas T3-1 a T3-5 contra los ADR 0012 y 0013:
+
+- **T3-1**: corregida también en el ADR 0012 (nota del inicio, sección 3, R5-3 y T0-6) y en el roadmap (decisión 6 y R5-19). La enmienda T0-6 de este ADR también la tenía y quedó corregida.
+- **T3-2: aprobada.** Las tres reglas (dos intentos como máximo con el mismo modelo por etapa, Opus una sola vez por etapa y el redactor 3D en un intento) quedan en la sección 4 del ADR 0012, que es donde vive la política de reintentos, con la justificación de por qué son coherentes con el resto de ese ADR. Los peores casos, USD 0,0401 (plana) y 0,1446 (3D), quedan bajo los topes aprobados (0,05 y 0,15), sin tocarlos. Consecuencia aceptada: en la ruta 3D con complejidad ≥ 4, el descomponedor tiene un solo intento, en Opus.
+- **T3-3**: se adopta un intento para `jobCapUSD`. El segundo intento en Haiku (+0,0013) queda para el hito 2.
+- **T3-4: aprobada.** Límite del espacio de trabajo de producción en USD 5 y el conjunto de evaluación en otro espacio de trabajo con su propio límite (sección 4). Lo configura la usuaria en la consola antes de T23.
+- **T3-5: aprobada.** Sin `fallbacks` del servidor en la v1 (ADR 0012, sección 3).
+- **Caché**: apagada en la v1 (sección 6). Sin cambios.
+- **Esfuerzo y `maxOutputTokens` por agente**: la tabla de la sección 6 queda como valor aprobado, también en el ADR 0012, sección 3. T8 los lleva a `AGENT_POLICIES`, con el redactor plano separado del 3D.
+- **Pendiente para T8**: `jobCapUSD` usa `ceiling`. Hoy `AGENT_POLICIES` tiene un `freeCeiling` más bajo en el triaje, la paleta y el descomponedor, y el producto no tiene planes pagos. Si `runStage` pasa `plan: "free"`, el gasto real queda por debajo de `jobCapUSD` (cota conservadora, sin riesgo para los topes), pero Opus no se usaría nunca. T8 lo decide y lo registra en el ADR 0012, sección 4.

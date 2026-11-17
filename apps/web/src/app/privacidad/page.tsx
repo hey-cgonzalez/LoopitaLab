@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Política de privacidad" };
 
 export default function Page() {
   return (
-    <LegalPage title="Política de privacidad" updated="5 de noviembre de 2026">
+    <LegalPage title="Política de privacidad" updated="16 de noviembre de 2026">
       <section>
         <h2>1. Responsable</h2>
         <p>
@@ -92,8 +92,24 @@ export default function Page() {
         </p>
         <p>[EDAD MÍNIMA Y TRATAMIENTO DE DATOS DE MENORES: por definir con asesoría legal.]</p>
       </section>
+      <section id="ia">
+        <h2>9. Generación con IA (Imagen a patrón)</h2>
+        <p>[PENDIENTE DE REVISIÓN LEGAL: toda esta sección es un borrador.]</p>
+        <ul>
+          <li><strong>Encargado de tratamiento:</strong> Anthropic procesa la imagen reducida y las instrucciones cuando generas un patrón con IA. [PENDIENTE DE REVISIÓN LEGAL]</li>
+          <li><strong>Transferencia internacional:</strong> Anthropic puede tratar estos datos fuera de Chile (por ejemplo, en Estados Unidos). [MECANISMO DE TRANSFERENCIA, PAÍSES Y CONTRATO VIGENTE: por confirmar con asesoría legal.]</li>
+          <li><strong>Qué se envía:</strong> una versión reducida de la imagen que tú recortas y confirmas, sin datos personales y sin los metadatos de la foto (EXIF, ubicación ni datos del dispositivo), más las instrucciones técnicas del trabajo. La foto se reduce en tu navegador antes de salir de tu equipo y el servidor la vuelve a reducir.</li>
+          <li><strong>Qué no se envía:</strong> la foto original, tu nombre, tu correo, tu identificador de cuenta, tus otros patrones, proyectos o notas, ni el contenido de tus lanas privadas.</li>
+          <li><strong>Conservación en Anthropic:</strong> [PLAZOS DE RETENCIÓN DEL PROVEEDOR Y SI USA O NO LOS DATOS PARA ENTRENAR: la revisión legal debe completarlos con la fuente oficial vigente. No los afirmamos aquí.]</li>
+          <li><strong>Conservación de la foto reducida en LoopitaLab:</strong> se borra 24 horas después del último trabajo que la usó y nunca más de 7 días después de subirla. Puedes borrarla al instante con el botón &ldquo;Borrar la foto&rdquo;, que está a la vista en el flujo y en el resultado. El patrón generado no depende de la foto: sigue disponible aunque la borres. [PENDIENTE DE REVISIÓN LEGAL]</li>
+          <li><strong>Registros de trabajos de IA:</strong> conservamos 180 días el tipo de trabajo, su estado, el modelo usado, los tokens, el costo y los errores. No incluyen la imagen. Después se borran. [PENDIENTE DE REVISIÓN LEGAL]</li>
+          <li><strong>Fotos de personas:</strong> en esta versión se rechazan las fotos cuyo tema principal es una persona. Antes de subir, te pedimos confirmar que tienes derecho a usar la imagen y que no muestra a personas identificables. [PENDIENTE DE REVISIÓN LEGAL]</li>
+          <li><strong>Disponibilidad:</strong> hasta completar la revisión legal, la generación con IA está habilitada solo para cuentas autorizadas. [PENDIENTE DE REVISIÓN LEGAL]</li>
+        </ul>
+        <p>Ver también la sección 6 (conservación) y los <Link href="/terminos#ia">Términos de servicio</Link> sobre el contenido generado con IA.</p>
+      </section>
       <section>
-        <h2>9. Cambios a esta política</h2>
+        <h2>10. Cambios a esta política</h2>
         <p>Si la cambiamos de forma importante, te avisaremos. Consulta también los <Link href="/terminos">Términos de servicio</Link>.</p>
       </section>
     </LegalPage>

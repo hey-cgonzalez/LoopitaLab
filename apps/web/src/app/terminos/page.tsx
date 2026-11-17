@@ -6,7 +6,7 @@ export const metadata: Metadata = { title: "Términos de servicio" };
 
 export default function Page() {
   return (
-    <LegalPage title="Términos de servicio" updated="5 de noviembre de 2026">
+    <LegalPage title="Términos de servicio" updated="16 de noviembre de 2026">
       <section>
         <h2>1. Quiénes somos</h2>
         <p>
@@ -33,11 +33,21 @@ export default function Page() {
           mostrarlos a quienes los vean. Puedes cambiar la visibilidad de un patrón, descargar tus datos o eliminar tu cuenta cuando quieras desde <Link href="/cuenta">tu cuenta</Link>. Si eliminas tu cuenta, los patrones que habías publicado o compartido por enlace dejan de estar disponibles, también en los proyectos de otras personas que los usaban.
         </p>
       </section>
-      <section>
+      <section id="ia">
         <h2>4. Contenido generado con IA</h2>
         <p>
           La función Imagen a patrón usa inteligencia artificial para proponer un patrón aproximado. Todo patrón generado o modificado con IA queda etiquetado como &ldquo;Generado con IA&rdquo; y
           lista sus supuestos. Los conteos de puntos los calcula y valida un motor determinista, no la IA, pero el resultado es una propuesta: revísalo y teje una muestra antes de usarlo.
+        </p>
+        <ul>
+          <li>La etiqueta &ldquo;Generado con IA&rdquo; no se puede quitar, tampoco si editas el patrón o lo publicas.</li>
+          <li>El resultado es una aproximación: puede tener errores o diferir de la imagen. Revísalo completo y teje una muestra antes de empezar la pieza.</li>
+          <li>Eres responsable del uso que hagas del patrón generado, incluido el de publicarlo.</li>
+          <li>Durante la beta, la función puede estar habilitada solo para cuentas autorizadas y tener límites diarios.</li>
+        </ul>
+        <p>
+          Cómo se tratan las imágenes en la generación con IA está en la <Link href="/privacidad#ia">Política de privacidad</Link>.
+          [PENDIENTE DE REVISIÓN LEGAL]
         </p>
       </section>
       <section>
@@ -45,6 +55,11 @@ export default function Page() {
         <p>
           Sube solo imágenes que sean tuyas o para las que tengas permiso de quien tenga los derechos (fotografías, ilustraciones, obras de otras personas). Te pediremos confirmar que tienes ese permiso en el formulario de subida, cuando esté disponible la subida de imágenes, y al subir una imagen declaras que lo tienes.
           No uses imágenes de terceros que puedas identificar sin su consentimiento. Podemos eliminar imágenes que incumplan este punto.
+        </p>
+        <p>
+          Eres responsable de las imágenes que subes y de tener derecho a usarlas. En cada subida te pediremos marcar una casilla que lo confirma. En esta versión se rechazan las fotos cuyo tema principal es una persona.
+          Una versión reducida de la imagen se envía a un proveedor de IA para analizarla y se borra en los plazos de la <Link href="/privacidad#ia">Política de privacidad</Link>.
+          [PENDIENTE DE REVISIÓN LEGAL]
         </p>
       </section>
       <section>

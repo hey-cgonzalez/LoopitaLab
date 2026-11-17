@@ -105,6 +105,8 @@ importers:
         specifier: workspace:*
         version: link:../pattern-core
 
+  packages/image-chart: {}
+
   packages/pattern-core: {}
 
   packages/pattern-render:

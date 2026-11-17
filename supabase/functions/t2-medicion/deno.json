@@ -1,0 +1,13 @@
+{
+  "imports": {
+    "@loopitalab/pattern-core": "../../../packages/pattern-core/src/index.ts",
+    "@loopitalab/yarn-catalog": "../../../packages/yarn-catalog/src/index.ts",
+    "@loopitalab/ai-router": "../../../packages/ai-router/src/index.ts",
+    "@loopitalab/image-chart": "../../../packages/image-chart/src/index.ts",
+    "@loopitalab/image-chart/cross-cases": "../../../packages/image-chart/test/support/cross-cases.ts",
+    "@jsquash/jpeg/decode.js": "npm:@jsquash/jpeg@1.6.0/decode.js",
+    "@jsquash/png/decode.js": "npm:@jsquash/png@3.1.1/decode.js",
+    "@jsquash/png/encode.js": "npm:@jsquash/png@3.1.1/encode.js",
+    "@jsquash/webp/decode.js": "npm:@jsquash/webp@1.5.0/decode.js"
+  }
+}

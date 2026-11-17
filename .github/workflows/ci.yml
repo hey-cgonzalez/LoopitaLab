@@ -34,6 +34,11 @@ jobs:
       - name: Pruebas de ai-router
         working-directory: packages/ai-router
         run: node --test "test/**/*.test.ts"
+      # image-chart: por ahora el esqueleto de la puerta T2 (fase 5), con los hashes de la prueba cruzada
+      # Node/Deno de resizeArea. El paquete completo y su job propio son de T7.
+      - name: Pruebas de image-chart
+        working-directory: packages/image-chart
+        run: node --test "test/**/*.test.ts"
       # stitch-render, pattern-render, follow, glossary y viewer-3d importan pattern-core (y yarn-catalog) por
       # nombre de paquete: hace falta enlazar el workspace. El filtro instala solo ese paquete y sus dependencias
       # dentro del monorepo (sin dependencias de terceros, ADR 0002).

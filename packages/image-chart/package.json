@@ -1,0 +1,11 @@
+{
+  "name": "@loopitalab/image-chart",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "description": "Raster → gráfico de colorwork. ESQUELETO de la puerta T2 de la fase 5 (sniffImageHeader y resizeArea); el paquete completo es T7. Sin dependencias.",
+  "exports": { ".": "./src/index.ts" },
+  "scripts": {
+    "test": "node --test \"test/**/*.test.ts\""
+  }
+}

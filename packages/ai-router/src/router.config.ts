@@ -4,9 +4,13 @@
  * Elige automáticamente el modelo de Claude para cada agente según
  * la complejidad, los reintentos, el plan del usuario y el presupuesto.
  *
- * IMPORTANTE: los IDs de modelo y los precios deben verificarse en la
- * documentación oficial de Anthropic antes de producción:
- * https://platform.claude.com/docs/en/models/overview
+ * IDs de modelo, precios, pensamiento y esfuerzo verificados el 2026-11-16
+ * (fase 5, T3) con el skill `claude-api` (`shared/models.md`,
+ * `shared/model-migration.md`) y con la documentación oficial:
+ * https://platform.claude.com/docs/en/about-claude/pricing
+ * https://platform.claude.com/docs/en/build-with-claude/effort
+ * https://platform.claude.com/docs/en/build-with-claude/thinking
+ * Detalle y tabla en el README del paquete.
  */
 
 export type ModelId = "claude-haiku-5-5" | "claude-sonnet-5-5" | "claude-opus-5-5";
@@ -30,15 +34,40 @@ export const MODEL_LADDER: readonly ModelId[] = [
 ] as const;
 
 /**
- * Precios de referencia en USD por millón de tokens (entrada / salida).
- * Fuente secundaria consultada en noviembre de 2026; confirmar en la
- * página oficial de precios antes de usarlos para cobrar o presupuestar.
- * Haiku tiene un precio mayor sobre 100K tokens de prompt.
+ * Precios en USD por millón de tokens (entrada / salida), sin caché ni lotes.
+ *
+ * Fuente: https://platform.claude.com/docs/en/about-claude/pricing (tabla
+ * "Model pricing"), consultada el 2026-11-16 (T3), y skill `claude-api`,
+ * `shared/models.md` (misma fecha). Coinciden con la verificación del
+ * orquestador del 2026-11-16.
+ *
+ * - Los tokens de pensamiento se cobran como salida y cuentan dentro de
+ *   `max_tokens` (https://platform.claude.com/docs/en/build-with-claude/thinking).
+ * - Haiku 5.5 cobra 0,50 / 2,50 si el prompt pasa de 100.000 tokens (se
+ *   cuentan también los de caché). Ninguna llamada del pipeline se acerca a
+ *   ese tamaño, así que aquí va solo la tarifa de hasta 100 K.
+ * - Las imágenes se cobran como entrada: ⌈ancho / 28⌉ × ⌈alto / 28⌉ tokens
+ *   (https://platform.claude.com/docs/en/build-with-claude/vision).
+ * - `inference_geo: "us"` multiplica todo por 1,1; el pipeline no lo usa.
  */
 export const PRICE_PER_MTOK: Record<ModelId, { input: number; output: number }> = {
   "claude-haiku-5-5": { input: 0.1, output: 0.5 },
   "claude-sonnet-5-5": { input: 2, output: 10 },
   "claude-opus-5-5": { input: 4, output: 20 },
+};
+
+/**
+ * Precios de caché en USD por millón de tokens, de la misma fuente y fecha que
+ * `PRICE_PER_MTOK`: escritura con duración de 5 minutos (1,25 × la entrada),
+ * escritura de 1 hora (2 ×) y lectura (0,1 × en Haiku 5.5; 0,05 × en Sonnet
+ * 5.5 y Opus 5.5). La caché está apagada en la v1 (ADR 0014, sección 6); la
+ * constante sirve para liquidar `cache_read_tokens` y `cache_write_tokens` si
+ * algún día aparecen en `usage`. Mínimo cacheable: 512 tokens en los tres.
+ */
+export const CACHE_PRICE_PER_MTOK: Record<ModelId, { write5m: number; write1h: number; read: number }> = {
+  "claude-haiku-5-5": { write5m: 0.125, write1h: 0.2, read: 0.01 },
+  "claude-sonnet-5-5": { write5m: 2.5, write1h: 4, read: 0.1 },
+  "claude-opus-5-5": { write5m: 5, write1h: 8, read: 0.2 },
 };
 
 interface AgentPolicy {
@@ -50,16 +79,31 @@ interface AgentPolicy {
   freeCeiling: ModelId;
   /** Complejidad (1-5) desde la cual se parte un escalón más arriba. */
   escalateAtComplexity?: number;
-  /** Límite de tokens de salida. */
+  /**
+   * Límite de tokens de salida (`max_tokens`): pensamiento + respuesta. Es un
+   * tope duro, así que la reserva del ADR 0014 lo usa como peor caso.
+   */
   maxOutputTokens: number;
 }
 
+/**
+ * `maxOutputTokens` propuestos en T3 (2026-11-16) para que los peores casos
+ * queden bajo los topes por trabajo del ADR 0014 (USD 0,05 y 0,15), con el
+ * esfuerzo y el modo de pensamiento de la tabla del README:
+ * - classifier (triaje): 600, sin pensamiento en Haiku y Sonnet, esfuerzo `low`;
+ * - paletteAssistant: 800, sin pensamiento, esfuerzo `low`;
+ * - shapeDecomposer: 2000, pensamiento adaptativo, esfuerzo `low` (en Opus 5.5
+ *   el pensamiento no se apaga);
+ * - writer: 2000 para el redactor 3D (Sonnet, sin pensamiento, un intento). El
+ *   redactor de la ruta plana (Haiku) lo separa T8, con 1500.
+ * Los valores se confirman con el conjunto de evaluación (R5-22) y con T23.
+ */
 export const AGENT_POLICIES: Record<AgentName, AgentPolicy> = {
   moderator:        { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-sonnet-5-5", maxOutputTokens: 300 },
-  classifier:       { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  maxOutputTokens: 500 },
+  classifier:       { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  maxOutputTokens: 600 },
   paletteAssistant: { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  escalateAtComplexity: 4, maxOutputTokens: 800 },
   shapeDecomposer:  { base: "claude-sonnet-5-5", ceiling: "claude-opus-5-5",   freeCeiling: "claude-sonnet-5-5", escalateAtComplexity: 4, maxOutputTokens: 2000 },
-  writer:           { base: "claude-sonnet-5-5", ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  maxOutputTokens: 3000 },
+  writer:           { base: "claude-sonnet-5-5", ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  maxOutputTokens: 2000 },
   errorExplainer:   { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  maxOutputTokens: 600 },
   editorAssistant:  { base: "claude-haiku-5-5",  ceiling: "claude-sonnet-5-5", freeCeiling: "claude-haiku-5-5",  escalateAtComplexity: 4, maxOutputTokens: 1000 },
 };
