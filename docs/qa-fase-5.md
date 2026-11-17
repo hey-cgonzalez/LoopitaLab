@@ -217,3 +217,27 @@ Para probar el paquete aislado, se corre `node scripts/t2/empaquetar.ts`. Despu�
 - **Tope del cuerpo** (R5-8): el caso `cuerpo` con 1, 5,9, 6,5, 10 y 12,5 MB.
 - Arranque en frío, con la descarga del WebAssembly desde la región del proyecto, y la memoria externa.
 - Con eso se cierra la puerta: el veredicto final y las enmiendas aceptadas o descartadas.
+
+### Medición desplegada (2026-11-16, proyecto desechable `loopitalab-t2-desechable`, us-west-1)
+
+Desplegado con la CLI 2.122.1 (`functions deploy --use-api`, empaquetado en el servidor: aceptó el bundle y resolvió los
+`npm:` de jSquash). 20 invocaciones por caso; tiempos en ms medidos dentro de la función.
+
+| Caso | Medición | p50 | p95 | p99 | Criterio |
+|---|---|---|---|---|---|
+| Subida 2048 → 1024 | decodificar + `resizeArea` + codificar PNG (CPU) | ~152 | ~191 | ~242 | < 1 s: **cumple** |
+| Subida 2048 → 1024 | `procesoMs` (incluye leer el cuerpo por la red y el arranque de códecs) | 290 | 518 | 653 | — |
+| Etapa | `procesoMs` (decodificar PNG, reducir a 200, cuantizar, `validatePattern`) | 47 | 67 | 81 | < 500 ms: **cumple** |
+| `validatePattern` 200 × 200 | — | 2,5–3,1 | 3,1–3,7 | 3,3–6 | — |
+| Importar `pattern-core`, `yarn-catalog`, `ai-router` e `image-chart` | — | 0,2 | 0,2 | 0,6 | funcionan desplegados |
+
+- **Cuerpo de la petición (R5-8)**: 1, 5,9, 6,5 y 10 MB responden 200; 12,5 MB da 503 tras 160 s. El tope real está entre 10 y
+  12,5 MB; la subida de hasta 6 MB (ADR 0013) cabe con margen.
+- **Prueba cruzada Node/Deno** de `resizeArea`: bytes idénticos en todos los casos, también desplegado.
+- **Arranques en frío**: 3 de 20 en la subida; el arranque de códecs llegó a 371 ms (descarga del `.wasm` desde jsDelivr).
+  En producción el `.wasm` va en el bundle (E-T2-1).
+- La función se borró al terminar (responde 404).
+
+**Conclusión: la puerta T2 pasa.** Las Edge Functions gratuitas alcanzan para la subida y las etapas de la ruta plana con
+margen; no hace falta volver a T0. Se mantienen las enmiendas propuestas E-T2-1 a E-T2-4.
+
