@@ -508,3 +508,5 @@ Imágenes **propias o sintéticas** (generadas por código o dibujadas para el r
 - No consulté fuentes nuevas. Todo lo que no tiene fuente va marcado como criterio o "validar con tejedora".
 - No revisé el estado real de `rowFloats`. Asumí que mide la brecha entre dos casillas del mismo color, como indican F3-16 y el caso 16. Conviene que `qa-tester` lo confirme antes de escribir F5-11 a F5-13.
 - No leí las abreviaturas por dialecto de `packages/glossary/src/index.ts`. La lista del filtro debe salir de `stitchAbbrev`, no de mi lista semilla.
+
+> **Nota del orquestador (2026-11-17):** por decisión de la usuaria, cuando el triaje responde `unsuitable` **no** se devuelve el cupo (ADR 0014); lo que este documento dice en §1.3 y en E-5 sobre devolverlo queda superado. `third_party_ip` se rechaza en la v1 hasta T1c.

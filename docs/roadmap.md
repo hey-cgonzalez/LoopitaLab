@@ -1838,6 +1838,8 @@ Cada punto conserva sus opciones como registro; la línea **Resolución** dice l
 
 **Confirmaciones posteriores de la usuaria (2026-11-16):** (a) la prueba real reparte el tope total de USD 2 entre T23 (ruta plana, hasta USD 0,50) y T23-3D (el resto); (b) el conjunto de evaluación de prompts (R5-22) corre en el equipo de la usuaria, con la clave solo ahí y un tope propio que se fija antes de correrlo; ese gasto sale del crédito prepagado, no del tope interno de USD 5, y conviene cargarlo aparte.
 
+**Confirmaciones de la usuaria tras el grupo A (2026-11-17):** (c) cuando el triaje responde `unsuitable` **no** se devuelve el cupo (se mantiene el ADR 0014; el mensaje explica por qué y cómo elegir otra foto); `docs/casos-dominio-fase-5.md` §1.3 y E-5 quedan superados en ese punto. (d) `third_party_ip` (logotipos y personajes de marcas o franquicias) se **rechaza en la v1** hasta la revisión legal T1c, que puede relajarlo (E-5, E-16).
+
 Propuestas de `arquitecto` (2026-11-16). La usuaria las respondió el 2026-11-16 (T0 hecha). Las cifras de dinero usan los precios que el orquestador verificó el 2026-11-16 con el skill `claude-api` (decisión 6). Resumen de lo elegido:
 
 | # | Tema | Elegida | Notas de la usuaria |
